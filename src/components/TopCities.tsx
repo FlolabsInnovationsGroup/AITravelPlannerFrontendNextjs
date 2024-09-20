@@ -38,7 +38,7 @@
 "use client"
 
 import { useState, useRef } from 'react'
-import Image from 'next/image'
+import Image from "next/legacy/image"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 

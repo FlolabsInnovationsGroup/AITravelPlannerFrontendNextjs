@@ -1,0 +1,55 @@
+import { Facebook, Twitter, Linkedin } from 'lucide-react'
+import Image from 'next/image'
+
+export default function Footer() {
+  return (
+    <footer className="bg-gray-800 text-white py-12">
+      <div className="container mx-auto px-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Left column */}
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Image src="/logo.png?height=24&width=24" alt="Flomad Travel Logo" width={24} height={24} />
+              <span className="text-xl font-bold">flomad travel</span>
+            </div>
+            <p className="text-sm text-gray-400 max-w-md">
+              There are many variations of passages of available, but the majority have suffered alteration in some form
+            </p>
+          </div>
+
+          {/* Right column */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Social media icons */}
+            <div className="space-y-4">
+              <a href="#" className="flex items-center space-x-2 text-sm hover:text-gray-300">
+                <Facebook size={20} />
+                <span>Facebook</span>
+              </a>
+              <a href="#" className="flex items-center space-x-2 text-sm hover:text-gray-300">
+                <Twitter size={20} />
+                <span>Twitter</span>
+              </a>
+              <a href="#" className="flex items-center space-x-2 text-sm hover:text-gray-300">
+                <Linkedin size={20} />
+                <span>LinkedIn</span>
+              </a>
+              {/* <a href="#" className="flex items-center space-x-2 text-sm hover:text-gray-300">
+                <Image src="/logo.png?height=20&width=20" alt="Pinterest" width={20} height={20} />
+                <span>Pinterest</span>
+              </a> */}
+            </div>
+
+            {/* Recent Post */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Recent Post</h3>
+              <div className="space-y-2">
+                {/* <a href="#" className="block text-sm hover:text-gray-300">Top 5 Himalayan Treks</a>
+                <p className="text-xs text-gray-400">May 17, 2021</p> */}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  )
+}

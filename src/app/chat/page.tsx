@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import Image from 'next/image'
+import Image from "next/legacy/image"
 import Link from 'next/link'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -156,7 +156,7 @@ export default function ChatPage() {
       <div className="w-full md:w-1/4 bg-white border-l p-4 flex flex-col justify-between">
         <div>
           <h2 className="text-xl font-bold mb-4">Hassle Free Planning.</h2>
-          <Image src="/image/no-gradient.png?height=200&width=300" alt="Venice" width={300} height={200} className="rounded-lg w-full h-auto" />
+          <Image src="/image/no-gradient.png" alt="Venice" width={800} height={900} className="rounded-lg w-full h-auto" />
           <p className="mt-4">Get Started: We'll help you take the stress out of planning.</p>
         </div>
         <Button className="mt-4 w-full">Get Started</Button>

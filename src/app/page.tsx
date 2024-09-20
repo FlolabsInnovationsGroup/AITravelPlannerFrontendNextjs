@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import Image from "next/legacy/image"
 import Link from 'next/link'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ import { TopCities } from '@/components/TopCities'
 import { ExploreSection } from '@/components/ExploreSection'
 import { TourPartners } from '@/components/TourPartners'
 import { Testimonials } from '@/components/Testimonials'
+import Footer from '@/components/Footer'
 import { createSession, sendChat } from '@/lib/api'
 
 
@@ -134,14 +135,7 @@ export default function LandingPage() {
       <Testimonials />
       {/* <TourPartners /> */}
 
-      {/* Footer */}
-      <footer className="bg-gray-800 text-white py-8">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            {/* Add footer content here */}
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }
