@@ -84,10 +84,10 @@ export default function LandingPage() {
                   src="/logo.png"
                   alt="Flomad Travel Logo"
                   width={20}
-                  height={20}
+                  height={25}
                   className="mr-2"
                 />
-                <span className="text-white text-2xl font-semibold">flomad travel</span>
+                <span className="text-white text-2xl font-semibold"> flomad travel</span>
               </div>
               <div className="flex items-center space-x-6">
                 <Link href="/about" className="text-white hover:text-gray-300">about</Link>

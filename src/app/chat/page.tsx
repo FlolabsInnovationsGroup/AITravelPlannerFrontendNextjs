@@ -177,13 +177,18 @@ import { sendChat, getChatHistory } from '@/lib/api'
 import { Mic, Send, ChevronLeft, ChevronRight, MessageSquare, Heart, Globe, X } from 'lucide-react'
 import { track } from '@vercel/analytics';
 
+type MessageType = {
+  type: 'user' | 'bot';
+  content: string;
+}
+
 export default function ChatPage() {
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState<MessageType[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
-  const [chatHistory, setChatHistory] = useState([])
+  const [chatHistory, setChatHistory] = useState<{ id: number; title: string }[]>([])
   const searchParams = useSearchParams()
   const router = useRouter();
 
@@ -202,7 +207,7 @@ export default function ChatPage() {
     }
   }, [searchParams])
 
-  const loadChatHistory = async (sessionId) => {
+  const loadChatHistory = async (sessionId: string) => {
     try {
       const history = await getChatHistory(sessionId)
       setMessages(history)
@@ -247,8 +252,6 @@ export default function ChatPage() {
 
   const toggleChatHistory = () => {
     setIsHistoryOpen(!isHistoryOpen)
-    // Here you would typically fetch the chat history
-    // For now, we'll use a placeholder
     setChatHistory([
       { id: 1, title: "Trip to Paris" },
       { id: 2, title: "Beach vacation" },
