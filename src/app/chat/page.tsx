@@ -242,7 +242,7 @@ export default function ChatPage() {
       } else {
         track('User Message Sent');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error)
       track('Message Send Error', { error: error.message });
     } finally {
