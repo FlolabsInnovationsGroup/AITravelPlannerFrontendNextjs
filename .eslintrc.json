@@ -9,8 +9,11 @@
     "project": "./tsconfig.json"
   },
   "rules": {
+    "no-console": "off", 
+    "react/function-component-definition": "off",
     "react/react-in-jsx-scope": "off",
     "react/jsx-props-no-spreading": "off",
     "import/prefer-default-export": "off"
   }
+  
 }

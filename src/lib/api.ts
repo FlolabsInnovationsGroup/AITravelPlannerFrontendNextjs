@@ -81,34 +81,34 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-export const login = async (credentials) => {
+export const login = async (credentials: { username: string; password: string }) => {
   const response = await api.post('/auth/login', credentials);
   localStorage.setItem('jwt_token', response.data.token);
   return response.data;
 };
 
-export const signup = async (userData) => {
+export const signup = async (userData: { username: string; password: string; email: string }) => {
   const response = await api.post('/auth/signup', userData);
   localStorage.setItem('jwt_token', response.data.token);
   return response.data;
 };
 
-export const sendChat = async (message, sessionId) => {
+export const sendChat = async (message: string, sessionId: string) => {
   const response = await api.post('/chat', { message, sessionId });
   return response.data;
 };
 
-export const getChatHistory = async (sessionId) => {
+export const getChatHistory = async (sessionId: string) => {
   const response = await api.get(`/chat/history/${sessionId}`);
   return response.data;
 };
 
-export const textToSpeech = async (text) => {
+export const textToSpeech = async (text: string) => {
   const response = await api.post('/tts', { text }, { responseType: 'blob' });
   return response.data;
 };
 
-export const speechToText = async (audioBlob) => {
+export const speechToText = async (audioBlob: Blob) => {
   const formData = new FormData();
   formData.append('audio', audioBlob);
   const response = await api.post('/stt', formData, {
@@ -117,6 +117,6 @@ export const speechToText = async (audioBlob) => {
   return response.data;
 };
 
-export const oauthLogin = (provider) => {
+export const oauthLogin = (provider: string) => {
   window.location.href = `${API_BASE_URL}/oauth2/authorization/${provider}`;
 };
