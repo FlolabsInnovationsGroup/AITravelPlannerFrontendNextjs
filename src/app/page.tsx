@@ -47,7 +47,6 @@ export default function LandingPage() {
       router.push(`/chat?sessionId=${newSession.sessionId}&initialMessage=${encodeURIComponent(message)}`)
     } catch (error) {
       console.error('Error starting chat:', error)
-      // Handle error (e.g., show error message to user)
     } finally {
       setIsLoading(false)
     }
@@ -130,13 +129,13 @@ export default function LandingPage() {
               onChange={(e) => setMessage(e.target.value)}
               className="flex-grow"
             />
-            <Button 
-              onClick={handleStartChat}
-              disabled={isLoading || !message.trim()}
-              className="w-full sm:w-auto"
-            >
-              {isLoading ? 'Starting...' : 'Start Chatting'}
-            </Button>
+              <Button 
+  className="rounded-l-none bg-blue-500 hover:bg-blue-600 text-white"
+  onClick={handleStartChat}
+  disabled={isLoading || !message.trim()}
+>
+  {isLoading ? 'Starting...' : 'Start Chatting'}
+</Button>
           </div>
         </div>
       </main>
