@@ -6,7 +6,7 @@ import Image from "next/legacy/image"
 import Link from 'next/link'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { sendChat, getChatHistory } from '@/lib/api'
+import { sendChat, getChatHistory, createSession } from '@/lib/api'
 import { Mic, Send, ChevronLeft, ChevronRight, MessageSquare, Heart, Globe, X } from 'lucide-react'
 import { track } from '@vercel/analytics';
 
@@ -81,6 +81,20 @@ export default function ChatPageContent() {
     } catch (error: any) {
       console.error('Error sending message:', error)
       track('Message Send Error', { error: error.message });
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  const handleStartChat = async () => {
+    if (!inputMessage.trim()) return
+
+    setIsLoading(true)
+    try {
+      const newSession = await createSession('New Chat')
+      router.push(`/chat?sessionId=${newSession.sessionId}&initialMessage=${encodeURIComponent(inputMessage)}`)
+    } catch (error) {
+      console.error('Error starting chat:', error)
+      // Handle error (e.g., show error message to user)
     } finally {
       setIsLoading(false)
     }
