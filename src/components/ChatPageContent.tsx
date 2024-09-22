@@ -24,8 +24,9 @@ export default function ChatPageContent() {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [chatHistory, setChatHistory] = useState<{ id: number; title: string }[]>([])
-  const searchParams = useSearchParams()
+  // const searchParams = useSearchParams()
   const router = useRouter();
+  const searchParams = useSearchParams()
 
   // Guest user logic
   const [isGuest, setIsGuest] = useState(true) // Replace with actual authentication logic
@@ -38,7 +39,7 @@ export default function ChatPageContent() {
     
     if (sessionId && initialMessage) {
       loadChatHistory(sessionId)
-      handleSendMessage(initialMessage, sessionId)
+      handleSendMessage(decodeURIComponent(initialMessage), sessionId)
     }
   }, [searchParams])
 

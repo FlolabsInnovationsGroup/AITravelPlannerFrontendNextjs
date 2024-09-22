@@ -108,7 +108,7 @@ export default function LandingPage() {
           </h1>
           <p className="text-xl text-white mb-8">Explore your way, all the way.</p>
           <div className="flex">
-            <Input
+            {/* <Input
               type="text"
               placeholder="start planning your trip..."
               className="rounded-r-none flex-grow bg-white text-black"
@@ -121,6 +121,21 @@ export default function LandingPage() {
               disabled={isLoading}
             >
               {isLoading ? 'Starting...' : 'start chatting'}
+            </Button> */}
+
+            <Input
+              type="text"
+              placeholder="Start planning your trip..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="flex-grow"
+            />
+            <Button 
+              onClick={handleStartChat}
+              disabled={isLoading || !message.trim()}
+              className="w-full sm:w-auto"
+            >
+              {isLoading ? 'Starting...' : 'Start Chatting'}
             </Button>
           </div>
         </div>
