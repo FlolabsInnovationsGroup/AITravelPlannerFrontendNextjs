@@ -14,6 +14,7 @@ import { TourPartners } from '@/components/TourPartners'
 import { Testimonials } from '@/components/Testimonials'
 import Footer from '@/components/Footer'
 import { createSession, sendChat } from '@/lib/api'
+import { toast } from 'react-hot-toast'
 
 
 const backgroundImages = [
@@ -47,6 +48,7 @@ export default function LandingPage() {
       router.push(`/chat?sessionId=${newSession.sessionId}&initialMessage=${encodeURIComponent(message)}`)
     } catch (error) {
       console.error('Error starting chat:', error)
+      toast.error('Failed to start chat. Please try again later.')
     } finally {
       setIsLoading(false)
     }

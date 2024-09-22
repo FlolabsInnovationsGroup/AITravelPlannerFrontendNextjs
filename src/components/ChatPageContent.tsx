@@ -85,20 +85,20 @@ export default function ChatPageContent() {
       setIsLoading(false)
     }
   }
-  // const handleStartChat = async () => {
-  //   if (!inputMessage.trim()) return
+  const handleStartChat = async () => {
+    if (!inputMessage.trim()) return
 
-  //   setIsLoading(true)
-  //   try {
-  //     const newSession = await createSession('New Chat')
-  //     router.push(`/chat?sessionId=${newSession.sessionId}&initialMessage=${encodeURIComponent(inputMessage)}`)
-  //   } catch (error) {
-  //     console.error('Error starting chat:', error)
-  //     // Handle error (e.g., show error message to user)
-  //   } finally {
-  //     setIsLoading(false)
-  //   }
-  // }
+    setIsLoading(true)
+    try {
+      const newSession = await createSession('New Chat')
+      router.push(`/chat?sessionId=${newSession.sessionId}&initialMessage=${encodeURIComponent(inputMessage)}`)
+    } catch (error) {
+      console.error('Error starting chat:', error)
+      // Handle error (e.g., show error message to user)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
 
   const toggleChatHistory = () => {
