@@ -11,7 +11,7 @@ import { toast } from 'react-hot-toast'
 
 export function SignIn() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('') // Changed from email to username
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -23,7 +23,7 @@ export function SignIn() {
     e.preventDefault()
     setIsLoading(true)
     try {
-      const response = await login({ username: email, password }); // Adjust based on your backend
+      const response = await login({ username, password }); // Use username for login
       console.log('Login successful:', response);
       toast.success('Login successful! Redirecting...');
       router.push('/'); // Redirect to home or dashboard
@@ -64,11 +64,11 @@ export function SignIn() {
         
         <form onSubmit={handleLogin}>
           <Input 
-            type="email" 
-            placeholder="Email" 
+            type="text" // Changed type to text for username
+            placeholder="Username" // Updated placeholder
             className="mb-4" 
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             required
           />
           <Input 

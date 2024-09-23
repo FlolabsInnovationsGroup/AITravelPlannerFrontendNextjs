@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.flomadtravel.com';
+const API_BASE_URL ='https://api.flomadtravel.com';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
