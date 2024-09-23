@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { oauthLogin, login, signIn } from '@/lib/api' // Import the login function
+import { signIn } from '@/lib/api' // Import the login function
 import { useState } from 'react'
 import { useAuth } from '@/components/AuthContext';
 import { toast } from 'react-hot-toast'
@@ -94,7 +94,7 @@ export function SignIn() {
           </div>
         </div>
         
-        <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('google')}>
+        <Button variant="outline" className="w-full">
           <Image src="/image/google.png" alt="Google Logo" width={20} height={20} className="mr-2" />
           Sign in with Google
         </Button>
