@@ -9,24 +9,22 @@ import { Button } from "@/components/ui/button"
 import { sendChat, getChatHistory, createSession } from '@/lib/api'
 import { Mic, Send, ChevronLeft, ChevronRight, MessageSquare, Heart, Globe, X } from 'lucide-react'
 import { track } from '@vercel/analytics';
+import { toast } from 'react-hot-toast'
 
 type MessageType = {
   type: 'user' | 'bot';
   content: string;
 }
 
-export default function ChatPageContent() {
-  // ... (all your existing state and functions)
-
+export default function ChatPage() {
   const [messages, setMessages] = useState<MessageType[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [chatHistory, setChatHistory] = useState<{ id: number; title: string }[]>([])
-  // const searchParams = useSearchParams()
-  const router = useRouter();
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   // Guest user logic
   const [isGuest, setIsGuest] = useState(true) // Replace with actual authentication logic
@@ -49,65 +47,30 @@ export default function ChatPageContent() {
       setMessages(history)
     } catch (error) {
       console.error('Error loading chat history:', error)
+      toast.error('Failed to load chat history')
     }
   }
 
-  const handleSendMessage = async (message = inputMessage, sessionId = 'current-session-id') => {
-    if (!message.trim()) return
+  const handleSendMessage = async (message = inputMessage, sessionId = searchParams.get('sessionId') || '') => {
+    if (!message.trim() || !sessionId) return
 
     setIsLoading(true)
     try {
-      if (isGuest && guestMessageCount >= MAX_GUEST_MESSAGES) {
-        track('Guest Limit Reached');
-        if (window.confirm('You\'ve reached the maximum number of messages as a guest. Would you like to sign up to continue?')) {
-          track('Guest Signup Prompt Accepted');
-          router.push('/signup')
-        } else {
-          track('Guest Signup Prompt Rejected');
-        }
-        return
-      }
-
       const response = await sendChat(message, sessionId)
-      setMessages(prev => [...prev, { type: 'user', content: message }, { type: 'bot', content: response }])
+      setMessages(prev => [...prev, { type: 'user', content: message }, { type: 'bot', content: response.content }])
       setInputMessage('')
-
-      if (isGuest) {
-        setGuestMessageCount(prev => prev + 1)
-        track('Guest Message Sent', { count: guestMessageCount + 1 });
-      } else {
-        track('User Message Sent');
-      }
     } catch (error: any) {
       console.error('Error sending message:', error)
-      track('Message Send Error', { error: error.message });
-    } finally {
-      setIsLoading(false)
-    }
-  }
-  const handleStartChat = async () => {
-    if (!inputMessage.trim()) return
-
-    setIsLoading(true)
-    try {
-      const newSession = await createSession('New Chat')
-      router.push(`/chat?sessionId=${newSession.sessionId}&initialMessage=${encodeURIComponent(inputMessage)}`)
-    } catch (error) {
-      console.error('Error starting chat:', error)
-      // Handle error (e.g., show error message to user)
+      toast.error('Failed to send message')
     } finally {
       setIsLoading(false)
     }
   }
 
 
-  const toggleChatHistory = () => {
+   const toggleChatHistory = () => {
     setIsHistoryOpen(!isHistoryOpen)
-    setChatHistory([
-      { id: 1, title: "Trip to Paris" },
-      { id: 2, title: "Beach vacation" },
-      { id: 3, title: "Mountain retreat" },
-    ])
+    // Implement fetching actual chat history here
   }
 
   return (

@@ -1,122 +1,106 @@
 import axios from 'axios'
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.flomadtravel.com';
 
-const API_BASE_URL = 'https://api.flomadtravel.com';
-
-const api = axios.create({
+const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-  },
-})
-
-// export const sendChat = async (message: string, sessionId: string) => {
-//   try {
-//     const response = await api.post('/api/chat/call', { message, sessionId })
-//     return response.data
-//   } catch (error) {
-//     console.error('Error sending chat:', error)
-//     throw error
-//   }
-// }
-
-export const createSession = async (name: string) => {
-  try {
-    const response = await api.post('/sessions', { name })
-    return response.data
-  } catch (error) {
-    console.error('Error creating session:', error)
-    throw error
   }
-}
+});
 
-export const getSessionList = async () => {
-  try {
-    const response = await api.get('/sessions')
-    return response.data
-  } catch (error) {
-    console.error('Error fetching sessions:', error)
-    throw error
-  }
-}
-
-export const deleteSession = async (sessionId: string) => {
-  try {
-    await api.delete(`/sessions/${sessionId}`)
-  } catch (error) {
-    console.error('Error deleting session:', error)
-    throw error
-  }
-}
-
-export const updateSession = async (sessionId: string, title: string) => {
-  try {
-    const response = await api.put(`/sessions/${sessionId}`, { title })
-    return response.data
-  } catch (error) {
-    console.error('Error updating session:', error)
-    throw error
-  }
-}
-
-// export const getChatHistory = async (sessionId: string) => {
-//   try {
-//     const response = await api.get(`/messages/session/${sessionId}`)
-//     return response.data
-//   } catch (error) {
-//     console.error('Error fetching chat history:', error)
-//     throw error
-//   }
-// }
-
-// Add a request interceptor to include the JWT token in requests
-api.interceptors.request.use(
+apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('jwt_token');
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        if (
+          !config.url?.includes('/auth/signup') && 
+          !config.url?.includes('/auth/login') &&
+          !config.url?.includes('/learn-more')
+        ) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      }
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-export const login = async (credentials: { username: string; password: string }) => {
-  const response = await api.post('/auth/login', credentials);
-  localStorage.setItem('jwt_token', response.data.token);
-  return response.data;
-};
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401 && typeof window !== 'undefined') {
+      // Handle unauthorized access
+      console.error('Unauthorized, redirecting to login...');
+      // Use Next.js router for redirection in components
+    }
+    return Promise.reject(error);
+  }
+);
 
-export const signup = async (userData: { username: string; password: string; email: string }) => {
-  const response = await api.post('/auth/signup', userData);
-  localStorage.setItem('jwt_token', response.data.token);
+export const createSession = async (name: string) => {
+  const response = await apiClient.post('/sessions', { name });
   return response.data;
 };
 
 export const sendChat = async (message: string, sessionId: string) => {
-  const response = await api.post('/chat', { message, sessionId });
+  const response = await apiClient.post('/api/chat/call', { message, sessionId });
   return response.data;
 };
 
 export const getChatHistory = async (sessionId: string) => {
-  const response = await api.get(`/chat/history/${sessionId}`);
+  const response = await apiClient.get(`/messages/session/${sessionId}`);
+  return response.data;
+};
+
+export const getSessionList = async () => {
+  const response = await apiClient.get('/sessions');
+  return response.data;
+};
+
+export const deleteSession = async (sessionId: string) => {
+  await apiClient.delete(`/sessions/${sessionId}`);
+};
+
+export const updateSession = async (sessionId: string, title: string) => {
+  const response = await apiClient.put(`/sessions/${sessionId}`, { title });
+  return response.data;
+};
+
+export const login = async (credentials: { username: string; password: string }) => {
+  const response = await apiClient.post('/auth/login', credentials);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('token', response.data.token);
+  }
+  return response.data;
+};
+
+export const signup = async (userData: { username: string; email: string; password: string }) => {
+  const response = await apiClient.post('/auth/signup', userData);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('token', response.data.token);
+  }
   return response.data;
 };
 
 export const textToSpeech = async (text: string) => {
-  const response = await api.post('/tts', { text }, { responseType: 'blob' });
+  const response = await apiClient.post('/tts', { text }, { responseType: 'blob' });
   return response.data;
 };
 
 export const speechToText = async (audioBlob: Blob) => {
   const formData = new FormData();
   formData.append('audio', audioBlob);
-  const response = await api.post('/stt', formData, {
+  const response = await apiClient.post('/stt', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
   return response.data;
 };
 
 export const oauthLogin = (provider: string) => {
-  window.location.href = `${API_BASE_URL}/oauth2/authorization/${provider}`;
+  if (typeof window !== 'undefined') {
+    window.location.href = `${API_BASE_URL}/oauth2/authorization/${provider}`;
+  }
 };

@@ -6,12 +6,16 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { signup } from '@/lib/api'
+import { toast } from 'react-hot-toast'
 
 export function SignUp() {
   const router = useRouter()
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleCancel = () => {
     router.push('/')
@@ -20,13 +24,22 @@ export function SignUp() {
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (password !== confirmPassword) {
-      alert("Passwords don't match")
+      toast.error("Passwords don't match")
       return
     }
-    // Implement sign up logic here
-    console.log('Signing up with:', email, password)
-    // After successful signup, redirect to home or login
-    // router.push('/login')
+    
+    setIsLoading(true)
+    try {
+      const response = await signup({ username, email, password })
+      console.log('Signup successful:', response)
+      toast.success('Signup successful! Redirecting to login...')
+      router.push('/signin')
+    } catch (error: any) {
+      console.error('Signup error:', error)
+      toast.error(error.response?.data?.message || 'Failed to sign up. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -54,6 +67,14 @@ export function SignUp() {
         
         <form onSubmit={handleSignUp}>
           <Input 
+            type="text" 
+            placeholder="Username" 
+            className="mb-4" 
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
+          <Input 
             type="email" 
             placeholder="Email" 
             className="mb-4" 
@@ -78,8 +99,8 @@ export function SignUp() {
             required
           />
           
-          <Button type="submit" className="w-full bg-black text-white hover:bg-gray-800 mb-4">
-            Sign up
+          <Button type="submit" className="w-full bg-black text-white hover:bg-gray-800 mb-4" disabled={isLoading}>
+            {isLoading ? 'Signing up...' : 'Sign up'}
           </Button>
         </form>
         
@@ -92,7 +113,7 @@ export function SignUp() {
           </div>
         </div>
         
-        <Button variant="outline" className="w-full">
+        <Button variant="outline" className="w-full" onClick={() => toast.error('Google sign-up not implemented yet')}>
           <Image src="/image/google.png" alt="Google Logo" width={20} height={20} className="mr-2" />
           Sign up with Google
         </Button>

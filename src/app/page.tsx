@@ -45,7 +45,8 @@ export default function LandingPage() {
     setIsLoading(true)
     try {
       const newSession = await createSession('New Chat')
-      router.push(`/chat?sessionId=${newSession.sessionId}&initialMessage=${encodeURIComponent(message)}`)
+      await sendChat(message, newSession.id)
+      router.push(`/chat?sessionId=${newSession.id}&initialMessage=${encodeURIComponent(message)}`)
     } catch (error) {
       console.error('Error starting chat:', error)
       toast.error('Failed to start chat. Please try again later.')
@@ -109,21 +110,6 @@ export default function LandingPage() {
           </h1>
           <p className="text-xl text-white mb-8">Explore your way, all the way.</p>
           <div className="flex">
-            {/* <Input
-              type="text"
-              placeholder="start planning your trip..."
-              className="rounded-r-none flex-grow bg-white text-black"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-            <Button 
-              className="rounded-l-none bg-blue-500 hover:bg-blue-600 text-white"
-              onClick={handleStartChat}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Starting...' : 'start chatting'}
-            </Button> */}
-
             <Input
               type="text"
               placeholder="Start planning your trip..."
@@ -131,13 +117,13 @@ export default function LandingPage() {
               onChange={(e) => setMessage(e.target.value)}
               className="flex-grow"
             />
-              <Button 
-  className="rounded-l-none bg-blue-500 hover:bg-blue-600 text-white"
-  onClick={handleStartChat}
-  disabled={isLoading || !message.trim()}
->
-  {isLoading ? 'Starting...' : 'Start Chatting'}
-</Button>
+            <Button 
+              className="rounded-l-none bg-blue-500 hover:bg-blue-600 text-white"
+              onClick={handleStartChat}
+              disabled={isLoading || !message.trim()}
+            >
+              {isLoading ? 'Starting...' : 'Start Chatting'}
+            </Button>
           </div>
         </div>
       </main>
