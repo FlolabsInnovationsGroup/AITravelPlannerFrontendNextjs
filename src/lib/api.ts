@@ -38,8 +38,8 @@ apiClient.interceptors.response.use(
   }
 );
 
-export const signUp = async (name: string, email: string, password: string) => {
-  return await apiClient.post('/api/auth/signup', { name, email, password });
+export const signUp = async (username: string, email: string, password: string) => {
+  return await apiClient.post('/api/auth/signup', { username, email, password });
 };
 
 export const signIn = async (username: string, password: string) => {
