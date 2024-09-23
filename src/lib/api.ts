@@ -6,39 +6,60 @@ const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-  }
+  },
+  withCredentials: true,
 });
 
-apiClient.interceptors.request.use(
-  (config) => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        if (
-          !config.url?.includes('/auth/signup') && 
-          !config.url?.includes('/auth/login') &&
-          !config.url?.includes('/learn-more')
-        ) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-      }
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// apiClient.interceptors.request.use(
+//   (config) => {
+//     if (typeof window !== 'undefined') {
+//       const token = localStorage.getItem('token');
+//       if (token) {
+//         if (
+//           !config.url?.includes('/auth/signup') && 
+//           !config.url?.includes('/auth/login') &&
+//           !config.url?.includes('/learn-more')
+//         ) {
+//           config.headers.Authorization = `Bearer ${token}`;
+//         }
+//       }
+//     }
+//     return config;
+//   },
+//   (error) => Promise.reject(error)
+// );
 
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response && error.response.status === 401 && typeof window !== 'undefined') {
-      // Handle unauthorized access
-      console.error('Unauthorized, redirecting to login...');
-      // Use Next.js router for redirection in components
-    }
-    return Promise.reject(error);
+// apiClient.interceptors.response.use(
+//   (response) => response,
+//   (error) => {
+//     if (error.response && error.response.status === 401 && typeof window !== 'undefined') {
+//       // Handle unauthorized access
+//       console.error('Unauthorized, redirecting to login...');
+//       // Use Next.js router for redirection in components
+//     }
+//     return Promise.reject(error);
+//   }
+// );
+
+apiClient.interceptors.request.use(function (config) {
+  // Ensure the URL is using HTTPS
+  if (config.url && config.url.startsWith('http://')) {
+    config.url = config.url.replace('http://', 'https://')
   }
-);
+  return config;
+}, function (error) {
+  return Promise.reject(error);
+});
+
+// Add a response interceptor
+apiClient.interceptors.response.use(function (response) {
+  return response;
+}, function (error) {
+  if (error.message === 'Network Error') {
+    console.error('Network error occurred. Please check your internet connection and try again.')
+  }
+  return Promise.reject(error);
+});
 
 export const createSession = async (name: string) => {
   const response = await apiClient.post('/sessions', { name });

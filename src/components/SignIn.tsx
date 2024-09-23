@@ -5,12 +5,16 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { oauthLogin } from '@/lib/api'
 
 export function SignIn() {
   const router = useRouter()
 
   const handleCancel = () => {
     router.push('/') // Navigate back to the home page
+  }
+  const handleOAuthLogin = (provider: string) => {
+    oauthLogin(provider); // Call the oauthLogin function with the provider
   }
 
   return (
@@ -58,7 +62,7 @@ export function SignIn() {
           </div>
         </div>
         
-        <Button variant="outline" className="w-full">
+        <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('google')}>
           <Image src="/image/google.png" alt="Google Logo" width={20} height={20} className="mr-2" />
           Sign in with Google
         </Button>
