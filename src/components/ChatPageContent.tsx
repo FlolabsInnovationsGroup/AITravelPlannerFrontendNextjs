@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from "next/legacy/image"
 import Link from 'next/link'
 import { Input } from "@/components/ui/input"
@@ -58,15 +58,15 @@ export default function ChatPage() {
     if (!message.trim() || !sid) return
 
      // Check if user is a guest (not authenticated)
-  const token = localStorage.getItem('token');
-  if (!token) {
-    if (guestMessageCount >= MAX_GUEST_MESSAGES) {
-      toast.error("You've reached the maximum number of messages as a guest. Please sign up to continue.");
-      router.push('/signup');
-      return;
-    }
-    setGuestMessageCount(prev => prev + 1);
-  }
+     const token = localStorage.getItem('token');
+     if (!token) {
+       if (guestMessageCount >= MAX_GUEST_MESSAGES) {
+         toast.error("You've reached the maximum number of messages as a guest. Please sign up to continue.");
+         router.push('/signup');
+         return;
+       }
+       setGuestMessageCount(prev => prev + 1);
+     }
 
     setIsLoading(true)
     try {
