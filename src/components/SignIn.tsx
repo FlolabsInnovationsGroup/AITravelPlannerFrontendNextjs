@@ -5,14 +5,36 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { oauthLogin } from '@/lib/api'
+import { oauthLogin, login } from '@/lib/api' // Import the login function
+import { useState } from 'react'
+import { toast } from 'react-hot-toast'
 
 export function SignIn() {
   const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleCancel = () => {
     router.push('/') // Navigate back to the home page
   }
+
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setIsLoading(true)
+    try {
+      const response = await login({ username: email, password }); // Adjust based on your backend
+      console.log('Login successful:', response);
+      toast.success('Login successful! Redirecting...');
+      router.push('/'); // Redirect to home or dashboard
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast.error(error.response?.data?.message || 'Failed to log in. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   const handleOAuthLogin = (provider: string) => {
     oauthLogin(provider); // Call the oauthLogin function with the provider
   }
@@ -40,12 +62,26 @@ export function SignIn() {
           New member? <Link href="/signup" className="text-blue-600 hover:underline">Sign up</Link>
         </p>
         
-        <form>
-          <Input type="email" placeholder="Email" className="mb-4" />
-          <Input type="password" placeholder="Password" className="mb-6" />
+        <form onSubmit={handleLogin}>
+          <Input 
+            type="email" 
+            placeholder="Email" 
+            className="mb-4" 
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <Input 
+            type="password" 
+            placeholder="Password" 
+            className="mb-6"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
           
-          <Button className="w-full bg-black text-white hover:bg-gray-800 mb-4">
-            Sign in
+          <Button className="w-full bg-black text-white hover:bg-gray-800 mb-4" disabled={isLoading}>
+            {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
         
