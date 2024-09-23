@@ -41,19 +41,16 @@ export default function LandingPage() {
 
   const handleStartChat = async () => {
     if (!message.trim()) return
-  
+
     setIsLoading(true)
     try {
-      const newSession = await createSession('New Chat')
-      await sendChat(message, newSession.id)
-      router.push(`/chat?sessionId=${newSession.id}&initialMessage=${encodeURIComponent(message)}`)
-    } catch (error: any) {
+      const sessionResponse = await createSession('New Chat')
+      const sessionId = sessionResponse.data.id
+      await sendChat(message, sessionId)
+      router.push(`/chat?sessionId=${sessionId}&initialMessage=${encodeURIComponent(message)}`)
+    } catch (error) {
       console.error('Error starting chat:', error)
-      if (error.message === 'Network Error') {
-        toast.error('Unable to connect to the server. Please check your internet connection and try again.')
-      } else {
-        toast.error(`Failed to start chat: ${error.response?.data?.message || error.message}`)
-      }
+      toast.error('Failed to start chat. Please try again later.')
     } finally {
       setIsLoading(false)
     }

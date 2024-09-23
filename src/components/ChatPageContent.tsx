@@ -23,6 +23,7 @@ export default function ChatPage() {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [chatHistory, setChatHistory] = useState<{ id: number; title: string }[]>([])
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -31,35 +32,48 @@ export default function ChatPage() {
   const [guestMessageCount, setGuestMessageCount] = useState(0)
   const MAX_GUEST_MESSAGES = 5
 
+  
   useEffect(() => {
-    const sessionId = searchParams.get('sessionId')
+    const sid = searchParams.get('sessionId')
     const initialMessage = searchParams.get('initialMessage')
     
-    if (sessionId && initialMessage) {
-      loadChatHistory(sessionId)
-      handleSendMessage(decodeURIComponent(initialMessage), sessionId)
+    if (sid && initialMessage) {
+      setSessionId(sid)
+      loadChatHistory(sid)
+      handleSendMessage(decodeURIComponent(initialMessage), sid)
     }
   }, [searchParams])
 
-  const loadChatHistory = async (sessionId: string) => {
+  const loadChatHistory = async (sid: string) => {
     try {
-      const history = await getChatHistory(sessionId)
-      setMessages(history)
+      const history = await getChatHistory(sid)
+      setMessages(history.data)
     } catch (error) {
       console.error('Error loading chat history:', error)
       toast.error('Failed to load chat history')
     }
   }
 
-  const handleSendMessage = async (message = inputMessage, sessionId = searchParams.get('sessionId') || '') => {
-    if (!message.trim() || !sessionId) return
+  const handleSendMessage = async (message = inputMessage, sid = sessionId) => {
+    if (!message.trim() || !sid) return
+
+     // Check if user is a guest (not authenticated)
+  const token = localStorage.getItem('token');
+  if (!token) {
+    if (guestMessageCount >= MAX_GUEST_MESSAGES) {
+      toast.error("You've reached the maximum number of messages as a guest. Please sign up to continue.");
+      router.push('/signup');
+      return;
+    }
+    setGuestMessageCount(prev => prev + 1);
+  }
 
     setIsLoading(true)
     try {
-      const response = await sendChat(message, sessionId)
-      setMessages(prev => [...prev, { type: 'user', content: message }, { type: 'bot', content: response.content }])
+      const response = await sendChat(message, sid)
+      setMessages(prev => [...prev, { type: 'user', content: message }, { type: 'bot', content: response.data.content }])
       setInputMessage('')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error sending message:', error)
       toast.error('Failed to send message')
     } finally {
