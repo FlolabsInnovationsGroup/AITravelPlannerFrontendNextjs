@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import apiClient, { sendChat, getChatHistory, createSession, getSessionList, deleteSession, updateSession } from '@/lib/api'
-import { Mic, Send, ChevronLeft, ChevronRight, MessageSquare, Heart, Globe, X } from 'lucide-react'
+import { Mic, Send, ChevronLeft, ChevronRight, MessageSquare, Heart, Globe, X, Bell, PlusCircle, Search } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import Loader from '@/components/Loader'
 
@@ -36,6 +36,8 @@ export default function ChatPageContent() {
   const [isGuest, setIsGuest] = useState(true);
   const [rightSectionContent, setRightSectionContent] = useState<string | null>(null)
   const searchParams = useSearchParams()
+  const [showChatHistory, setShowChatHistory] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -64,6 +66,8 @@ export default function ChatPageContent() {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages])
+
+  
 
   const fetchChatSessions = async () => {
     try {
@@ -245,68 +249,89 @@ const handleSendMessage = async (message: string, attempt = 0) => {
   }
 
   const toggleChatHistory = () => {
-    setIsHistoryOpen(!isHistoryOpen)
+    setShowChatHistory(!showChatHistory)
+    if (!showChatHistory) {
+      setIsHistoryOpen(true)
+    }
   }
 
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
-      <div className={`bg-white border-r transition-all duration-300 ${isHistoryOpen ? 'w-64' : 'w-16'} md:h-screen`}>
+      <div className={`bg-white border-r transition-all duration-300 ${showChatHistory ? 'w-64' : 'w-16'} md:h-screen flex flex-col`}>
         <div className="p-4 flex items-center justify-center">
           <Link href="/"><Image src="/logo.png" alt="AiTripPlanner Logo" width={24} height={24} /></Link>
         </div>
-        <nav className="mt-8">
+        <nav className="flex-grow">
           <Button
             variant="ghost"
-            className="flex items-center py-2 px-4 w-full"
+            className={`flex items-center py-2 px-4 w-full ${showChatHistory ? 'bg-gray-200' : ''}`}
             onClick={toggleChatHistory}
           >
             <MessageSquare className="w-6 h-6" />
-            {isHistoryOpen && <span className="ml-2">Chats</span>}
+            {!showChatHistory && <span className="sr-only">Chats</span>}
           </Button>
-          <Link href="/likes" className="flex items-center py-2 px-4">
+          <Button variant="ghost" className="flex items-center py-2 px-4 w-full">
             <Heart className="w-6 h-6" />
-            {isHistoryOpen && <span className="ml-2">Likes</span>}
-          </Link>
-          <Link href="/explore" className="flex items-center py-2 px-4">
+            {!showChatHistory && <span className="sr-only">Likes</span>}
+          </Button>
+          <Button variant="ghost" className="flex items-center py-2 px-4 w-full">
+            <Bell className="w-6 h-6" />
+            {!showChatHistory && <span className="sr-only">Notifications</span>}
+          </Button>
+          <Button variant="ghost" className="flex items-center py-2 px-4 w-full">
             <Globe className="w-6 h-6" />
-            {isHistoryOpen && <span className="ml-2">Explore</span>}
-          </Link>
+            {!showChatHistory && <span className="sr-only">Explore</span>}
+          </Button>
         </nav>
-        {isHistoryOpen && (
-          <>
+        <Button variant="ghost" className="flex items-center py-2 px-4 w-full mt-auto mb-4">
+          <PlusCircle className="w-6 h-6" />
+          {!showChatHistory && <span className="sr-only">New Chat</span>}
+        </Button>
+      </div>
+
+      {/* Chat History Area */}
+      {showChatHistory && (
+        <div className="w-64 bg-white border-r overflow-y-auto">
+          <div className="p-4">
+            <h2 className="text-xl font-bold mb-4">Chats</h2>
+            <div className="flex items-center bg-gray-100 rounded-md mb-4">
+              <Search className="w-5 h-5 ml-3 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search chat titles..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="border-none bg-transparent focus:ring-0"
+              />
+            </div>
+            <div className="flex mb-4">
+              <Button variant="ghost" className="mr-2">All</Button>
+              <Button variant="ghost">Trips</Button>
+            </div>
             <Button
-              variant="ghost"
-              className="flex items-center py-2 px-4 w-full mt-4"
+              variant="outline"
+              className="w-full mb-4"
               onClick={() => handleCreateNewChat()}
             >
-              + New Chat
+              New chat
             </Button>
-            <ul className="mt-2">
-              {chatSessions.map((session) => (
-                <li
-                  key={session.sessionId}
-                  className={`flex items-center py-2 px-4 cursor-pointer ${selectedSession?.sessionId === session.sessionId ? 'bg-gray-200' : ''}`}
-                  onClick={() => handleSelectSession(session)}
-                >
-                  <span className="truncate flex-grow">{session.title}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="ml-2"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDeleteSession(session.sessionId)
-                    }}
+            <ul>
+              {chatSessions
+                .filter(session => session.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                .map((session) => (
+                  <li
+                    key={session.sessionId}
+                    className={`py-2 px-4 cursor-pointer ${selectedSession?.sessionId === session.sessionId ? 'bg-gray-200' : ''}`}
+                    onClick={() => handleSelectSession(session)}
                   >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </li>
-              ))}
+                    <span className="truncate">{session.title}</span>
+                  </li>
+                ))}
             </ul>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col">
