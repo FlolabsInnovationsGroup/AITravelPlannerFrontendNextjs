@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.flomadtravel.com';
-// const API_BASE_URL = 'http://localhost:8080';
+//const API_BASE_URL = 'http://localhost:8080';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -27,17 +27,29 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      console.error('Unauthorized, redirecting to login...');
-      // Use Next.js router to redirect in components
+      // Clear token and redirect to login
+      localStorage.removeItem('token');
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
+
+// Response Interceptor
+// apiClient.interceptors.response.use(
+//   (response) => response,
+//   (error) => {
+//     if (error.response && error.response.status === 401) {
+//       console.error('Unauthorized, redirecting to login...');
+//       // Use Next.js router to redirect in components
+//     }
+//     return Promise.reject(error);
+//   }
+// );
 
 export const signUp = async (username: string, email: string, password: string) => {
   return await apiClient.post('/api/auth/signup', { username, email, password });
@@ -52,27 +64,28 @@ export const signIn = async (username: string, password: string) => {
 };
 
 export const getSessionList = async () => {
-  return await apiClient.get('/sessions/user-sessions');
+  return await apiClient.get('/api/sessions/user-sessions');
 };
 
 export const createSession = async (title: string) => {
-  return await apiClient.post('/sessions', { title });
+  return await apiClient.post('/api/sessions', { title });
 };
 
 export const deleteSession = async (sessionId: string) => {
-  return await apiClient.delete(`/sessions/${sessionId}`);
+  return await apiClient.delete(`/api/sessions/${sessionId}`);
 };
 
 export const updateSession = async (sessionId: string, title: string) => {
-  return await apiClient.put(`/sessions/${sessionId}`, { title });
+  return await apiClient.put(`/api/sessions/${sessionId}`, { title });
 };
 
 export const sendChat = async (message: string, sessionId: string) => {
-  return await apiClient.post('/api/chatbot/message', { text: message, sessionId });
+  return await apiClient.post('/api/chat/call', { message, sessionId });
 };
 
 export const getChatHistory = async (sessionId: string) => {
-  return await apiClient.get(`/messages/session/${sessionId}`);
+  return await apiClient.get(`/api/messages/session/${sessionId}`);
 };
+
 
 export default apiClient;

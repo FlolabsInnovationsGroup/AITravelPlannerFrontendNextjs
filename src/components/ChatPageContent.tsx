@@ -83,6 +83,7 @@ export default function ChatPageContent() {
     } catch (error) {
       console.error('Error fetching chat sessions:', error)
       setChatSessions([])
+      toast.error('Failed to fetch chat sessions. Please try again.')
     }
   }
 
@@ -111,34 +112,36 @@ export default function ChatPageContent() {
     }
   }
 
-const handleCreateNewChat = async (name?: string) => {
-  const newChat = name || `Chat ${chatSessions.length + 1}`
-  let newSession: SessionType;
-  
-  if (isGuest) {
-    newSession = { sessionId: Date.now().toString(), title: newChat };
-  } else {
-    try {
-      const response = await createSession(newChat)
-      if (response.status === 200) {
-        newSession = response.data;
-      } else {
-        console.error('Error creating chat:', response.data.message)
+  const handleCreateNewChat = async (name?: string) => {
+    const newChat = name || `Chat ${chatSessions.length + 1}`
+    let newSession: SessionType;
+    
+    if (isGuest) {
+      newSession = { sessionId: Date.now().toString(), title: newChat };
+    } else {
+      try {
+        const response = await createSession(newChat)
+        if (response.status === 200 && response.data) {
+          newSession = response.data;
+        } else {
+          console.error('Error creating chat:', response.data?.message)
+          toast.error('Failed to create a new chat. Please try again.')
+          return null;
+        }
+      } catch (error) {
+        console.error('Error creating chat:', error)
+        toast.error('Failed to create a new chat. Please try again.')
         return null;
       }
-    } catch (error) {
-      console.error('Error creating chat:', error)
-      return null;
     }
+  
+    setChatSessions((prevSessions) => [newSession, ...prevSessions])
+    setSelectedSession(newSession)
+    setMessages([])
+    setRightSectionContent(null)
+  
+    return newSession
   }
-
-  setChatSessions((prevSessions) => [newSession, ...prevSessions])
-  setSelectedSession(newSession)
-  setMessages([])
-  setRightSectionContent(null)
-
-  return newSession
-}
   
 const handleSendMessage = async (message: string, attempt = 0) => {
   if (attempt >= MAX_ATTEMPTS) {
@@ -355,13 +358,17 @@ const handleSendMessage = async (message: string, attempt = 0) => {
         ) : (
           <>
             <div className="flex-1 overflow-y-auto p-4">
-              {messages.map((message, index) => (
-                <div key={index} className={`mb-4 ${message.messageType === 'USER' ? 'text-right' : 'text-left'}`}>
-                  <div className={`inline-block p-2 rounded-lg ${message.messageType === 'USER' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
-                  </div>
-                </div>
-              ))}
+            {messages && messages.length > 0 ? (
+  messages.map((message, index) => (
+    <div key={index} className={`mb-4 ${message.messageType === 'USER' ? 'text-right' : 'text-left'}`}>
+      <div className={`inline-block p-2 rounded-lg ${message.messageType === 'USER' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
+        <ReactMarkdown>{message.content}</ReactMarkdown>
+      </div>
+    </div>
+  ))
+) : (
+  <div className="text-center text-gray-500">No messages yet</div>
+)}
               <div ref={bottomRef} />
             </div>
             {isLoading && <Loader />}
