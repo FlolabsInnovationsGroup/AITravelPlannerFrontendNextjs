@@ -67,7 +67,6 @@ export default function ChatPageContent() {
     }
   }, [messages])
 
-  
 
   const fetchChatSessions = async () => {
     try {
@@ -142,40 +141,45 @@ export default function ChatPageContent() {
   
     return newSession
   }
+
   
-const handleSendMessage = async (message: string, attempt = 0) => {
-  if (attempt >= MAX_ATTEMPTS) {
-    console.error('Max attempts reached. Could not send Message.')
-    return
-  }
-
-  let session = selectedSession
-  if (session === null) {
-    session = await handleCreateNewChat()
-  }
-
-  setIsLoading(true)
-  try {
-    let response;
-    if (isGuest && session) {
-      response = await apiClient.post('/sessions/guest', { sessionId: session.sessionId, message });
-      if (response.data === "You have reached the limit of 5 messages. Please sign up to continue.") {
-        toast.error(response.data);
-        router.push('/signup');
-        return;
-      }
-    } else if (session) {
-      response = await sendChat(message, session.sessionId.toString());
-      const botResponse: MessageType = { id: messages.length + 1, messageType: 'ASSISTANT', content: response.data }
-      setMessages((prevMessages) => [...prevMessages, { id: messages.length, messageType: 'USER', content: message }, botResponse])
-      setRightSectionContent(null)
+  const handleSendMessage = async (message: string, attempt = 0) => {
+    if (attempt >= MAX_ATTEMPTS) {
+      console.error('Max attempts reached. Could not send Message.')
+      return
     }
-  } catch (error) {
-    console.error('Error sending message:', error)
-  } finally {
-    setIsLoading(false)
+  
+    let session = selectedSession
+    if (session === null) {
+      session = await handleCreateNewChat()
+    }
+  
+    setIsLoading(true)
+    try {
+      let response;
+      if (isGuest && session) {
+        response = await apiClient.post('/api/sessions/guest', { sessionId: session.sessionId, message });
+        if (response.data.limitReached) {
+          toast.error("You've reached the limit of free messages. Please sign up to continue.");
+          router.push('/signup');
+          return;
+        }
+      } else if (session) {
+        response = await sendChat(message, session.sessionId.toString());
+      }
+      if (response) {
+        const botResponse: MessageType = { id: messages.length + 1, messageType: 'ASSISTANT', content: response.data.message }
+        setMessages((prevMessages) => [...prevMessages, { id: messages.length, messageType: 'USER', content: message }, botResponse])
+        setRightSectionContent(null)
+      } else {
+        console.error('Failed to send message. Response is undefined.');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+    } finally {
+      setIsLoading(false)
+    }
   }
-}
  
 
   const handleDeleteSession = async (sessionId: string | number) => {

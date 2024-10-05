@@ -13,7 +13,7 @@ import { ExploreSection } from '@/components/ExploreSection'
 import { TourPartners } from '@/components/TourPartners'
 import { Testimonials } from '@/components/Testimonials'
 import Footer from '@/components/Footer'
-import { createSession, sendChat } from '@/lib/api'
+import { createSession, sendChat, sendGuestChat } from '@/lib/api'
 import { toast } from 'react-hot-toast'
 
 
@@ -41,13 +41,13 @@ export default function LandingPage() {
 
   const handleStartChat = async () => {
     if (!message.trim()) return
-
+  
     setIsLoading(true)
     try {
       const sessionResponse = await createSession('New Chat')
       const sessionId = sessionResponse.data.id
-      await sendChat(message, sessionId)
-      router.push(`/chat?sessionId=${sessionId}&initialMessage=${encodeURIComponent(message)}`)
+      await sendGuestChat(message, sessionId)
+      router.push(`/chat?sessionId=${sessionId}&initialMessage=${encodeURIComponent(message)}&isGuest=true`)
     } catch (error) {
       console.error('Error starting chat:', error)
       toast.error('Failed to start chat. Please try again later.')

@@ -83,6 +83,10 @@ export const sendChat = async (message: string, sessionId: string) => {
   return await apiClient.post('/api/chat/call', { message, sessionId });
 };
 
+export const sendGuestChat = async (message: string, sessionId: string) => {
+  return await apiClient.post('/api/sessions/guest', { message, sessionId });
+};
+
 export const getChatHistory = async (sessionId: string) => {
   return await apiClient.get(`/api/messages/session/${sessionId}`);
 };
