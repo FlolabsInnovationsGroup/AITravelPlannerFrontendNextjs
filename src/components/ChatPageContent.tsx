@@ -7,7 +7,7 @@ import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { sendChat, getChatHistory, createSession, getSessionList, deleteSession, updateSession } from '@/lib/api'
+import apiClient, { sendChat, getChatHistory, createSession, getSessionList, deleteSession, updateSession } from '@/lib/api'
 import { Mic, Send, ChevronLeft, ChevronRight, MessageSquare, Heart, Globe, X } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import Loader from '@/components/Loader'
@@ -33,6 +33,7 @@ export default function ChatPageContent() {
   const [chatSessions, setChatSessions] = useState<SessionType[]>([])
   const [selectedSession, setSelectedSession] = useState<SessionType | null>(null)
   const [showPrompts, setShowPrompts] = useState(true)
+  const [isGuest, setIsGuest] = useState(true);
   const [rightSectionContent, setRightSectionContent] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -48,7 +49,14 @@ export default function ChatPageContent() {
   ]
 
   useEffect(() => {
-    fetchChatSessions()
+    const token = localStorage.getItem('token');
+    if (token) {
+      setIsGuest(false);
+      fetchChatSessions();
+    } else {
+      setIsGuest(true);
+      handleCreateNewChat();
+    }
   }, [])
 
   useEffect(() => {
@@ -99,77 +107,69 @@ export default function ChatPageContent() {
     }
   }
 
-  const handleCreateNewChat = async (name?: string) => {
-    const newChat = name || `Chat ${chatSessions.length + 1}`
-    const newSession: SessionType = { sessionId: chatSessions.length, title: newChat }
-    setChatSessions((prevSessions) => [newSession, ...prevSessions])
-    setSelectedSession(newSession)
-    setMessages([])
-    setRightSectionContent(null)
-
-    if (newChat === 'Chat') {
-      try {
-        const response = await createSession(newChat)
-        if (response.status === 200) {
-          const createdSession = response.data
-          setChatSessions((prevSessions) => [createdSession, ...prevSessions])
-          setSelectedSession(createdSession)
-          setMessages([])
-        } else {
-          console.error('Error creating chat:', response.data.message)
-        }
-      } catch (error) {
-        console.error('Error creating chat:', error)
-      }
-    }
-
-    return newSession
-  }
-
-  const handleSendMessage = async (message: string, attempt = 0) => {
-    if (attempt >= MAX_ATTEMPTS) {
-      console.error('Max attempts reached. Could not send Message.')
-      return
-    }
-
-    let session = selectedSession
-    if (session === null) {
-      session = await handleCreateNewChat()
-    }
-
-    setIsLoading(true)
+const handleCreateNewChat = async (name?: string) => {
+  const newChat = name || `Chat ${chatSessions.length + 1}`
+  let newSession: SessionType;
+  
+  if (isGuest) {
+    newSession = { sessionId: Date.now().toString(), title: newChat };
+  } else {
     try {
-      await sendMessage(message, session)
-    } catch (error) {
-      console.error('Error sending message:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const sendMessage = async (message: string, session: SessionType) => {
-    if (typeof session.sessionId === 'number') {
-      session = await createNewSession(session.title)
-      if (!session) {
-        console.error('Failed to create a new session.')
-        return
-      }
-    }
-    
-    const userMessage: MessageType = { id: messages.length, messageType: 'USER', content: message }
-    setMessages((prevMessages) => [...prevMessages, userMessage])
-
-    try {
-      const response = await sendChat(message, session.sessionId.toString())
-      if (session.sessionId === (selectedSession ? selectedSession.sessionId : null)) {
-        const botResponse: MessageType = { id: messages.length, messageType: 'ASSISTANT', content: response.data.content }
-        setMessages((prevMessages) => [...prevMessages, botResponse])
-        setRightSectionContent(response.data.additionalInfo || null)
+      const response = await createSession(newChat)
+      if (response.status === 200) {
+        newSession = response.data;
+      } else {
+        console.error('Error creating chat:', response.data.message)
+        return null;
       }
     } catch (error) {
-      console.error(`Error sending message:`, error)
+      console.error('Error creating chat:', error)
+      return null;
     }
   }
+
+  setChatSessions((prevSessions) => [newSession, ...prevSessions])
+  setSelectedSession(newSession)
+  setMessages([])
+  setRightSectionContent(null)
+
+  return newSession
+}
+  
+const handleSendMessage = async (message: string, attempt = 0) => {
+  if (attempt >= MAX_ATTEMPTS) {
+    console.error('Max attempts reached. Could not send Message.')
+    return
+  }
+
+  let session = selectedSession
+  if (session === null) {
+    session = await handleCreateNewChat()
+  }
+
+  setIsLoading(true)
+  try {
+    let response;
+    if (isGuest && session) {
+      response = await apiClient.post('/sessions/guest', { sessionId: session.sessionId, message });
+      if (response.data === "You have reached the limit of 5 messages. Please sign up to continue.") {
+        toast.error(response.data);
+        router.push('/signup');
+        return;
+      }
+    } else if (session) {
+      response = await sendChat(message, session.sessionId.toString());
+      const botResponse: MessageType = { id: messages.length + 1, messageType: 'ASSISTANT', content: response.data }
+      setMessages((prevMessages) => [...prevMessages, { id: messages.length, messageType: 'USER', content: message }, botResponse])
+      setRightSectionContent(null)
+    }
+  } catch (error) {
+    console.error('Error sending message:', error)
+  } finally {
+    setIsLoading(false)
+  }
+}
+ 
 
   const handleDeleteSession = async (sessionId: string | number) => {
     try {

@@ -44,7 +44,11 @@ export const signUp = async (username: string, email: string, password: string) 
 };
 
 export const signIn = async (username: string, password: string) => {
-  return await apiClient.post('/api/auth/login', { username, password });
+  const response = await apiClient.post('/api/auth/login', { username, password });
+  if (response.data.token) {
+    localStorage.setItem('token', response.data.token);
+  }
+  return response;
 };
 
 export const getSessionList = async () => {
@@ -64,7 +68,7 @@ export const updateSession = async (sessionId: string, title: string) => {
 };
 
 export const sendChat = async (message: string, sessionId: string) => {
-  return await apiClient.post('/api/chat/call', { message, sessionId });
+  return await apiClient.post('/api/chatbot/message', { text: message, sessionId });
 };
 
 export const getChatHistory = async (sessionId: string) => {
