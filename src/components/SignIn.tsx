@@ -5,33 +5,39 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { signIn } from '@/lib/api' // Import the login function
+import { signIn } from '@/lib/api'
 import { useState } from 'react'
-import { useAuth } from '@/components/AuthContext';
+import { useAuth } from '@/components/AuthContext'
 import { toast } from 'react-hot-toast'
 
 export function SignIn() {
   const router = useRouter()
-  const [username, setUsername] = useState('') // Changed from email to username
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  // const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const { signIn: authSignIn } = useAuth();
 
   const handleCancel = () => {
-    router.push('/') // Navigate back to the home page
+    router.push('/')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     try {
       const response = await signIn(username, password);
-      if (response.status === 200) {
-        authSignIn(response.data.token);
+      if (response.token) {
+        authSignIn(response.token);
         router.push('/chat');
+        toast.success('Signed in successfully!');
+      } else {
+        throw new Error('Invalid response from server');
       }
     } catch (error) {
-      toast.error('Sign-in failed. Please check your credentials.');
       console.error('Error during sign-in:', error);
+      toast.error('Sign-in failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -57,30 +63,33 @@ export function SignIn() {
         <p className="text-gray-600 mb-6">
           New member? <Link href="/signup" className="text-blue-600 hover:underline">Sign up</Link>
         </p>
-        
         <form onSubmit={handleSubmit}>
-          <Input 
-            type="text" // Changed type to text for username
-            placeholder="Username" // Updated placeholder
-            className="mb-4" 
+          <Input
+            type="text"
+            placeholder="Username"
+            className="mb-4"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
+            disabled={isLoading}
           />
-          <Input 
-            type="password" 
-            placeholder="Password" 
+          <Input
+            type="password"
+            placeholder="Password"
             className="mb-6"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            disabled={isLoading}
           />
-          
-          <Button type="submit" className="w-full bg-black text-white hover:bg-gray-800 mb-4">
-            Sign in
+          <Button 
+            type="submit" 
+            className="w-full bg-black text-white hover:bg-gray-800 mb-4"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
-        
         <Link href="/forgot-password" className="block text-center text-blue-600 hover:underline mb-4">
           Forgot password?
         </Link>

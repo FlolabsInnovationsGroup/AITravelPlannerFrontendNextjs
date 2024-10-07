@@ -70,21 +70,20 @@ export default function ChatPageContent() {
 
   const fetchChatSessions = async () => {
     try {
-      const response = await getSessionList()
+      const response = await getSessionList();
       if (response && response.data) {
-        setChatSessions(response.data)
+        setChatSessions(response.data);
         if (response.data.length > 0) {
-          handleSelectSession(response.data[0])
+          handleSelectSession(response.data[0]);
         }
       } else {
-        setChatSessions([])
+        setChatSessions([]);
       }
     } catch (error) {
-      console.error('Error fetching chat sessions:', error)
-      setChatSessions([])
-      toast.error('Failed to fetch chat sessions. Please try again.')
+      console.error('Error fetching chat sessions:', error);
+      toast.error('Failed to fetch chat sessions');
     }
-  }
+  };
 
   const createNewSession = async (name: string) => {
     try {
@@ -111,76 +110,88 @@ export default function ChatPageContent() {
     }
   }
 
+  const sendMessageToBackend = async (message: string) => {
+    try {
+      const response = await apiClient.post('/api/chatbot/message', { text: message });
+      return response.data;
+    } catch (error) {
+      console.error('Error sending message to backend:', error);
+      throw error;
+    }
+  };
+
   const handleCreateNewChat = async (name?: string) => {
-    const newChat = name || `Chat ${chatSessions.length + 1}`
+    const newChat = name || `Chat ${chatSessions.length + 1}`;
     let newSession: SessionType;
     
     if (isGuest) {
       newSession = { sessionId: Date.now().toString(), title: newChat };
     } else {
       try {
-        const response = await createSession(newChat)
-        if (response.status === 200 && response.data) {
+        const response = await createSession(newChat);
+        if (response.status === 200) {
           newSession = response.data;
         } else {
-          console.error('Error creating chat:', response.data?.message)
-          toast.error('Failed to create a new chat. Please try again.')
+          console.error('Error creating chat:', response.data.message);
+          toast.error('Failed to create new chat');
           return null;
         }
       } catch (error) {
-        console.error('Error creating chat:', error)
-        toast.error('Failed to create a new chat. Please try again.')
+        console.error('Error creating chat:', error);
+        toast.error('Failed to create new chat');
         return null;
       }
     }
-  
-    setChatSessions((prevSessions) => [newSession, ...prevSessions])
-    setSelectedSession(newSession)
-    setMessages([])
-    setRightSectionContent(null)
-  
-    return newSession
-  }
 
+    setChatSessions((prevSessions) => [newSession, ...prevSessions]);
+    setSelectedSession(newSession);
+    setMessages([]);
+    setRightSectionContent(null);
+    return newSession;
+  };
+
+  const handleSendMessage = async (message: string) => {
+    if (!message.trim()) return;
   
-  const handleSendMessage = async (message: string, attempt = 0) => {
-    if (attempt >= MAX_ATTEMPTS) {
-      console.error('Max attempts reached. Could not send Message.')
-      return
-    }
-  
-    let session = selectedSession
+    let session = selectedSession;
     if (session === null) {
-      session = await handleCreateNewChat()
+      session = await handleCreateNewChat();
+      if (!session) {
+        toast.error('Failed to create a new chat session');
+        return;
+      }
     }
   
-    setIsLoading(true)
+    setIsLoading(true);
     try {
+      const userMessage: MessageType = { id: messages.length, messageType: 'USER', content: message };
+      setMessages((prevMessages) => [...prevMessages, userMessage]);
+  
       let response;
-      if (isGuest && session) {
-        response = await apiClient.post('/api/sessions/guest', { sessionId: session.sessionId, message });
-        if (response.data.limitReached) {
-          toast.error("You've reached the limit of free messages. Please sign up to continue.");
-          router.push('/signup');
-          return;
-        }
-      } else if (session) {
+      if (isGuest) {
+        response = await sendMessageToBackend(message);
+      } else {
         response = await sendChat(message, session.sessionId.toString());
       }
-      if (response) {
-        const botResponse: MessageType = { id: messages.length + 1, messageType: 'ASSISTANT', content: response.data.message }
-        setMessages((prevMessages) => [...prevMessages, { id: messages.length, messageType: 'USER', content: message }, botResponse])
-        setRightSectionContent(null)
-      } else {
-        console.error('Failed to send message. Response is undefined.');
+  
+      const botResponse: MessageType = { 
+        id: messages.length + 1, 
+        messageType: 'ASSISTANT', 
+        content: isGuest ? response : response.data.content 
+      };
+      setMessages((prevMessages) => [...prevMessages, botResponse]);
+      
+      if (!isGuest) {
+        setRightSectionContent(response.data.additionalInfo || null);
       }
     } catch (error) {
-      console.error('Error sending message:', error)
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
- 
+  };
+
 
   const handleDeleteSession = async (sessionId: string | number) => {
     try {
@@ -361,18 +372,14 @@ export default function ChatPageContent() {
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto p-4">
-            {messages && messages.length > 0 ? (
-  messages.map((message, index) => (
-    <div key={index} className={`mb-4 ${message.messageType === 'USER' ? 'text-right' : 'text-left'}`}>
-      <div className={`inline-block p-2 rounded-lg ${message.messageType === 'USER' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
-        <ReactMarkdown>{message.content}</ReactMarkdown>
-      </div>
-    </div>
-  ))
-) : (
-  <div className="text-center text-gray-500">No messages yet</div>
-)}
+          <div className="flex-1 overflow-y-auto p-4">
+              {messages.map((message, index) => (
+                <div key={index} className={`mb-4 ${message.messageType === 'USER' ? 'text-right' : 'text-left'}`}>
+                  <div className={`inline-block p-2 rounded-lg ${message.messageType === 'USER' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  </div>
+                </div>
+              ))}
               <div ref={bottomRef} />
             </div>
             {isLoading && <Loader />}
@@ -386,26 +393,18 @@ export default function ChatPageContent() {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  handleSendMessage(inputMessage)
-                  setInputMessage('')
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage(inputMessage);
+                  setInputMessage('');
                 }
               }}
               className="flex-1 border-none focus:ring-0"
             />
             <Button
-              variant="ghost"
-              size="icon"
-              className="p-2"
-              onClick={() => {/* Implement mic functionality */}}
-            >
-              <Mic className="h-6 w-6" />
-            </Button>
-            <Button
               onClick={() => {
-                handleSendMessage(inputMessage)
-                setInputMessage('')
+                handleSendMessage(inputMessage);
+                setInputMessage('');
               }}
               disabled={isLoading}
               className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-r-md"
@@ -418,7 +417,7 @@ export default function ChatPageContent() {
             </Button>
           </div>
         </div>
-      </div>
+      </div>  
 
       {/* Right section for details */}
       <div className="w-1/4 bg-white border-l p-4 overflow-y-auto">
@@ -435,3 +434,7 @@ export default function ChatPageContent() {
     </div>
   )
 }
+
+// function sendMessageToBackend(message: string): any {
+//   throw new Error('Function not implemented.')
+// }

@@ -22,25 +22,25 @@ export function SignUp() {
   }
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     if (password !== confirmPassword) {
-      toast.error("Passwords don't match")
-      return
+      toast.error("Passwords don't match");
+      return;
     }
     
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const response = await signUp(username, email, password) // Updated to pass all three arguments
-      console.log('Signup successful:', response)
-      toast.success('Signup successful! Redirecting to login...')
-      router.push('/signin')
+      const response = await signUp(username, email, password);
+      console.log('Signup successful:', response);
+      toast.success('Signup successful! Please check your email for verification.');
+      router.push('/signin');
     } catch (error: any) {
-      console.error('Signup error:', error)
-      toast.error(error.response?.data?.message || 'Failed to sign up. Please try again.')
+      console.error('Signup error:', error);
+      toast.error(error.response?.data?.message || 'Failed to sign up. Please try again.');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
