@@ -20,6 +20,11 @@ export function SignUp() {
   const handleCancel = () => {
     router.push('/')
   }
+  const handleOAuthLogin = () => {
+    window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth2/authorization/google`;
+  };
+  
+  
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -27,6 +32,8 @@ export function SignUp() {
       toast.error("Passwords don't match");
       return;
     }
+    
+    
     
     setIsLoading(true);
     try {
@@ -113,7 +120,7 @@ export function SignUp() {
           </div>
         </div>
         
-        <Button variant="outline" className="w-full" onClick={() => toast.error('Google sign-up not implemented yet')}>
+        <Button variant="outline" className="w-full" onClick={handleOAuthLogin}>
           <Image src="/image/google.png" alt="Google Logo" width={20} height={20} className="mr-2" />
           Sign up with Google
         </Button>

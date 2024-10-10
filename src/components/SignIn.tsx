@@ -1,12 +1,11 @@
 "use client"
-
 import Image from "next/legacy/image"
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { signIn } from '@/lib/api'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/components/AuthContext'
 import { toast } from 'react-hot-toast'
 
@@ -15,11 +14,23 @@ export function SignIn() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const searchParams = useSearchParams();
   const { signIn: authSignIn } = useAuth();
+
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error) {
+      toast.error(`Authentication failed: ${error}`);
+    }
+  }, [searchParams]);
 
   const handleCancel = () => {
     router.push('/')
   }
+
+  const handleOAuthLogin = () => {
+    window.location.href = `http://localhost:8080/oauth2/authorization/google`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +51,7 @@ export function SignIn() {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -103,7 +115,7 @@ export function SignIn() {
           </div>
         </div>
         
-        <Button variant="outline" className="w-full">
+        <Button variant="outline" className="w-full" onClick={handleOAuthLogin}>
           <Image src="/image/google.png" alt="Google Logo" width={20} height={20} className="mr-2" />
           Sign in with Google
         </Button>

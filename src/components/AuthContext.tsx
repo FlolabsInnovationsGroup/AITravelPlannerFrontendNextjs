@@ -1,11 +1,14 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+'use client';
 
-const AuthContext = createContext<{
+import React, { createContext, useState, useContext, useEffect } from 'react';
+
+interface AuthContextType {
   isAuthenticated: boolean;
   signIn: (token: string) => void;
   signOut: () => void;
-}>({
+}
+
+const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   signIn: () => {},
   signOut: () => {},
@@ -13,7 +16,6 @@ const AuthContext = createContext<{
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const router = useRouter();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -23,14 +25,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = (token: string) => {
-    setIsAuthenticated(true);
     localStorage.setItem('token', token);
+    setIsAuthenticated(true);
+    window.location.href = '/chat';
   };
 
   const signOut = () => {
     setIsAuthenticated(false);
     localStorage.removeItem('token');
-    router.push('/signin');
+    window.location.href = '/signin';
   };
 
   return (

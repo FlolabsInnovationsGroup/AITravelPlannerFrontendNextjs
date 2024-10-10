@@ -85,30 +85,30 @@ export default function ChatPageContent() {
     }
   };
 
-  const createNewSession = async (name: string) => {
-    try {
-      const response = await createSession(name)
-      if (response.status === 200 && response.data) {
-        setChatSessions((prevSessions) => [
-          response.data,
-          ...prevSessions.filter(session => 
-            selectedSession === null 
-              ? typeof session.sessionId !== 'number' 
-              : session.sessionId !== selectedSession.sessionId
-          )
-        ])
-        setSelectedSession(response.data)
-        setMessages([])
-        return response.data
-      } else {
-        console.error('Error creating chat:', response.data.message)
-        return null
-      }
-    } catch (error) {
-      console.error('Error creating chat:', error)
-      return null
-    }
-  }
+  // const createNewSession = async (name: string) => {
+  //   try {
+  //     const response = await createSession(name)
+  //     if (response.status === 200 && response.data) {
+  //       setChatSessions((prevSessions) => [
+  //         response.data,
+  //         ...prevSessions.filter(session => 
+  //           selectedSession === null 
+  //             ? typeof session.sessionId !== 'number' 
+  //             : session.sessionId !== selectedSession.sessionId
+  //         )
+  //       ])
+  //       setSelectedSession(response.data)
+  //       setMessages([])
+  //       return response.data
+  //     } else {
+  //       console.error('Error creating chat:', response.data.message)
+  //       return null
+  //     }
+  //   } catch (error) {
+  //     console.error('Error creating chat:', error)
+  //     return null
+  //   }
+  // }
 
   const sendMessageToBackend = async (message: string) => {
     try {
@@ -150,6 +150,12 @@ export default function ChatPageContent() {
     return newSession;
   };
 
+  const handlePromptClick = async (prompt: string) => {
+    setShowPrompts(false);
+    setMessages([]); // Clear previous messages
+    await handleSendMessage(prompt);
+  };
+  
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
   
@@ -165,7 +171,7 @@ export default function ChatPageContent() {
     setIsLoading(true);
     try {
       const userMessage: MessageType = { id: messages.length, messageType: 'USER', content: message };
-      setMessages((prevMessages) => [...prevMessages, userMessage]);
+      setMessages(prevMessages => [...prevMessages, userMessage]);
   
       let response;
       if (isGuest) {
@@ -179,7 +185,7 @@ export default function ChatPageContent() {
         messageType: 'ASSISTANT', 
         content: isGuest ? response : response.data.content 
       };
-      setMessages((prevMessages) => [...prevMessages, botResponse]);
+      setMessages(prevMessages => [...prevMessages, botResponse]);
       
       if (!isGuest) {
         setRightSectionContent(response.data.additionalInfo || null);
@@ -193,36 +199,36 @@ export default function ChatPageContent() {
   };
 
 
-  const handleDeleteSession = async (sessionId: string | number) => {
-    try {
-      const response = await deleteSession(sessionId.toString())
-      if (response.status === 204) {
-        setChatSessions((prevSessions) => prevSessions.filter(session => session.sessionId !== sessionId))
-        if (selectedSession && selectedSession.sessionId === sessionId) {
-          handleSelectSession(chatSessions[1] || null)
-        }
-      } else {
-        console.log('Session deletion failed:', sessionId)
-      }
-    } catch (error) {
-      console.error('Error deleting session:', error)
-    }
-  }
+  // const handleDeleteSession = async (sessionId: string | number) => {
+  //   try {
+  //     const response = await deleteSession(sessionId.toString())
+  //     if (response.status === 204) {
+  //       setChatSessions((prevSessions) => prevSessions.filter(session => session.sessionId !== sessionId))
+  //       if (selectedSession && selectedSession.sessionId === sessionId) {
+  //         handleSelectSession(chatSessions[1] || null)
+  //       }
+  //     } else {
+  //       console.log('Session deletion failed:', sessionId)
+  //     }
+  //   } catch (error) {
+  //     console.error('Error deleting session:', error)
+  //   }
+  // }
 
-  const handleUpdateSession = async (sessionId: string | number, title: string) => {
-    try {
-      const response = await updateSession(sessionId.toString(), title)
-      if (response.status === 200) {
-        setChatSessions((prevSessions) => prevSessions.map(session => 
-          session.sessionId === sessionId ? response.data : session
-        ))
-      } else {
-        console.error('Error updating session:', response.data.message)
-      }
-    } catch (error) {
-      console.error('Error updating session:', error)
-    }
-  }
+  // const handleUpdateSession = async (sessionId: string | number, title: string) => {
+  //   try {
+  //     const response = await updateSession(sessionId.toString(), title)
+  //     if (response.status === 200) {
+  //       setChatSessions((prevSessions) => prevSessions.map(session => 
+  //         session.sessionId === sessionId ? response.data : session
+  //       ))
+  //     } else {
+  //       console.error('Error updating session:', response.data.message)
+  //     }
+  //   } catch (error) {
+  //     console.error('Error updating session:', error)
+  //   }
+  // }
 
   const handleSelectSession = async (session: SessionType | null) => {
     if (session) {
@@ -259,11 +265,6 @@ export default function ChatPageContent() {
         setTimeout(async () => resolve(await getHistoryChat(sessionId, attempt + 1)), 1000)
       )
     }
-  }
-
-  const handlePromptClick = async (prompt: string) => {
-    setShowPrompts(false)
-    await handleSendMessage(prompt)
   }
 
   const toggleChatHistory = () => {
@@ -373,15 +374,15 @@ export default function ChatPageContent() {
         ) : (
           <>
           <div className="flex-1 overflow-y-auto p-4">
-              {messages.map((message, index) => (
-                <div key={index} className={`mb-4 ${message.messageType === 'USER' ? 'text-right' : 'text-left'}`}>
-                  <div className={`inline-block p-2 rounded-lg ${message.messageType === 'USER' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
-                  </div>
-                </div>
-              ))}
-              <div ref={bottomRef} />
-            </div>
+  {messages.map((message, index) => (
+    <div key={index} className={`mb-4 ${message.messageType === 'USER' ? 'text-right' : 'text-left'}`}>
+      <div className={`inline-block p-2 rounded-lg ${message.messageType === 'USER' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
+        <ReactMarkdown>{message.content}</ReactMarkdown>
+      </div>
+    </div>
+  ))}
+  <div ref={bottomRef} />
+</div>
             {isLoading && <Loader />}
           </>
         )}
