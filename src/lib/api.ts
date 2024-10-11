@@ -63,10 +63,6 @@ export const signUp = async (username: string, email: string, password: string) 
   return await apiClient.post('/api/auth/signup', { username, email, password });
 };
 
-export const sendGuestChat = async (message: string, sessionId: string) => {
-  return await apiClient.post('/api/sessions/guest', { message, sessionId });
-};
-
 
 
 export default apiClient;

@@ -46,7 +46,7 @@ export default function LandingPage() {
     try {
       const sessionResponse = await createSession('New Chat')
       const sessionId = sessionResponse.data.id
-      await sendGuestChat(message, sessionId)
+      await sendChat(message, sessionId)
       router.push(`/chat?sessionId=${sessionId}&initialMessage=${encodeURIComponent(message)}&isGuest=true`)
     } catch (error) {
       console.error('Error starting chat:', error)

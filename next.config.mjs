@@ -7,7 +7,7 @@ const nextConfig = {
     return [
       {
         source: '/auth-redirect',
-        destination: '/auth/callback/google',
+        destination: '/chat',
         permanent: true,
       },
     ];
