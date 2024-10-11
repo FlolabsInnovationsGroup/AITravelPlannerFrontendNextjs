@@ -1,3 +1,4 @@
+//src/app/page.tsx
 "use client"
 
 import { useState, useEffect } from 'react'
@@ -13,7 +14,7 @@ import { ExploreSection } from '@/components/ExploreSection'
 import { TourPartners } from '@/components/TourPartners'
 import { Testimonials } from '@/components/Testimonials'
 import Footer from '@/components/Footer'
-import { createSession, sendChat, sendGuestChat } from '@/lib/api'
+import { createSession, sendMessage } from '@/lib/api'
 import { toast } from 'react-hot-toast'
 
 
@@ -40,21 +41,25 @@ export default function LandingPage() {
   }, [])
 
   const handleStartChat = async () => {
-    if (!message.trim()) return
+    if (!message.trim()) return;
   
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const sessionResponse = await createSession('New Chat')
-      const sessionId = sessionResponse.data.id
-      await sendGuestChat(message, sessionId)
-      router.push(`/chat?sessionId=${sessionId}&initialMessage=${encodeURIComponent(message)}&isGuest=true`)
+      const response = await sendMessage(message);
+      if (response.sessionId) {
+        router.push(`/chat?sessionId=${response.sessionId}&initialMessage=${encodeURIComponent(message)}`);
+      } else {
+        // Handle the case where no sessionId is returned (e.g., for guest users)
+        router.push(`/chat?initialMessage=${encodeURIComponent(message)}`);
+      }
     } catch (error) {
-      console.error('Error starting chat:', error)
-      toast.error('Failed to start chat. Please try again later.')
+      console.error('Error starting chat:', error);
+      toast.error('Failed to start chat. Please try again later.');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
+ 
 
   return (
     <div className="flex flex-col">

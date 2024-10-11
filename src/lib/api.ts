@@ -1,7 +1,12 @@
-//src/lib/api.ts
 import axios from 'axios';
 
-const API_BASE_URL ='http://localhost:8080';
+const API_BASE_URL = 'http://localhost:8080';
+
+export type MessageType = {
+  id: number;
+  messageType: 'USER' | 'ASSISTANT';
+  content: string;
+};
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -21,6 +26,21 @@ apiClient.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
+export const sendMessage = async (message: string, sessionId?: string): Promise<{
+  content: string;
+  sessionId?: string;
+  redirectTo?: string;
+  additionalInfo?: string;
+}> => {
+  try {
+    const response = await apiClient.post('/api/chat/call', { message, sessionId });
+    return response.data;
+  } catch (error) {
+    console.error('Error sending message:', error);
+    throw error;
+  }
+};
+
 export const getSessionList = async () => {
   return await apiClient.get('/sessions/user-sessions');
 };
@@ -37,21 +57,16 @@ export const updateSession = async (sessionId: string, title: string) => {
   return await apiClient.put(`/sessions/${sessionId}`, { title });
 };
 
-export const sendChat = async (message: string, sessionId: string) => {
-  return await apiClient.post('/api/chat/call', { message, sessionId });
-};
-
-export const getChatHistory = async (sessionId: string) => {
-  return await apiClient.get(`/messages/session/${sessionId}`);
-};
-
-
-export const storeChat = async (sessionId: string, content: string, messageType: string) => {
-  return await apiClient.post('/messages', { sessionId, content, messageType });
-};
-
-export const sendMessageToBackend = async (message: string) => {
-  return await apiClient.post('/api/chatbot/message', { text: message });
+export const getChatHistory = async (sessionId: string): Promise<{
+  data: MessageType[];
+}> => {
+  try {
+    const response = await apiClient.get(`/messages/session/${sessionId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching chat history:', error);
+    throw error;
+  }
 };
 
 export const signIn = async (username: string, password: string) => {
@@ -62,11 +77,5 @@ export const signIn = async (username: string, password: string) => {
 export const signUp = async (username: string, email: string, password: string) => {
   return await apiClient.post('/api/auth/signup', { username, email, password });
 };
-
-export const sendGuestChat = async (message: string, sessionId: string) => {
-  return await apiClient.post('/api/sessions/guest', { message, sessionId });
-};
-
-
 
 export default apiClient;
