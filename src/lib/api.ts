@@ -26,9 +26,9 @@ apiClient.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-export const sendMessage = async (message: string, sessionId?: string): Promise<{
+export const sendMessage = async (message: string, sessionId: string): Promise<{
   content: string;
-  sessionId?: string;
+  sessionId: string;
   redirectTo?: string;
   additionalInfo?: string;
 }> => {
@@ -40,13 +40,23 @@ export const sendMessage = async (message: string, sessionId?: string): Promise<
     throw error;
   }
 };
-
 export const getSessionList = async () => {
   return await apiClient.get('/sessions/user-sessions');
 };
 
-export const createSession = async (title: string) => {
-  return await apiClient.post('/sessions', { title });
+export const createSession = async (title: string): Promise<{
+  data: {
+    id: string;
+    title: string;
+  }
+}> => {
+  try {
+    const response = await apiClient.post('/sessions', { title });
+    return response;
+  } catch (error) {
+    console.error('Error creating session:', error);
+    throw error;
+  }
 };
 
 export const deleteSession = async (sessionId: string) => {

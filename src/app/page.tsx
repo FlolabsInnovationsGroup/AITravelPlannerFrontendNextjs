@@ -41,24 +41,32 @@ export default function LandingPage() {
   }, [])
 
   const handleStartChat = async () => {
-    if (!message.trim()) return;
+    if (!message.trim()) return
   
-    setIsLoading(true);
+    setIsLoading(true)
     try {
-      const response = await sendMessage(message);
-      if (response.sessionId) {
-        router.push(`/chat?sessionId=${response.sessionId}&initialMessage=${encodeURIComponent(message)}`);
-      } else {
-        // Handle the case where no sessionId is returned (e.g., for guest users)
-        router.push(`/chat?initialMessage=${encodeURIComponent(message)}`);
+      // Create a new session
+      const sessionResponse = await createSession('New Chat')
+      const sessionId = sessionResponse.data.id
+
+      // Send the initial message
+      const chatResponse = await sendMessage(message, sessionId)
+
+      // Check if we need to redirect (e.g., for authentication)
+      if (chatResponse.redirectTo) {
+        router.push(chatResponse.redirectTo)
+        return
       }
+
+      // If no redirect, go to the chat page
+      router.push(`/chat?sessionId=${sessionId}&initialMessage=${encodeURIComponent(message)}`)
     } catch (error) {
-      console.error('Error starting chat:', error);
-      toast.error('Failed to start chat. Please try again later.');
+      console.error('Error starting chat:', error)
+      toast.error('Failed to start chat. Please try again later.')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
  
 
   return (

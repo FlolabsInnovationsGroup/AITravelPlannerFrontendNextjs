@@ -7,7 +7,7 @@ import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { sendMessage, getChatHistory, getSessionList } from '@/lib/api'
+import { sendMessage, getChatHistory, getSessionList, createSession } from '@/lib/api'
 import { Send, MessageSquare, Heart, Globe, Bell, PlusCircle, Search } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import Loader from '@/components/Loader'
@@ -45,6 +45,7 @@ export default function ChatPageContent() {
     "What are the must-try foods in Barcelona?",
     "I have 2000 dollars how much in moroccan currency ?",
   ]
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchChatSessions();
@@ -60,6 +61,26 @@ export default function ChatPageContent() {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages])
+
+  const createNewSession = async () => {
+    try {
+      const response = await createSession(`Chat ${chatSessions.length + 1}`);
+      const newSession: SessionType = {
+        sessionId: response.data.id,
+        title: response.data.title
+      };
+      setChatSessions(prevSessions => [newSession, ...prevSessions]);
+      setSelectedSession(newSession);
+      setCurrentSessionId(newSession.sessionId.toString());
+      return newSession.sessionId.toString();
+    } catch (error) {
+      console.error('Error creating new session:', error);
+      toast.error('Failed to create new chat session');
+      return null;
+    }
+  }
+
+
 
   const fetchChatSessions = async () => {
     try {
@@ -86,28 +107,27 @@ export default function ChatPageContent() {
   
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
-  
+
     setIsLoading(true);
     try {
+      if (!currentSessionId) {
+        const newSessionId = await createNewSession();
+        if (!newSessionId) {
+          toast.error('Failed to create a new chat session');
+          return;
+        }
+      }
+
       const userMessage: MessageType = { id: Date.now(), messageType: 'USER', content: message };
       setMessages(prevMessages => [...prevMessages, userMessage]);
-  
-      const response = await sendMessage(message, selectedSession?.sessionId?.toString());
-  
+
+      const response = await sendMessage(message, currentSessionId!);
+
       if (response.redirectTo) {
         router.push(response.redirectTo);
         return;
       }
-  
-      if (response.sessionId && !selectedSession) {
-        const newSession: SessionType = { 
-          sessionId: response.sessionId, 
-          title: `Chat ${chatSessions.length + 1}` 
-        };
-        setSelectedSession(newSession);
-        setChatSessions(prevSessions => [newSession, ...prevSessions]);
-      }
-  
+
       const botResponse: MessageType = { 
         id: Date.now() + 1, 
         messageType: 'ASSISTANT', 
@@ -116,6 +136,11 @@ export default function ChatPageContent() {
       setMessages(prevMessages => [...prevMessages, botResponse]);
       
       setRightSectionContent(response.additionalInfo || null);
+
+      // Hide prompts after first message
+      if (showPrompts) {
+        setShowPrompts(false);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
@@ -128,6 +153,7 @@ export default function ChatPageContent() {
   const handleSelectSession = async (session: SessionType | null) => {
     if (session) {
       setSelectedSession(session)
+      setCurrentSessionId(session.sessionId.toString())
       try {
         const chatHistory = await getChatHistory(session.sessionId.toString())
         setMessages(chatHistory.data || [])
@@ -139,6 +165,7 @@ export default function ChatPageContent() {
       }
     } else {
       setSelectedSession(null)
+      setCurrentSessionId(null)
       setMessages([])
       setRightSectionContent(null)
     }
