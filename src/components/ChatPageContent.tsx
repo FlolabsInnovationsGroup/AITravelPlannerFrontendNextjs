@@ -7,10 +7,11 @@ import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { sendMessage, getChatHistory, getSessionList, createSession } from '@/lib/api'
+import { sendMessage, getChatHistory, getSessionList, createSession, setGuestToken } from '@/lib/api'
 import { Send, MessageSquare, Heart, Globe, Bell, PlusCircle, Search } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import Loader from '@/components/Loader'
+import axios from 'axios'
 
 type MessageType = {
   id: number;
@@ -62,25 +63,27 @@ export default function ChatPageContent() {
     }
   }, [messages])
 
-  const createNewSession = async () => {
+  const createNewSession = async (): Promise<string | null> => {
     try {
       const response = await createSession(`Chat ${chatSessions.length + 1}`);
-      const newSession: SessionType = {
-        sessionId: response.data.id,
-        title: response.data.title
-      };
-      setChatSessions(prevSessions => [newSession, ...prevSessions]);
-      setSelectedSession(newSession);
-      setCurrentSessionId(newSession.sessionId.toString());
-      return newSession.sessionId.toString();
+      if (response && response.id) {
+        const newSession: SessionType = {
+          sessionId: response.id,
+          title: response.title || `Chat ${chatSessions.length + 1}`
+        };
+        setChatSessions(prevSessions => [newSession, ...(prevSessions || [])]);
+        setSelectedSession(newSession);
+        setCurrentSessionId(newSession.sessionId.toString());
+        return newSession.sessionId.toString();
+      } else {
+        throw new Error('Invalid response from server when creating session');
+      }
     } catch (error) {
       console.error('Error creating new session:', error);
       toast.error('Failed to create new chat session');
       return null;
     }
-  }
-
-
+  };
 
   const fetchChatSessions = async () => {
     try {
@@ -107,27 +110,27 @@ export default function ChatPageContent() {
   
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
-
+  
     setIsLoading(true);
     try {
-      if (!currentSessionId) {
-        const newSessionId = await createNewSession();
-        if (!newSessionId) {
-          toast.error('Failed to create a new chat session');
-          return;
+      let sessionId = currentSessionId;
+      if (!sessionId) {
+        sessionId = await createNewSession();
+        if (!sessionId) {
+          throw new Error('Failed to create a new chat session');
         }
       }
-
+  
       const userMessage: MessageType = { id: Date.now(), messageType: 'USER', content: message };
       setMessages(prevMessages => [...prevMessages, userMessage]);
-
-      const response = await sendMessage(message, currentSessionId!);
-
+  
+      const response = await sendMessage(message, sessionId);
+  
       if (response.redirectTo) {
         router.push(response.redirectTo);
         return;
       }
-
+  
       const botResponse: MessageType = { 
         id: Date.now() + 1, 
         messageType: 'ASSISTANT', 
@@ -136,40 +139,40 @@ export default function ChatPageContent() {
       setMessages(prevMessages => [...prevMessages, botResponse]);
       
       setRightSectionContent(response.additionalInfo || null);
-
-      // Hide prompts after first message
+  
       if (showPrompts) {
         setShowPrompts(false);
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      toast.error('Failed to send message');
+      toast.error('Failed to send message. Please try again.');
     } finally {
       setIsLoading(false);
-      setInputMessage(''); // Clear input after sending
+      setInputMessage('');
     }
   };
 
   const handleSelectSession = async (session: SessionType | null) => {
-    if (session) {
-      setSelectedSession(session)
-      setCurrentSessionId(session.sessionId.toString())
+    if (session && session.sessionId) {
+      setSelectedSession(session);
+      setCurrentSessionId(session.sessionId.toString());
       try {
-        const chatHistory = await getChatHistory(session.sessionId.toString())
-        setMessages(chatHistory.data || [])
-        setRightSectionContent(null)
+        const chatHistory = await getChatHistory(session.sessionId.toString());
+        setMessages(chatHistory?.data || []);
+        setRightSectionContent(null);
       } catch (error) {
         console.error('Error fetching chat history:', error);
         toast.error('Failed to fetch chat history');
-        setMessages([])
+        setMessages([]);
       }
     } else {
-      setSelectedSession(null)
-      setCurrentSessionId(null)
-      setMessages([])
-      setRightSectionContent(null)
+      setSelectedSession(null);
+      setCurrentSessionId(null);
+      setMessages([]);
+      setRightSectionContent(null);
     }
-  }
+  };
+  
 
   const toggleChatHistory = () => {
     setShowChatHistory(!showChatHistory)
@@ -237,17 +240,20 @@ export default function ChatPageContent() {
               New chat
             </Button> */}
             <ul>
-              {chatSessions
-                .filter(session => session.title.toLowerCase().includes(searchQuery.toLowerCase()))
-                .map((session) => (
-                  <li
-                    key={session.sessionId}
-                    className={`py-2 px-4 cursor-pointer ${selectedSession?.sessionId === session.sessionId ? 'bg-gray-200' : ''}`}
-                    onClick={() => handleSelectSession(session)}
-                  >
-                    <span className="truncate">{session.title}</span>
-                  </li>
-                ))}
+            {chatSessions && chatSessions
+  .filter(session => 
+    session.title && searchQuery && 
+    session.title.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+  .map((session) => (
+    <li
+      key={session.sessionId}
+      className={`py-2 px-4 cursor-pointer ${selectedSession?.sessionId === session.sessionId ? 'bg-gray-200' : ''}`}
+      onClick={() => handleSelectSession(session)}
+    >
+      <span className="truncate">{session.title}</span>
+    </li>
+  ))}
             </ul>
           </div>
         </div>

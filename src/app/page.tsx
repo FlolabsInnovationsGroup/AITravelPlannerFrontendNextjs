@@ -1,6 +1,6 @@
 //src/app/page.tsx
 "use client"
-
+import axios from 'axios';
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from "next/legacy/image"
@@ -14,7 +14,7 @@ import { ExploreSection } from '@/components/ExploreSection'
 import { TourPartners } from '@/components/TourPartners'
 import { Testimonials } from '@/components/Testimonials'
 import Footer from '@/components/Footer'
-import { createSession, sendMessage } from '@/lib/api'
+import { createSession, sendMessage, setGuestToken } from '@/lib/api'
 import { toast } from 'react-hot-toast'
 
 
@@ -42,27 +42,42 @@ export default function LandingPage() {
 
   const handleStartChat = async () => {
     if (!message.trim()) return
-  
+    
     setIsLoading(true)
     try {
-      // Create a new session
-      const sessionResponse = await createSession('New Chat')
-      const sessionId = sessionResponse.data.id
-
-      // Send the initial message
-      const chatResponse = await sendMessage(message, sessionId)
-
+      // Send the initial message without a sessionId
+      const chatResponse = await sendMessage(message, null)
+  
       // Check if we need to redirect (e.g., for authentication)
       if (chatResponse.redirectTo) {
         router.push(chatResponse.redirectTo)
         return
       }
-
-      // If no redirect, go to the chat page
-      router.push(`/chat?sessionId=${sessionId}&initialMessage=${encodeURIComponent(message)}`)
+  
+      // The backend should now return a sessionId in the response
+      if (!chatResponse.sessionId) {
+        throw new Error('No session ID returned from the server')
+      }
+  
+      // If a guest token was issued, store it
+      if (chatResponse.guestToken) {
+        setGuestToken(chatResponse.guestToken)
+      }
+  
+      // Go to the chat page
+      router.push(`/chat?sessionId=${chatResponse.sessionId}&initialMessage=${encodeURIComponent(message)}`)
     } catch (error) {
       console.error('Error starting chat:', error)
-      toast.error('Failed to start chat. Please try again later.')
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          toast.error('Your session has expired. Please log in again.')
+          router.push('/login')
+        } else {
+          toast.error(error.response?.data?.message || 'Failed to start chat. Please try again later.')
+        }
+      } else {
+        toast.error('An unexpected error occurred. Please try again later.')
+      }
     } finally {
       setIsLoading(false)
     }

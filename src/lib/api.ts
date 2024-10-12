@@ -1,5 +1,26 @@
 import axios from 'axios';
 
+const TOKEN_KEY = 'authToken';
+const GUEST_TOKEN_KEY = 'guestToken';
+
+export const setAuthToken = (token: string) => {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.removeItem(GUEST_TOKEN_KEY); // Remove guest token when setting auth token
+};
+
+export const setGuestToken = (token: string) => {
+  localStorage.setItem(GUEST_TOKEN_KEY, token);
+};
+
+export const getToken = () => {
+  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(GUEST_TOKEN_KEY);
+};
+
+export const clearTokens = () => {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(GUEST_TOKEN_KEY);
+};
+
 const API_BASE_URL = 'http://localhost:8080';
 
 export type MessageType = {
@@ -17,7 +38,7 @@ const apiClient = axios.create({
 
 // Add a request interceptor to include the token in requests
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
   }
@@ -26,10 +47,24 @@ apiClient.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-export const sendMessage = async (message: string, sessionId: string): Promise<{
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response && error.response.status === 401) {
+      // Token might be expired
+      clearTokens();
+      // Redirect to login or handle re-authentication
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export const sendMessage = async (message: string, sessionId: string | null): Promise<{
   content: string;
   sessionId: string;
   redirectTo?: string;
+  guestToken?: string;
   additionalInfo?: string;
 }> => {
   try {
@@ -40,19 +75,19 @@ export const sendMessage = async (message: string, sessionId: string): Promise<{
     throw error;
   }
 };
+
 export const getSessionList = async () => {
   return await apiClient.get('/sessions/user-sessions');
 };
 
 export const createSession = async (title: string): Promise<{
-  data: {
-    id: string;
-    title: string;
-  }
+  id: string;
+  title: string;
+  guestToken?: string;
 }> => {
   try {
     const response = await apiClient.post('/sessions', { title });
-    return response;
+    return response.data;
   } catch (error) {
     console.error('Error creating session:', error);
     throw error;
