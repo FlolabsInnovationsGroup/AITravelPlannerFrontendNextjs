@@ -104,7 +104,7 @@ export default function ChatPageContent() {
 
   const handlePromptClick = async (prompt: string) => {
     setShowPrompts(false);
-    setMessages([]); // Clear previous messages
+    setMessages([]); 
     await handleSendMessage(prompt);
   };
   

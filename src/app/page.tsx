@@ -1,4 +1,3 @@
-//src/app/page.tsx
 "use client"
 import axios from 'axios';
 import { useState, useEffect } from 'react'
@@ -45,26 +44,17 @@ export default function LandingPage() {
     
     setIsLoading(true)
     try {
-      // Send the initial message without a sessionId
       const chatResponse = await sendMessage(message, null)
-  
-      // Check if we need to redirect (e.g., for authentication)
       if (chatResponse.redirectTo) {
         router.push(chatResponse.redirectTo)
         return
       }
-  
-      // The backend should now return a sessionId in the response
       if (!chatResponse.sessionId) {
         throw new Error('No session ID returned from the server')
       }
-  
-      // If a guest token was issued, store it
       if (chatResponse.guestToken) {
         setGuestToken(chatResponse.guestToken)
       }
-  
-      // Go to the chat page
       router.push(`/chat?sessionId=${chatResponse.sessionId}&initialMessage=${encodeURIComponent(message)}`)
     } catch (error) {
       console.error('Error starting chat:', error)
