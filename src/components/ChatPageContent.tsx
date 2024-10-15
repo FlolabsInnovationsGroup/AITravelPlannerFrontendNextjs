@@ -20,7 +20,7 @@ type MessageType = {
 }
 
 type SessionType = {
-  sessionId: string | number;
+  sessionId: string;
   title: string;
 }
 
@@ -66,9 +66,9 @@ export default function ChatPageContent() {
   const createNewSession = async (): Promise<string | null> => {
     try {
       const response = await createSession(`Chat ${chatSessions.length + 1}`);
-      if (response && response.id) {
+      if (response && response.sessionId) {
         const newSession: SessionType = {
-          sessionId: response.id,
+          sessionId: response.sessionId,
           title: response.title || `Chat ${chatSessions.length + 1}`
         };
         setChatSessions(prevSessions => [newSession, ...(prevSessions || [])]);

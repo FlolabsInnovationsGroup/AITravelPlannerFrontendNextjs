@@ -1,3 +1,4 @@
+//src/app/page.tsx
 "use client"
 import axios from 'axios';
 import { useState, useEffect } from 'react'
@@ -40,38 +41,57 @@ export default function LandingPage() {
   }, [])
 
   const handleStartChat = async () => {
-    if (!message.trim()) return
-    
-    setIsLoading(true)
+    if (!message.trim()) return;
+  
+    setIsLoading(true);
     try {
-      const chatResponse = await sendMessage(message, null)
-      if (chatResponse.redirectTo) {
-        router.push(chatResponse.redirectTo)
-        return
+      // Create a new session first
+      const sessionResponse = await createSession('New Chat');
+      console.log('sessionResponse:', sessionResponse);
+  
+      // Use sessionResponse.sessionId instead of sessionResponse.id
+      const sessionId = sessionResponse.sessionId;
+      if (!sessionId) {
+        throw new Error('Failed to create a new chat session');
       }
-      if (!chatResponse.sessionId) {
-        throw new Error('No session ID returned from the server')
+      if (sessionResponse.guestToken) {
+        setGuestToken(sessionResponse.guestToken);
+      }
+  
+      // Now send the message with the new sessionId
+      const chatResponse = await sendMessage(message, sessionId);
+      if (chatResponse.redirectTo) {
+        router.push(chatResponse.redirectTo);
+        return;
       }
       if (chatResponse.guestToken) {
-        setGuestToken(chatResponse.guestToken)
+        setGuestToken(chatResponse.guestToken);
       }
-      router.push(`/chat?sessionId=${chatResponse.sessionId}&initialMessage=${encodeURIComponent(message)}`)
+      router.push(
+        `/chat?sessionId=${chatResponse.sessionId}&initialMessage=${encodeURIComponent(
+          message
+        )}`
+      );
     } catch (error) {
-      console.error('Error starting chat:', error)
+      console.error('Error starting chat:', error);
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 401) {
-          toast.error('Your session has expired. Please log in again.')
-          router.push('/login')
+          toast.error('Your session has expired. Please log in again.');
+          router.push('/login');
         } else {
-          toast.error(error.response?.data?.message || 'Failed to start chat. Please try again later.')
+          toast.error(
+            error.response?.data?.message ||
+              'Failed to start chat. Please try again later.'
+          );
         }
       } else {
-        toast.error('An unexpected error occurred. Please try again later.')
+        toast.error('An unexpected error occurred. Please try again later.');
       }
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
+  
  
 
   return (

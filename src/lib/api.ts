@@ -1,3 +1,4 @@
+//src/lib/api.ts
 import axios from 'axios';
 
 const TOKEN_KEY = 'authToken';
@@ -60,7 +61,10 @@ apiClient.interceptors.response.use(
   }
 );
 
-export const sendMessage = async (message: string, sessionId: string | null): Promise<{
+export const sendMessage = async (
+  message: string,
+  sessionId: string | null
+): Promise<{
   content: string;
   sessionId: string;
   redirectTo?: string;
@@ -68,7 +72,11 @@ export const sendMessage = async (message: string, sessionId: string | null): Pr
   additionalInfo?: string;
 }> => {
   try {
-    const response = await apiClient.post('/api/chat/call', { message, sessionId });
+    const payload: any = { message };
+    if (sessionId) {
+      payload.sessionId = sessionId;
+    }
+    const response = await apiClient.post('/api/chat/call', payload);
     return response.data;
   } catch (error) {
     console.error('Error sending message:', error);
@@ -81,18 +89,21 @@ export const getSessionList = async () => {
 };
 
 export const createSession = async (title: string): Promise<{
-  id: string;
+  sessionId: string;
+  userId: string | null;
   title: string;
   guestToken?: string;
 }> => {
   try {
     const response = await apiClient.post('/sessions', { title });
+    console.log('createSession response data:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error creating session:', error);
     throw error;
   }
 };
+
 
 export const deleteSession = async (sessionId: string) => {
   return await apiClient.delete(`/sessions/${sessionId}`);
