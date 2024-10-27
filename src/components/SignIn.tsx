@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { signIn } from '@/lib/api'
 import { useEffect, useState } from 'react'
-import { useAuth } from '@/components/AuthContext'
+import { useAuth } from '@/components/contexts/AuthContext'
 import { toast } from 'react-hot-toast'
 
 export function SignIn() {

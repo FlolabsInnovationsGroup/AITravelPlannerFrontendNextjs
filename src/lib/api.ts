@@ -1,35 +1,30 @@
-//src/lib/api.ts
 import axios from 'axios';
 
-const TOKEN_KEY = 'authToken';
-const GUEST_TOKEN_KEY = 'guestToken';
-
-export const setAuthToken = (token: string) => {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.removeItem(GUEST_TOKEN_KEY); // Remove guest token when setting auth token
-};
-
-export const setGuestToken = (token: string) => {
-  localStorage.setItem(GUEST_TOKEN_KEY, token);
-};
-
-export const getToken = () => {
-  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(GUEST_TOKEN_KEY);
-};
-
-export const clearTokens = () => {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(GUEST_TOKEN_KEY);
-};
-
+// Constants
 const API_BASE_URL = 'http://localhost:8080';
+const TOKEN_KEY = 'token';
 
-export type MessageType = {
-  id: number;
-  messageType: 'USER' | 'ASSISTANT';
+// Types
+export interface ChatResponse {
   content: string;
-};
+}
 
+export interface AIMessageDTO {
+  message: string;
+  sessionId: string;
+}
+
+export interface SessionDTO {
+  sessionId: string;
+  title: string;
+  userId: string;
+}
+
+interface GuestTokenResponse {
+  token: string;
+}
+
+// API client setup
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -37,66 +32,75 @@ const apiClient = axios.create({
   },
 });
 
-// Add a request interceptor to include the token in requests
+// Add token to all requests
 apiClient.interceptors.request.use((config) => {
   const token = getToken();
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
   }
   return config;
-}, (error) => {
-  return Promise.reject(error);
 });
 
+// Handle unauthorized responses
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response && error.response.status === 401) {
-      // Token might be expired
-      clearTokens();
-      // Redirect to login or handle re-authentication
-      window.location.href = '/login';
+    if (error.response?.status === 401) {
+      clearToken();
+      window.location.href = '/signin';
     }
     return Promise.reject(error);
   }
 );
 
-export const sendMessage = async (
-  message: string,
-  sessionId: string | null
-): Promise<{
-  content: string;
-  sessionId: string;
-  redirectTo?: string;
-  guestToken?: string;
-  additionalInfo?: string;
-}> => {
+// Token management
+export const setToken = (token: string) => {
+  localStorage.setItem(TOKEN_KEY, token);
+};
+
+export const getToken = () => {
+  return localStorage.getItem(TOKEN_KEY);
+};
+
+export const clearToken = () => {
+  localStorage.removeItem(TOKEN_KEY);
+};
+
+// Guest token creation
+export const createGuestToken = async (): Promise<void> => {
   try {
-    const payload: any = { message };
-    if (sessionId) {
-      payload.sessionId = sessionId;
+    const response = await apiClient.post<GuestTokenResponse>('/api/auth/guest-token');
+    if (response.data.token) {
+      setToken(response.data.token);
     }
-    const response = await apiClient.post('/api/chat/call', payload);
-    return response.data;
   } catch (error) {
-    console.error('Error sending message:', error);
+    console.error('Error creating guest token:', error);
     throw error;
   }
 };
 
-export const getSessionList = async () => {
-  return await apiClient.get('/sessions/user-sessions');
+// User management
+export const getCurrentUser = async (): Promise<{ id: string }> => {
+  try {
+    const response = await apiClient.get<{ id: string }>('/users/current');
+    return response.data;
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    throw error;
+  }
 };
 
-export const createSession = async (title: string): Promise<{
-  sessionId: string;
-  userId: string | null;
-  title: string;
-  guestToken?: string;
-}> => {
+// Session handling
+export const createSession = async (title: string): Promise<SessionDTO> => {
   try {
-    const response = await apiClient.post('/sessions', { title });
-    console.log('createSession response data:', response.data);
+    const user = await getCurrentUser();
+    
+    const payload = {
+      title,
+      userId: user.id
+    };
+
+    const response = await apiClient.post<SessionDTO>('/sessions', payload);
     return response.data;
   } catch (error) {
     console.error('Error creating session:', error);
@@ -104,34 +108,54 @@ export const createSession = async (title: string): Promise<{
   }
 };
 
-
-export const deleteSession = async (sessionId: string) => {
-  return await apiClient.delete(`/sessions/${sessionId}`);
-};
-
-export const updateSession = async (sessionId: string, title: string) => {
-  return await apiClient.put(`/sessions/${sessionId}`, { title });
-};
-
-export const getChatHistory = async (sessionId: string): Promise<{
-  data: MessageType[];
-}> => {
+// Message handling
+export const sendMessage = async (
+  message: string,
+  sessionId: string
+): Promise<ChatResponse> => {
   try {
-    const response = await apiClient.get(`/messages/session/${sessionId}`);
-    return response.data;
+    const payload: AIMessageDTO = {
+      message,
+      sessionId
+    };
+
+    console.log('Sending message:', payload);
+    
+    const response = await apiClient.post<string>('/api/chat/call', payload);
+    console.log('Message sent successfully:', response.data);
+    
+    return { content: response.data };
   } catch (error) {
-    console.error('Error fetching chat history:', error);
+    console.error('Error sending message:', error);
     throw error;
   }
 };
 
-export const signIn = async (username: string, password: string) => {
-  const response = await apiClient.post('/api/auth/login', { username, password });
-  return response.data;
+// Streaming message handling
+export const sendStreamMessage = async (
+  message: string,
+  sessionId: string
+): Promise<ReadableStream<string>> => {
+  try {
+    const payload: AIMessageDTO = {
+      message,
+      sessionId
+    };
+
+    const response = await apiClient.post('/api/chat/stream', payload, {
+      responseType: 'stream'
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Error sending stream message:', error);
+    throw error;
+  }
 };
 
-export const signUp = async (username: string, email: string, password: string) => {
-  return await apiClient.post('/api/auth/signup', { username, email, password });
+// Initialize guest user
+export const initializeGuestUser = async (): Promise<void> => {
+  if (!getToken()) {
+    await createGuestToken();
+  }
 };
-
-export default apiClient;
