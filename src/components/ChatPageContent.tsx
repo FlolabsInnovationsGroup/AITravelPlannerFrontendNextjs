@@ -24,9 +24,10 @@ export default function ChatPageContent() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentSession, setCurrentSession] = useState<{ sessionId: string, title: string } | null>(null);
-  const [showChatHistory, setShowChatHistory] = useState(true);
+  const [showChatHistory, setShowChatHistory] = useState(false); // Changed to false by default
   const [searchQuery, setSearchQuery] = useState('');
-  const [showPrompts] = useState(true);
+  const [displayPrompts, setDisplayPrompts] = useState(true); // Renamed from showPrompts
+  const [activeSidebarSection, setActiveSidebarSection] = useState<'chats' | 'likes' | 'notifications' | 'explore' | null>(null);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -48,6 +49,7 @@ export default function ChatPageContent() {
 
       if (sessionId) {
         setCurrentSession({ sessionId, title: 'New Chat' });
+        setDisplayPrompts(false);
         if (initialMessage) {
           await handleSendMessage(decodeURIComponent(initialMessage));
         }
@@ -63,10 +65,22 @@ export default function ChatPageContent() {
     }
   }, [messages]);
 
-  // const handlePromptClick = async (prompt: string) => {
-  //   setShowPrompts(false);
-  //   await handleSendMessage(prompt);
-  // };
+  const handlePromptClick = async (prompt: string) => {
+    setDisplayPrompts(false);
+    await handleSendMessage(prompt);
+  };
+  const toggleChatHistory = () => {
+    setShowChatHistory(!showChatHistory);
+  };
+
+   // Handle sidebar button clicks
+   const handleSidebarButtonClick = (section: 'chats' | 'likes' | 'notifications' | 'explore') => {
+    if (activeSidebarSection === section) {
+      setActiveSidebarSection(null); // Collapse if clicking the same section
+    } else {
+      setActiveSidebarSection(section); // Expand new section
+    }
+  };
 
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
@@ -99,13 +113,13 @@ export default function ChatPageContent() {
         content: response.content
       };
       setMessages(prev => [...prev, botMessage]);
+      setDisplayPrompts(false);
 
     } catch (error) {
       console.error('Error sending message:', error);
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 403) {
-          toast.error('Message limit reached. Please sign up for full access.');
-          router.push('/signup');
+          toast.error('Message limit reached.');
         } else {
           toast.error('Failed to send message');
         }
@@ -116,61 +130,112 @@ export default function ChatPageContent() {
     }
   };
 
-  const toggleChatHistory = () => {
-    setShowChatHistory(prev => !prev);
-  };
-
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
+      {/* Collapsed Sidebar */}
       <div className={`bg-white border-r transition-all duration-300 ${showChatHistory ? 'w-64' : 'w-16'} md:h-screen flex flex-col`}>
+        {/* Logo */}
         <div className="p-4 flex items-center justify-center">
-          <Link href="/"><Image src="/logo.png" alt="AiTripPlanner Logo" width={24} height={24} /></Link>
+          <Link href="/">
+            <Image src="/logo.png" alt="AiTripPlanner Logo" width={24} height={24} />
+          </Link>
         </div>
-        <nav className="flex-grow">
-          <Button
-            variant="ghost"
-            className={`flex items-center py-2 px-4 w-full ${showChatHistory ? 'bg-gray-200' : ''}`}
-            onClick={toggleChatHistory}
-          >
-            <MessageSquare className="w-6 h-6" />
-            {showChatHistory && <span className="ml-2">Chats</span>}
-          </Button>
-          <Button variant="ghost" className="flex items-center py-2 px-4 w-full">
-            <Heart className="w-6 h-6" />
-            {showChatHistory && <span className="ml-2">Likes</span>}
-          </Button>
-          <Button variant="ghost" className="flex items-center py-2 px-4 w-full">
-            <Bell className="w-6 h-6" />
-            {showChatHistory && <span className="ml-2">Notifications</span>}
-          </Button>
-          <Button variant="ghost" className="flex items-center py-2 px-4 w-full">
-            <Globe className="w-6 h-6" />
-            {showChatHistory && <span className="ml-2">Explore</span>}
-          </Button>
-        </nav>
-        <Button 
-          variant="ghost" 
-          className="flex items-center py-2 px-4 w-full mt-auto mb-4"
-          onClick={() => {
-            setCurrentSession(null);
-            setMessages([]);
-            router.push('/chat');
-          }}
-        >
-          <PlusCircle className="w-6 h-6" />
-          {showChatHistory && <span className="ml-2">New Chat</span>}
-        </Button>
+
+        {!showChatHistory ? (
+          // Collapsed view - show all buttons
+          <nav className="flex-grow flex flex-col">
+            <Button
+              variant="ghost"
+              className="flex items-center py-2 px-4 w-full"
+              onClick={toggleChatHistory}
+            >
+              <MessageSquare className="w-6 h-6" />
+            </Button>
+            <Button variant="ghost" className="flex items-center py-2 px-4 w-full">
+              <Heart className="w-6 h-6" />
+            </Button>
+            <Button variant="ghost" className="flex items-center py-2 px-4 w-full">
+              <Bell className="w-6 h-6" />
+            </Button>
+            <Button variant="ghost" className="flex items-center py-2 px-4 w-full">
+              <Globe className="w-6 h-6" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="flex items-center py-2 px-4 w-full mt-auto mb-4"
+              onClick={() => {
+                setCurrentSession(null);
+                setMessages([]);
+                setDisplayPrompts(true);
+                router.push('/chat');
+              }}
+            >
+              <PlusCircle className="w-6 h-6" />
+            </Button>
+          </nav>
+        ) : (
+          // Expanded view - show only chat history
+          <div className="flex-1 flex flex-col">
+            <div className="flex items-center p-4 border-b">
+              <Button
+                variant="ghost"
+                className="mr-2"
+                onClick={toggleChatHistory}
+              >
+                <MessageSquare className="w-6 h-6" />
+              </Button>
+              <span className="font-semibold">Chat History</span>
+            </div>
+            
+            {/* Chat History Content */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-4">
+                <div className="flex items-center bg-gray-100 rounded-md mb-4">
+                  <Search className="w-5 h-5 ml-3 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search chat titles..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="border-none bg-transparent focus:ring-0"
+                  />
+                </div>
+                <ul>
+                  {currentSession && (
+                    <li className="py-2 px-4 cursor-pointer hover:bg-gray-100 bg-gray-200 rounded-md">
+                      <span className="truncate">{currentSession.title}</span>
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </div>
+
+            {/* New Chat Button in expanded view */}
+            <Button 
+              variant="ghost" 
+              className="flex items-center justify-center p-4 w-full border-t"
+              onClick={() => {
+                setCurrentSession(null);
+                setMessages([]);
+                setDisplayPrompts(true);
+                router.push('/chat');
+              }}
+            >
+              <PlusCircle className="w-6 h-6 mr-2" />
+              <span>New Chat</span>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col">
-        {showPrompts ? (
+        {displayPrompts ? (
           <div className="flex-1 p-6 flex flex-col items-center justify-center">
             <div className="flex justify-center mb-6">
               <Image src="/logo.png" alt="AiTripPlanner Logo" width={128} height={128} />
             </div>
-            {/* <div className="grid grid-cols-2 gap-6 max-w-2xl">
+            <div className="grid grid-cols-2 gap-6 max-w-2xl">
               {prompts.map((prompt, index) => (
                 <div 
                   key={index} 
@@ -180,7 +245,7 @@ export default function ChatPageContent() {
                   <h3 className="text-lg font-semibold">{prompt}</h3>
                 </div>
               ))}
-            </div> */}
+            </div>
           </div>
         ) : (
           <>
@@ -224,68 +289,28 @@ export default function ChatPageContent() {
               disabled={isLoading}
             />
             <Button
-               onClick={() => handleSendMessage(inputMessage)}
-               disabled={isLoading || !inputMessage.trim()}
-               className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-r-md"
-             >
-               {isLoading ? (
-                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-               ) : (
-                 <Send className="h-6 w-6" />
-               )}
-             </Button>
-           </div>
-         </div>
-       </div>
- 
-       {/* Chat History Area - Shown when showChatHistory is true */}
-       {showChatHistory && (
-         <div className="w-64 bg-white border-r overflow-y-auto">
-           <div className="p-4">
-             <h2 className="text-xl font-bold mb-4">Chats</h2>
-             <div className="flex items-center bg-gray-100 rounded-md mb-4">
-               <Search className="w-5 h-5 ml-3 text-gray-400" />
-               <Input
-                 type="text"
-                 placeholder="Search chat titles..."
-                 value={searchQuery}
-                 onChange={(e) => setSearchQuery(e.target.value)}
-                 className="border-none bg-transparent focus:ring-0"
-               />
-             </div>
-             <div className="flex mb-4">
-               <Button variant="ghost" className="mr-2">All</Button>
-               <Button variant="ghost">Trips</Button>
-             </div>
-             <ul>
-               {currentSession && (
-                 <li
-                   className="py-2 px-4 cursor-pointer hover:bg-gray-100 bg-gray-200"
-                 >
-                   <span className="truncate">{currentSession.title}</span>
-                 </li>
-               )}
-             </ul>
-           </div>
-         </div>
-       )}
- 
-       {/* Right section for details */}
-       <div className="w-1/4 bg-white border-l p-4 overflow-y-auto">
-         <h2 className="text-xl font-bold mb-4">Details</h2>
-         {messages.length > 0 ? (
-           <div className="prose max-w-none">
-             <ReactMarkdown>
-               {messages[messages.length - 1].content}
-             </ReactMarkdown>
-           </div>
-         ) : (
-           <div className="flex flex-col items-center justify-center h-full">
-             <Image src="/image/no-gradient.png" alt="Placeholder" width={200} height={200} />
-             <p className="mt-4 text-center">No additional information available.</p>
-           </div>
-         )}
-       </div>
-     </div>
-   );
- }
+              onClick={() => handleSendMessage(inputMessage)}
+              disabled={isLoading || !inputMessage.trim()}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-r-md"
+            >
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+              ) : (
+                <Send className="h-6 w-6" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Right section for details */}
+      <div className="w-1/4 bg-white border-l p-4 overflow-y-auto">
+        <h2 className="text-xl font-bold mb-4">Details</h2>
+        <div className="flex flex-col items-center justify-center h-full">
+          <Image src="/image/no-gradient.png" alt="Placeholder" width={200} height={200} />
+          <p className="mt-4 text-center">Additional information will appear here.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
