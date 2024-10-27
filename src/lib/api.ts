@@ -131,6 +131,16 @@ export const sendMessage = async (
   }
 };
 
+export const signIn = async (username: string, password: string) => {
+  const response = await apiClient.post('/api/auth/signin', { username, password });
+  return response.data;
+};
+
+export const signUp = async (username: string, email: string, password: string) => {
+  return await apiClient.post('/api/auth/signup', { username, email, password });
+};
+
+
 // Streaming message handling
 export const sendStreamMessage = async (
   message: string,
