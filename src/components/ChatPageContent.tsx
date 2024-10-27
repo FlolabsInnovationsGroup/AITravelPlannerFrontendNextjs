@@ -8,13 +8,12 @@ import ReactMarkdown from 'react-markdown';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { sendMessage, createSession } from '@/lib/api';
-import { Send, MessageSquare, Heart, Globe, Bell, PlusCircle, Search } from 'lucide-react';
+import { Send, MessageSquare, Heart, Globe, Bell, PlusCircle, Search, Menu, X, LogOut } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/contexts/AuthContext';
-import axios from 'axios';
-import { ClassAttributes, HTMLAttributes } from 'react';
 import { Components } from 'react-markdown';
-interface CodeProps extends HTMLAttributes<HTMLElement> {
+
+interface CodeProps extends React.HTMLAttributes<HTMLElement> {
   inline?: boolean;
 }
 
@@ -33,12 +32,11 @@ export default function ChatPageContent() {
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  
 
   const prompts = [
     "What are the best places to visit in Paris?",
@@ -49,9 +47,14 @@ export default function ChatPageContent() {
     "I have 2000 dollars how much in moroccan currency?",
   ];
 
+  const signOut = () => {
+    // Add your sign-out logic here
+    console.log('Signing out...');
+  };
+
   useEffect(() => {
     const initializeChat = async () => {
-      if (isInitialized) return; // Prevent multiple initializations
+      if (isInitialized) return;
 
       const sessionId = searchParams.get('sessionId');
       const initialMessage = searchParams.get('initialMessage');
@@ -62,7 +65,6 @@ export default function ChatPageContent() {
         setDisplayPrompts(false);
         
         if (initialMessage && !messages.length) {
-          // Create temporary user message
           const userMessage: Message = {
             id: Date.now(),
             messageType: 'USER',
@@ -72,10 +74,8 @@ export default function ChatPageContent() {
           setMessages([userMessage]);
           
           try {
-            // Send message using existing sessionId
             const response = await sendMessage(decodeURIComponent(initialMessage), sessionId);
             
-            // Add bot response
             const botMessage: Message = {
               id: Date.now() + 1,
               messageType: 'ASSISTANT',
@@ -94,7 +94,7 @@ export default function ChatPageContent() {
     };
 
     initializeChat();
-  }, [searchParams, isInitialized]);
+  }, [searchParams, isInitialized, messages.length]);
 
   useEffect(() => {
     if (bottomRef.current) {
@@ -103,10 +103,10 @@ export default function ChatPageContent() {
   }, [messages]);
 
   const markdownComponents: Components = {
-    p: ({node, ...props}) => <p className="mb-4 last:mb-0" {...props} />,
-    ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-4" {...props} />,
-    ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-4" {...props} />,
-    li: ({node, ...props}) => <li className="mb-2" {...props} />,
+    p: ({...props}) => <p className="mb-4 last:mb-0" {...props} />,
+    ul: ({...props}) => <ul className="list-disc ml-4 mb-4" {...props} />,
+    ol: ({...props}) => <ol className="list-decimal ml-4 mb-4" {...props} />,
+    li: ({...props}) => <li className="mb-2" {...props} />,
     h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-4" {...props} />,
     h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-3" {...props} />,
     h3: ({node, ...props}) => <h3 className="text-md font-bold mb-2" {...props} />,
@@ -122,8 +122,10 @@ export default function ChatPageContent() {
     setDisplayPrompts(false);
     await handleSendMessage(prompt);
   };
+
   const toggleChatHistory = () => {
     setShowChatHistory(!showChatHistory);
+    setIsMobileMenuOpen(false);
   };
 
   const handleSendMessage = async (message: string) => {
@@ -143,7 +145,6 @@ export default function ChatPageContent() {
 
       console.log('Sending message with sessionId:', sessionId);
 
-      // Add user message immediately
       const userMessage: Message = {
         id: Date.now(),
         messageType: 'USER',
@@ -151,11 +152,9 @@ export default function ChatPageContent() {
       };
       setMessages(prev => [...prev, userMessage]);
 
-      // Send message to backend
       const response = await sendMessage(message, sessionId);
       console.log('Received response:', response);
 
-      // Add bot response
       const botMessage: Message = {
         id: Date.now() + 1,
         messageType: 'ASSISTANT',
@@ -167,26 +166,40 @@ export default function ChatPageContent() {
 
     } catch (error) {
       console.error('Error sending message:', error);
-      toast.error('Failed to send message');
+      toast.error('Failed to send message. Please try again.');
+      setMessages(prev => prev.filter(msg => msg.messageType !== 'USER' || msg.content !== message));
     } finally {
       setIsLoading(false);
       setInputMessage('');
     }
   };
 
-  // Create new chat handler
   const handleNewChat = () => {
     setCurrentSession(null);
     setMessages([]);
     setDisplayPrompts(true);
     router.push('/chat');
+    setIsMobileMenuOpen(false);
+  };
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Collapsed Sidebar */}
-      <div className={`bg-white border-r transition-all duration-300 ${showChatHistory ? 'w-64' : 'w-16'} md:h-screen flex flex-col`}>
-        {/* Logo */}
+    <div className="flex flex-col md:flex-row h-screen bg-gray-100">
+      {/* Mobile Header */}
+      <div className="md:hidden bg-white p-4 flex justify-between items-center border-b">
+        <Link href="/">
+          <Image src="/logo.png" alt="AiTripPlanner Logo" width={24} height={24} />
+        </Link>
+        <Button variant="ghost" onClick={toggleMobileMenu} aria-label="Toggle menu">
+          {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </Button>
+      </div>
+
+      {/* Sidebar */}
+      <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} md:block bg-white border-r transition-all duration-300 ${showChatHistory ? 'w-full md:w-64' : 'w-16'} md:h-screen flex flex-col`}>
         <div className="p-4 flex items-center justify-center">
           <Link href="/">
             <Image src="/logo.png" alt="AiTripPlanner Logo" width={24} height={24} />
@@ -194,52 +207,56 @@ export default function ChatPageContent() {
         </div>
 
         {!showChatHistory ? (
-          // Collapsed view - show all buttons
           <nav className="flex-grow flex flex-col">
             <Button
               variant="ghost"
               className="flex items-center py-2 px-4 w-full"
               onClick={toggleChatHistory}
+              aria-label="Toggle chat history"
             >
               <MessageSquare className="w-6 h-6" />
             </Button>
-            <Button variant="ghost" className="flex items-center py-2 px-4 w-full">
+            <Button variant="ghost" className="flex items-center py-2 px-4 w-full" aria-label="Favorites">
               <Heart className="w-6 h-6" />
             </Button>
-            <Button variant="ghost" className="flex items-center py-2 px-4 w-full">
+            <Button variant="ghost" className="flex items-center py-2 px-4 w-full" aria-label="Notifications">
               <Bell className="w-6 h-6" />
             </Button>
-            <Button variant="ghost" className="flex items-center py-2 px-4 w-full">
+            <Button variant="ghost" className="flex items-center py-2 px-4 w-full" aria-label="Global">
               <Globe className="w-6 h-6" />
+            </Button>
+            <div className="mt-auto mb-2 border-t border-gray-200 w-full"></div>
+            <Button 
+              variant="ghost" 
+              className="flex items-center py-2 px-4 w-full mt-auto"
+              onClick={signOut}
+              aria-label="Logout"
+            >
+              <LogOut className="w-6 h-6" />
             </Button>
             <Button 
               variant="ghost" 
-              className="flex items-center py-2 px-4 w-full mt-auto mb-4"
-              onClick={() => {
-                setCurrentSession(null);
-                setMessages([]);
-                setDisplayPrompts(true);
-                router.push('/chat');
-              }}
+              className="flex items-center py-2 px-4 w-full mb-4"
+              onClick={handleNewChat}
+              aria-label="New chat"
             >
               <PlusCircle className="w-6 h-6" />
             </Button>
           </nav>
         ) : (
-          // Expanded view - show only chat history
           <div className="flex-1 flex flex-col">
             <div className="flex items-center p-4 border-b">
               <Button
                 variant="ghost"
                 className="mr-2"
                 onClick={toggleChatHistory}
+                aria-label="Close chat history"
               >
                 <MessageSquare className="w-6 h-6" />
               </Button>
               <span className="font-semibold">Chat History</span>
             </div>
             
-            {/* Chat History Content */}
             <div className="flex-1 overflow-y-auto">
               <div className="p-4">
                 <div className="flex items-center bg-gray-100 rounded-md mb-4">
@@ -262,28 +279,32 @@ export default function ChatPageContent() {
               </div>
             </div>
 
-            {/* New Chat Button in expanded view */}
             <Button 
               variant="ghost" 
               className="flex items-center justify-center p-4 w-full border-t"
-              onClick={() => {
-                setCurrentSession(null);
-                setMessages([]);
-                setDisplayPrompts(true);
-                router.push('/chat');
-              }}
+              onClick={handleNewChat}
+              aria-label="New chat"
             >
               <PlusCircle className="w-6 h-6 mr-2" />
               <span>New Chat</span>
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="flex items-center justify-center p-4 w-full border-t"
+              onClick={signOut}
+              aria-label="Logout"
+            >
+              <LogOut className="w-6 h-6 mr-2" />
+              <span>Logout</span>
             </Button>
           </div>
         )}
       </div>
 
-      {/* Main chat area */}
-      <div className="flex-1 flex flex-col">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         {displayPrompts ? (
-          <div className="flex-1 p-6 flex flex-col items-center justify-center bg-gray-50">
+          <div className="flex-1 p-6 flex flex-col items-center justify-center bg-gray-50 overflow-y-auto">
             <div className="flex justify-center mb-8">
               <Image src="/logo.png" alt="AiTripPlanner Logo" width={128} height={128} />
             </div>
@@ -307,50 +328,46 @@ export default function ChatPageContent() {
             </div>
           </div>
         ) : (
-          <>
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="max-w-3xl mx-auto">
-                {messages.map((message, index) => (
-                  <div 
-                    key={index} 
-                    className={`mb-8 ${message.messageType === 'USER' ? 'ml-auto' : 'mr-auto'}`}
-                  >
-                    <div className="flex items-start gap-4">
-                      {message.messageType === 'ASSISTANT' && (
-                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                          AI
-                        </div>
-                      )}
-                      <div 
-                        className={`max-w-[80%] p-4 rounded-lg ${
-                          message.messageType === 'USER' 
-                            ? 'bg-blue-500 text-white ml-auto' 
-                            : 'bg-white border border-gray-200'
-                        }`}
-                      >
-                        <div className="prose max-w-none">
-                        <ReactMarkdown
-      components={markdownComponents}
-    >
-      {message.content}
-    </ReactMarkdown>
-                        </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="max-w-3xl mx-auto">
+              {messages.map((message) => (
+                <div 
+                  key={message.id} 
+                  className={`mb-8 ${message.messageType === 'USER' ? 'ml-auto' : 'mr-auto'}`}
+                >
+                  <div className="flex items-start gap-4">
+                    {message.messageType === 'ASSISTANT' && (
+                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                        AI
                       </div>
-                      {message.messageType === 'USER' && (
-                        <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
-                          You
-                        </div>
-                      )}
+                    )}
+                    <div 
+                      className={`max-w-[80%] p-4 rounded-lg ${
+                        message.messageType === 'USER' 
+                          ? 'bg-blue-500 text-white ml-auto' 
+                          : 'bg-white border border-gray-200'
+                      }`}
+                    >
+                      <div className="prose max-w-none">
+                        <ReactMarkdown components={markdownComponents}>
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
                     </div>
+                    {message.messageType === 'USER' && (
+                      <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
+                        You
+                      </div>
+                    )}
                   </div>
-                ))}
-                <div ref={bottomRef} />
-              </div>
+                </div>
+              ))}
+              <div ref={bottomRef} />
             </div>
-          </>
+          </div>
         )}
 
-        {/* Chat input with improved UI */}
+        {/* Chat Input */}
         <div className="border-t bg-white p-4">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-center gap-4 bg-white rounded-lg border shadow-sm">
@@ -367,14 +384,17 @@ export default function ChatPageContent() {
                 }}
                 className="flex-1 border-none shadow-none focus:ring-0 py-6 px-4"
                 disabled={isLoading}
+                aria-label="Chat input"
+              
               />
               <Button
                 onClick={() => handleSendMessage(inputMessage)}
                 disabled={isLoading || !inputMessage.trim()}
                 className="m-2 px-6"
+                aria-label="Send message"
               >
                 {isLoading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" aria-hidden="true" />
                 ) : (
                   <Send className="h-5 w-5" />
                 )}
@@ -384,8 +404,8 @@ export default function ChatPageContent() {
         </div>
       </div>
 
-      {/* Right section for details */}
-      <div className="w-1/4 bg-white border-l p-4 overflow-y-auto">
+      {/* Details Panel (hidden on mobile) */}
+      <div className="hidden md:block w-1/4 bg-white border-l p-4 overflow-y-auto">
         <h2 className="text-xl font-bold mb-4">Details</h2>
         <div className="flex flex-col items-center justify-center h-full">
           <Image src="/image/no-gradient.png" alt="Placeholder" width={200} height={200} />
@@ -395,3 +415,4 @@ export default function ChatPageContent() {
     </div>
   );
 }
+

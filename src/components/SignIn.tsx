@@ -8,8 +8,9 @@ import { signIn } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/components/contexts/AuthContext'
 import { toast } from 'react-hot-toast'
+import { Suspense } from 'react'
 
-export function SignIn() {
+function SignInContent() {
   const router = useRouter()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -121,5 +122,13 @@ export function SignIn() {
         </Button>
       </div>
     </div>
+  )
+}
+
+export function SignIn() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignInContent />
+    </Suspense>
   )
 }
