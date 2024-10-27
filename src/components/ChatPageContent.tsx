@@ -12,6 +12,11 @@ import { Send, MessageSquare, Heart, Globe, Bell, PlusCircle, Search } from 'luc
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/contexts/AuthContext';
 import axios from 'axios';
+import { ClassAttributes, HTMLAttributes } from 'react';
+import { Components } from 'react-markdown';
+interface CodeProps extends HTMLAttributes<HTMLElement> {
+  inline?: boolean;
+}
 
 interface Message {
   id: number;
@@ -33,6 +38,8 @@ export default function ChatPageContent() {
   const searchParams = useSearchParams();
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  
+
   const prompts = [
     "What are the best places to visit in Paris?",
     "Can you suggest a 5-day itinerary for Tokyo?",
@@ -50,7 +57,9 @@ export default function ChatPageContent() {
       if (sessionId) {
         setCurrentSession({ sessionId, title: 'New Chat' });
         setDisplayPrompts(false);
-        if (initialMessage) {
+        
+        // Only process initial message if there are no messages yet
+        if (initialMessage && messages.length === 0) {
           await handleSendMessage(decodeURIComponent(initialMessage));
         }
       }
@@ -64,6 +73,22 @@ export default function ChatPageContent() {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  const markdownComponents: Components = {
+    p: ({node, ...props}) => <p className="mb-4 last:mb-0" {...props} />,
+    ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-4" {...props} />,
+    ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-4" {...props} />,
+    li: ({node, ...props}) => <li className="mb-2" {...props} />,
+    h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-4" {...props} />,
+    h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-3" {...props} />,
+    h3: ({node, ...props}) => <h3 className="text-md font-bold mb-2" {...props} />,
+    code: ({inline, ...props}: CodeProps) => 
+      inline ? (
+        <code className="bg-gray-100 px-1 py-0.5 rounded" {...props} />
+      ) : (
+        <code className="block bg-gray-100 p-4 rounded mb-4" {...props} />
+      ),
+  };
 
   const handlePromptClick = async (prompt: string) => {
     setDisplayPrompts(false);
@@ -231,74 +256,103 @@ export default function ChatPageContent() {
       {/* Main chat area */}
       <div className="flex-1 flex flex-col">
         {displayPrompts ? (
-          <div className="flex-1 p-6 flex flex-col items-center justify-center">
-            <div className="flex justify-center mb-6">
+          <div className="flex-1 p-6 flex flex-col items-center justify-center bg-gray-50">
+            <div className="flex justify-center mb-8">
               <Image src="/logo.png" alt="AiTripPlanner Logo" width={128} height={128} />
             </div>
-            <div className="grid grid-cols-2 gap-6 max-w-2xl">
-              {prompts.map((prompt, index) => (
-                <div 
-                  key={index} 
-                  className="p-6 rounded-lg cursor-pointer bg-white hover:bg-gray-100"
-                  onClick={() => handlePromptClick(prompt)}
-                >
-                  <h3 className="text-lg font-semibold">{prompt}</h3>
-                </div>
-              ))}
+            <div className="max-w-3xl w-full space-y-4">
+              <h2 className="text-2xl font-semibold text-center mb-6">
+                How can I help you plan your trip today?
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {prompts.map((prompt, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handlePromptClick(prompt)}
+                    className="text-left p-6 rounded-lg bg-white hover:bg-gray-100 
+                             transition-all duration-200 shadow-sm hover:shadow
+                             border border-gray-200 hover:border-gray-300"
+                  >
+                    <p className="text-lg text-gray-800">{prompt}</p>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
           <>
             <div className="flex-1 overflow-y-auto p-4">
-              {messages.map((message, index) => (
-                <div 
-                  key={index} 
-                  className={`mb-4 ${message.messageType === 'USER' ? 'text-right' : 'text-left'}`}
-                >
+              <div className="max-w-3xl mx-auto">
+                {messages.map((message, index) => (
                   <div 
-                    className={`inline-block p-2 rounded-lg ${
-                      message.messageType === 'USER' 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-secondary text-secondary-foreground'
-                    }`}
+                    key={index} 
+                    className={`mb-8 ${message.messageType === 'USER' ? 'ml-auto' : 'mr-auto'}`}
                   >
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                    <div className="flex items-start gap-4">
+                      {message.messageType === 'ASSISTANT' && (
+                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                          AI
+                        </div>
+                      )}
+                      <div 
+                        className={`max-w-[80%] p-4 rounded-lg ${
+                          message.messageType === 'USER' 
+                            ? 'bg-blue-500 text-white ml-auto' 
+                            : 'bg-white border border-gray-200'
+                        }`}
+                      >
+                        <div className="prose max-w-none">
+                        <ReactMarkdown
+      components={markdownComponents}
+    >
+      {message.content}
+    </ReactMarkdown>
+                        </div>
+                      </div>
+                      {message.messageType === 'USER' && (
+                        <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
+                          You
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-              <div ref={bottomRef} />
+                ))}
+                <div ref={bottomRef} />
+              </div>
             </div>
           </>
         )}
 
-        {/* Chat input */}
-        <div className="p-4 border-t">
-          <div className="flex items-center bg-white rounded-md border">
-            <Input
-              type="text"
-              placeholder="Type a message..."
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage(inputMessage);
-                }
-              }}
-              className="flex-1 border-none focus:ring-0"
-              disabled={isLoading}
-            />
-            <Button
-              onClick={() => handleSendMessage(inputMessage)}
-              disabled={isLoading || !inputMessage.trim()}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-r-md"
-            >
-              {isLoading ? (
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-              ) : (
-                <Send className="h-6 w-6" />
-              )}
-            </Button>
+        {/* Chat input with improved UI */}
+        <div className="border-t bg-white p-4">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-center gap-4 bg-white rounded-lg border shadow-sm">
+              <Input
+                type="text"
+                placeholder="Type your message..."
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(inputMessage);
+                  }
+                }}
+                className="flex-1 border-none shadow-none focus:ring-0 py-6 px-4"
+                disabled={isLoading}
+              />
+              <Button
+                onClick={() => handleSendMessage(inputMessage)}
+                disabled={isLoading || !inputMessage.trim()}
+                className="m-2 px-6"
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
