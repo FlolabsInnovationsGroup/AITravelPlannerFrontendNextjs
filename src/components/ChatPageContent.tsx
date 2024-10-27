@@ -28,11 +28,11 @@ export default function ChatPageContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentSession, setCurrentSession] = useState<{ sessionId: string, title: string } | null>(null);
-  const [showChatHistory, setShowChatHistory] = useState(false); // Changed to false by default
+  const [currentSession, setCurrentSession] = useState<{ sessionId: string; title: string } | null>(null);
+  const [displayPrompts, setDisplayPrompts] = useState(true);
+  const [showChatHistory, setShowChatHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [displayPrompts, setDisplayPrompts] = useState(true); // Renamed from showPrompts
-  const [activeSidebarSection, setActiveSidebarSection] = useState<'chats' | 'likes' | 'notifications' | 'explore' | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -51,22 +51,50 @@ export default function ChatPageContent() {
 
   useEffect(() => {
     const initializeChat = async () => {
+      if (isInitialized) return; // Prevent multiple initializations
+
       const sessionId = searchParams.get('sessionId');
       const initialMessage = searchParams.get('initialMessage');
 
       if (sessionId) {
+        console.log('Initializing with sessionId:', sessionId);
         setCurrentSession({ sessionId, title: 'New Chat' });
         setDisplayPrompts(false);
         
-        // Only process initial message if there are no messages yet
-        if (initialMessage && messages.length === 0) {
-          await handleSendMessage(decodeURIComponent(initialMessage));
+        if (initialMessage && !messages.length) {
+          // Create temporary user message
+          const userMessage: Message = {
+            id: Date.now(),
+            messageType: 'USER',
+            content: decodeURIComponent(initialMessage)
+          };
+          
+          setMessages([userMessage]);
+          
+          try {
+            // Send message using existing sessionId
+            const response = await sendMessage(decodeURIComponent(initialMessage), sessionId);
+            
+            // Add bot response
+            const botMessage: Message = {
+              id: Date.now() + 1,
+              messageType: 'ASSISTANT',
+              content: response.content
+            };
+            
+            setMessages([userMessage, botMessage]);
+          } catch (error) {
+            console.error('Error processing initial message:', error);
+            toast.error('Failed to process initial message');
+          }
         }
       }
+
+      setIsInitialized(true);
     };
 
     initializeChat();
-  }, [searchParams]);
+  }, [searchParams, isInitialized]);
 
   useEffect(() => {
     if (bottomRef.current) {
@@ -98,15 +126,6 @@ export default function ChatPageContent() {
     setShowChatHistory(!showChatHistory);
   };
 
-   // Handle sidebar button clicks
-   const handleSidebarButtonClick = (section: 'chats' | 'likes' | 'notifications' | 'explore') => {
-    if (activeSidebarSection === section) {
-      setActiveSidebarSection(null); // Collapse if clicking the same section
-    } else {
-      setActiveSidebarSection(section); // Expand new section
-    }
-  };
-
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
 
@@ -115,12 +134,16 @@ export default function ChatPageContent() {
       let sessionId = currentSession?.sessionId;
       
       if (!sessionId) {
+        console.log('Creating new session');
         const newSession = await createSession('New Chat');
         sessionId = newSession.sessionId;
         setCurrentSession(newSession);
+        console.log('New session created:', newSession);
       }
 
-      // Add user message
+      console.log('Sending message with sessionId:', sessionId);
+
+      // Add user message immediately
       const userMessage: Message = {
         id: Date.now(),
         messageType: 'USER',
@@ -128,31 +151,35 @@ export default function ChatPageContent() {
       };
       setMessages(prev => [...prev, userMessage]);
 
-      // Send message and get response
+      // Send message to backend
       const response = await sendMessage(message, sessionId);
+      console.log('Received response:', response);
 
-      // Add assistant message
+      // Add bot response
       const botMessage: Message = {
         id: Date.now() + 1,
         messageType: 'ASSISTANT',
         content: response.content
       };
+      
       setMessages(prev => [...prev, botMessage]);
       setDisplayPrompts(false);
 
     } catch (error) {
       console.error('Error sending message:', error);
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 403) {
-          toast.error('Message limit reached.');
-        } else {
-          toast.error('Failed to send message');
-        }
-      }
+      toast.error('Failed to send message');
     } finally {
       setIsLoading(false);
       setInputMessage('');
     }
+  };
+
+  // Create new chat handler
+  const handleNewChat = () => {
+    setCurrentSession(null);
+    setMessages([]);
+    setDisplayPrompts(true);
+    router.push('/chat');
   };
 
   return (

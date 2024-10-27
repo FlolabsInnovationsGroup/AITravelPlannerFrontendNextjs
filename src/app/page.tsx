@@ -48,16 +48,15 @@ export default function LandingPage() {
 
     setIsLoading(true);
     try {
-      // Create new session
+      // Create new session first
       const sessionResponse = await createSession('New Chat');
       console.log('Session created:', sessionResponse);
 
-      // Send initial message
-      const chatResponse = await sendMessage(message, sessionResponse.sessionId);
-      console.log('Initial message sent:', chatResponse);
-
-      // Navigate to chat with session and message
-      router.push(`/chat?sessionId=${sessionResponse.sessionId}&initialMessage=${encodeURIComponent(message)}`);
+      // Navigate to chat page with session info
+      // Don't send the message here - let the chat page handle it
+      router.push(
+        `/chat?sessionId=${sessionResponse.sessionId}&initialMessage=${encodeURIComponent(message)}`
+      );
     } catch (error) {
       console.error('Error starting chat:', error);
       toast.error('Failed to start chat. Please try again.');
