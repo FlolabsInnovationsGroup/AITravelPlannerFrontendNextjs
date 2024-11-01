@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 // Constants
 const API_BASE_URL = 'https://api.flomadtravel.com';
@@ -108,7 +108,17 @@ export const createSession = async (title: string): Promise<SessionDTO> => {
   }
 };
 
-// Message handling
+
+//Message Handling
+/*
+ * Updated Error Handling in `sendMessage`:
+ *
+ * - Imported `AxiosError` from Axios to enable specific handling of Axios-related errors.
+ * - Implemented type guard `axios.isAxiosError(error)` to ensure TypeScript identifies `error` as an Axios error. This allows access to `error.response?.status`.
+ * - Added conditional handling for a `403` error status in `sendMessage`:
+ *      - When the backend returns a 403 status code (indicating the guest message limit is reached), an alert notifies the user about the limit and suggests creating an account.
+ * - Re-throws the error at the end of the catch block to allow for further handling by other components if necessary.
+ */
 export const sendMessage = async (
   message: string,
   sessionId: string
@@ -126,7 +136,12 @@ export const sendMessage = async (
     
     return { content: response.data };
   } catch (error) {
-    console.error('Error sending message:', error);
+    // Check if the error response has a 403 status
+    if (axios.isAxiosError(error) && error.response?.status === 403) {
+      alert("You've reached the message limit for guest users. Please create an account to continue.")
+    } else {
+      console.error('Error sending message:', error);
+    }
     throw error;
   }
 };
