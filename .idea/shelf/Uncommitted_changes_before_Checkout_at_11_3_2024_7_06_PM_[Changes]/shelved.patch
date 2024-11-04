@@ -1,0 +1,87 @@
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"AutoImportSettings\">\r\n    <option name=\"autoReloadType\" value=\"SELECTIVE\" />\r\n  </component>\r\n  <component name=\"ChangeListManager\">\r\n    <list default=\"true\" id=\"130761b9-8400-472e-b19f-9994824ea4ae\" name=\"Changes\" comment=\"\" />\r\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\r\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\r\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\r\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\r\n  </component>\r\n  <component name=\"Git.Settings\">\r\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\r\n  </component>\r\n  <component name=\"ProjectColorInfo\">{\r\n  &quot;associatedIndex&quot;: 4\r\n}</component>\r\n  <component name=\"ProjectId\" id=\"2mtk8SsyK5mwW9dgix9dS0QZMXv\" />\r\n  <component name=\"ProjectViewState\">\r\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\r\n    <option name=\"showLibraryContents\" value=\"true\" />\r\n  </component>\r\n  <component name=\"PropertiesComponent\"><![CDATA[{\r\n  \"keyToString\": {\r\n    \"Node.js.api.ts.executor\": \"Run\",\r\n    \"RunOnceActivity.ShowReadmeOnStart\": \"true\",\r\n    \"git-widget-placeholder\": \"lizbranch-frontend\",\r\n    \"ignore.virus.scanning.warn.message\": \"true\",\r\n    \"kotlin-language-version-configured\": \"true\",\r\n    \"last_opened_file_path\": \"C:/Users/purpl/OneDrive/Desktop/FlomadLabsRD/AITravelPlannerFrontendNextjs\",\r\n    \"node.js.detected.package.eslint\": \"true\",\r\n    \"node.js.detected.package.tslint\": \"true\",\r\n    \"node.js.selected.package.eslint\": \"(autodetect)\",\r\n    \"node.js.selected.package.tslint\": \"(autodetect)\",\r\n    \"nodejs_package_manager_path\": \"pnpm\",\r\n    \"prettierjs.PrettierConfiguration.Package\": \"C:\\\\Users\\\\purpl\\\\OneDrive\\\\Desktop\\\\FlomadLabsRD\\\\AITravelPlannerFrontendNextjs\\\\node_modules\\\\prettier\",\r\n    \"ts.external.directory.path\": \"C:\\\\Program Files\\\\JetBrains\\\\IntelliJ IDEA 2024.2.3\\\\plugins\\\\javascript-plugin\\\\jsLanguageServicesImpl\\\\external\",\r\n    \"vue.rearranger.settings.migration\": \"true\"\r\n  }\r\n}]]></component>\r\n  <component name=\"SharedIndexes\">\r\n    <attachedChunks>\r\n      <set>\r\n        <option value=\"bundled-jdk-9823dce3aa75-28b599e66164-intellij.indexing.shared.core-IU-242.23339.11\" />\r\n        <option value=\"bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-IU-242.23339.11\" />\r\n      </set>\r\n    </attachedChunks>\r\n  </component>\r\n  <component name=\"SpellCheckerSettings\" RuntimeDictionaries=\"0\" Folders=\"0\" CustomDictionaries=\"0\" DefaultDictionary=\"application-level\" UseSingleDictionary=\"true\" transferred=\"true\" />\r\n  <component name=\"TaskManager\">\r\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\r\n      <changelist id=\"130761b9-8400-472e-b19f-9994824ea4ae\" name=\"Changes\" comment=\"\" />\r\n      <created>1727903100462</created>\r\n      <option name=\"number\" value=\"Default\" />\r\n      <option name=\"presentableId\" value=\"Default\" />\r\n      <updated>1727903100462</updated>\r\n      <workItem from=\"1727903101494\" duration=\"4444000\" />\r\n      <workItem from=\"1727994580757\" duration=\"410000\" />\r\n      <workItem from=\"1727995094536\" duration=\"974000\" />\r\n      <workItem from=\"1727996396630\" duration=\"304000\" />\r\n      <workItem from=\"1727996919554\" duration=\"12045000\" />\r\n      <workItem from=\"1728570039621\" duration=\"648000\" />\r\n      <workItem from=\"1730064787568\" duration=\"1239000\" />\r\n      <workItem from=\"1730409230811\" duration=\"11258000\" />\r\n    </task>\r\n    <servers />\r\n  </component>\r\n  <component name=\"TypeScriptGeneratedFilesManager\">\r\n    <option name=\"version\" value=\"3\" />\r\n  </component>\r\n  <component name=\"Vcs.Log.Tabs.Properties\">\r\n    <option name=\"TAB_STATES\">\r\n      <map>\r\n        <entry key=\"MAIN\">\r\n          <value>\r\n            <State />\r\n          </value>\r\n        </entry>\r\n      </map>\r\n    </option>\r\n  </component>\r\n  <component name=\"VcsManagerConfiguration\">\r\n    <MESSAGE value=\"local machine\" />\r\n    <option name=\"LAST_COMMIT_MESSAGE\" value=\"local machine\" />\r\n  </component>\r\n</project>
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	(revision cd24e255e54aba470b687f502bb587707b8bd2b1)
++++ b/.idea/workspace.xml	(date 1730672727744)
+@@ -4,7 +4,9 @@
+     <option name="autoReloadType" value="SELECTIVE" />
+   </component>
+   <component name="ChangeListManager">
+-    <list default="true" id="130761b9-8400-472e-b19f-9994824ea4ae" name="Changes" comment="" />
++    <list default="true" id="130761b9-8400-472e-b19f-9994824ea4ae" name="Changes" comment="">
++      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
++    </list>
+     <option name="SHOW_DIALOG" value="false" />
+     <option name="HIGHLIGHT_CONFLICTS" value="true" />
+     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+@@ -21,24 +23,39 @@
+     <option name="hideEmptyMiddlePackages" value="true" />
+     <option name="showLibraryContents" value="true" />
+   </component>
+-  <component name="PropertiesComponent"><![CDATA[{
+-  "keyToString": {
+-    "Node.js.api.ts.executor": "Run",
+-    "RunOnceActivity.ShowReadmeOnStart": "true",
+-    "git-widget-placeholder": "lizbranch-frontend",
+-    "ignore.virus.scanning.warn.message": "true",
+-    "kotlin-language-version-configured": "true",
+-    "last_opened_file_path": "C:/Users/purpl/OneDrive/Desktop/FlomadLabsRD/AITravelPlannerFrontendNextjs",
+-    "node.js.detected.package.eslint": "true",
+-    "node.js.detected.package.tslint": "true",
+-    "node.js.selected.package.eslint": "(autodetect)",
+-    "node.js.selected.package.tslint": "(autodetect)",
+-    "nodejs_package_manager_path": "pnpm",
+-    "prettierjs.PrettierConfiguration.Package": "C:\\Users\\purpl\\OneDrive\\Desktop\\FlomadLabsRD\\AITravelPlannerFrontendNextjs\\node_modules\\prettier",
+-    "ts.external.directory.path": "C:\\Program Files\\JetBrains\\IntelliJ IDEA 2024.2.3\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external",
+-    "vue.rearranger.settings.migration": "true"
+-  }
+-}]]></component>
++  <component name="PropertiesComponent">{
++  &quot;keyToString&quot;: {
++    &quot;Node.js.api.ts.executor&quot;: &quot;Run&quot;,
++    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
++    &quot;git-widget-placeholder&quot;: &quot;lizbranch-frontend&quot;,
++    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
++    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
++    &quot;last_opened_file_path&quot;: &quot;C:/Users/purpl/OneDrive/Desktop/FlomadLabsRD/AITravelPlannerFrontendNextjs&quot;,
++    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
++    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
++    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
++    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
++    &quot;nodejs_package_manager_path&quot;: &quot;pnpm&quot;,
++    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;C:\\Users\\purpl\\OneDrive\\Desktop\\FlomadLabsRD\\AITravelPlannerFrontendNextjs\\node_modules\\prettier&quot;,
++    &quot;ts.external.directory.path&quot;: &quot;C:\\Program Files\\JetBrains\\IntelliJ IDEA 2024.2.3\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external&quot;,
++    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
++  }
++}</component>
++  <component name="RunManager">
++    <configuration default="true" type="JetRunConfigurationType">
++      <module name="AITravelPlannerFrontendNextjs" />
++      <method v="2">
++        <option name="Make" enabled="true" />
++      </method>
++    </configuration>
++    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
++      <module name="AITravelPlannerFrontendNextjs" />
++      <option name="filePath" />
++      <method v="2">
++        <option name="Make" enabled="true" />
++      </method>
++    </configuration>
++  </component>
+   <component name="SharedIndexes">
+     <attachedChunks>
+       <set>
+@@ -62,7 +79,8 @@
+       <workItem from="1727996919554" duration="12045000" />
+       <workItem from="1728570039621" duration="648000" />
+       <workItem from="1730064787568" duration="1239000" />
+-      <workItem from="1730409230811" duration="11258000" />
++      <workItem from="1730409230811" duration="17703000" />
++      <workItem from="1730666637859" duration="3096000" />
+     </task>
+     <servers />
+   </component>

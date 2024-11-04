@@ -4,7 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="130761b9-8400-472e-b19f-9994824ea4ae" name="Changes" comment="" />
+    <list default="true" id="130761b9-8400-472e-b19f-9994824ea4ae" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/codeStyleConfig.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/prettier.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/components/AudioRecorder.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pnpm-lock.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/ChatPageContent.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/ChatPageContent.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib/api.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib/api.ts" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -35,10 +47,26 @@
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "pnpm",
     "prettierjs.PrettierConfiguration.Package": "C:\\Users\\purpl\\OneDrive\\Desktop\\FlomadLabsRD\\AITravelPlannerFrontendNextjs\\node_modules\\prettier",
+    "settings.editor.selected.configurable": "preferences.intentionPowerPack",
     "ts.external.directory.path": "C:\\Program Files\\JetBrains\\IntelliJ IDEA 2024.2.3\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RunManager">
+    <configuration default="true" type="JetRunConfigurationType">
+      <module name="AITravelPlannerFrontendNextjs" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
+      <module name="AITravelPlannerFrontendNextjs" />
+      <option name="filePath" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -63,6 +91,8 @@
       <workItem from="1728570039621" duration="648000" />
       <workItem from="1730064787568" duration="1239000" />
       <workItem from="1730409230811" duration="11258000" />
+      <workItem from="1730742722800" duration="545000" />
+      <workItem from="1730743835609" duration="9839000" />
     </task>
     <servers />
   </component>

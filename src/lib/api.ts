@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 // Constants
-const API_BASE_URL = 'https://api.flomadtravel.com';
+const API_BASE_URL = 'http://localhost:8081';
 const TOKEN_KEY = 'token';
 
 // Types
@@ -12,6 +12,7 @@ export interface ChatResponse {
 export interface AIMessageDTO {
   message: string;
   sessionId: string;
+  media?: string; // Optional media as a Base64-encoded string
 }
 
 export interface SessionDTO {
@@ -94,7 +95,7 @@ export const getCurrentUser = async (): Promise<{ id: string }> => {
 export const createSession = async (title: string): Promise<SessionDTO> => {
   try {
     const user = await getCurrentUser();
-    
+
     const payload = {
       title,
       userId: user.id
@@ -108,17 +109,7 @@ export const createSession = async (title: string): Promise<SessionDTO> => {
   }
 };
 
-
-//Message Handling
-/*
- * Updated Error Handling in `sendMessage`:
- *
- * - Imported `AxiosError` from Axios to enable specific handling of Axios-related errors.
- * - Implemented type guard `axios.isAxiosError(error)` to ensure TypeScript identifies `error` as an Axios error. This allows access to `error.response?.status`.
- * - Added conditional handling for a `403` error status in `sendMessage`:
- *      - When the backend returns a 403 status code (indicating the guest message limit is reached), an alert notifies the user about the limit and suggests creating an account.
- * - Re-throws the error at the end of the catch block to allow for further handling by other components if necessary.
- */
+// Message handling (JSON)
 export const sendMessage = async (
   message: string,
   sessionId: string
@@ -130,15 +121,18 @@ export const sendMessage = async (
     };
 
     console.log('Sending message:', payload);
-    
-    const response = await apiClient.post<string>('/api/chat/call', payload);
+
+    const response = await apiClient.post<string>('/api/chat/call', payload, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
     console.log('Message sent successfully:', response.data);
-    
+
     return { content: response.data };
   } catch (error) {
-    // Check if the error response has a 403 status
     if (axios.isAxiosError(error) && error.response?.status === 403) {
-      alert("You've reached the message limit for guest users. Please create an account to continue.")
+      alert("You've reached the message limit for guest users. Please create an account to continue.");
     } else {
       console.error('Error sending message:', error);
     }
@@ -146,17 +140,7 @@ export const sendMessage = async (
   }
 };
 
-export const signIn = async (username: string, password: string) => {
-  const response = await apiClient.post('/api/auth/signin', { username, password });
-  return response.data;
-};
-
-export const signUp = async (username: string, email: string, password: string) => {
-  return await apiClient.post('/api/auth/signup', { username, email, password });
-};
-
-
-// Streaming message handling
+// Streaming message handling (JSON)
 export const sendStreamMessage = async (
   message: string,
   sessionId: string
@@ -168,7 +152,10 @@ export const sendStreamMessage = async (
     };
 
     const response = await apiClient.post('/api/chat/stream', payload, {
-      responseType: 'stream'
+      responseType: 'stream',
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
 
     return response.data;
@@ -178,9 +165,54 @@ export const sendStreamMessage = async (
   }
 };
 
+// Audio upload handling (Base64)
+export const uploadAudio = async (audioFile: File, sessionId: string): Promise<ChatResponse> => {
+  try {
+    const reader = new FileReader();
+    reader.readAsDataURL(audioFile);
+
+    return new Promise((resolve, reject) => {
+      reader.onload = async () => {
+        const base64Audio = reader.result?.toString().split(',')[1]; // Remove Base64 metadata
+        const payload: AIMessageDTO = {
+          sessionId,
+          media: base64Audio,
+          message: "" // Optional or additional field if needed
+        };
+
+        try {
+          const response = await apiClient.post<ChatResponse>('/api/chat/call', payload, {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          resolve(response.data);
+        } catch (error) {
+          console.error('Error uploading audio:', error);
+          reject(error);
+        }
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  } catch (error) {
+    console.error('Error reading audio file:', error);
+    throw error;
+  }
+};
+
 // Initialize guest user
 export const initializeGuestUser = async (): Promise<void> => {
   if (!getToken()) {
     await createGuestToken();
   }
+};
+
+// Sign in and sign up handling
+export const signIn = async (username: string, password: string) => {
+  const response = await apiClient.post('/api/auth/signin', { username, password });
+  return response.data;
+};
+
+export const signUp = async (username: string, email: string, password: string) => {
+  return await apiClient.post('/api/auth/signup', { username, email, password });
 };
