@@ -120,8 +120,16 @@ export const sendMessage = async (
     };
 
     console.log('Sending message:', payload);
+
+    // Set the configuration for the axios request to handle formData
+    const config = {
+      headers: {
+        // Set content-type to multipart/form-data
+        'Content-Type': 'multipart/form-data',
+      },
+    };
     
-    const response = await apiClient.post<string>('/api/chat/call', payload);
+    const response = await apiClient.post<string>('/api/chat/call', payload, config);
     console.log('Message sent successfully:', response.data);
     
     return { content: response.data };
