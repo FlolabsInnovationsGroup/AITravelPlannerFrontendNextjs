@@ -1,4 +1,7 @@
 import React, { useState, useRef } from 'react';
+import IconButton from '@mui/material/IconButton';
+import MicIcon from '@mui/icons-material/Mic';
+import StopIcon from '@mui/icons-material/Stop';
 
 interface AudioRecorderProps {
   onAudioUpload: (audioFile: File) => Promise<void>;
@@ -28,7 +31,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioUpload }) => {
         const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
         setAudioURL(URL.createObjectURL(audioBlob));
 
-        // Call the onAudioUpload prop with the recorded audio file
         await onAudioUpload(audioFile);
       };
     } catch (error) {
@@ -42,11 +44,17 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioUpload }) => {
   };
 
   return (
-    <div>
-      <button onClick={recording ? stopRecording : startRecording}>
-        {recording ? 'Stop Recording' : 'Start Recording'}
-      </button>
-      {audioURL && <audio src={audioURL} controls />}
+    <div style={{ textAlign: 'center' }}>
+      <IconButton onClick={recording ? stopRecording : startRecording} color="primary">
+        {recording ? <StopIcon fontSize="large" /> : <MicIcon fontSize="large" />}
+      </IconButton>
+      {audioURL && (
+        <audio
+          src={audioURL}
+          controls
+          style={{ width: '100%', marginTop: '1rem', borderRadius: '5px' }}
+        />
+      )}
     </div>
   );
 };
