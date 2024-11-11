@@ -129,7 +129,7 @@ export default function ChatPageContent() {
   const signOut = () => {
     authSignOut?.();
     router.push('/login');
-    toast.success("You have been signed out.");
+    toast.success("You have been signed out."); //Show signout message
   };
 
   return (

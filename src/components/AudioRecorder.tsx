@@ -1,10 +1,8 @@
 import React, { useState, useRef } from 'react';
-import IconButton from '@mui/material/IconButton';
-import MicIcon from '@mui/icons-material/Mic';
-import StopIcon from '@mui/icons-material/Stop';
+import { MicrophoneIcon, StopIcon } from '@heroicons/react/24/outline';
 
 interface AudioRecorderProps {
-  onTranscription: (transcribedText: string) => void; // Prop to send transcribed text back
+  onTranscription: (transcribedText: string) => void;
 }
 
 const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription }) => {
@@ -30,17 +28,16 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription }) => {
         const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
 
         const formData = new FormData();
-        formData.append('audioFile', audioFile); // Ensure the key matches the DTO on the backend
+        formData.append('audioFile', audioFile);
 
-        // Send the audio file to the backend for transcription
         const response = await fetch('http://localhost:8081/api/audio/transcribe', {
           method: 'POST',
           body: formData,
         });
 
         if (response.ok) {
-          const data = await response.text(); // Expecting plain text response from the backend
-          onTranscription(data); // Call the prop function with the transcribed text
+          const data = await response.text();
+          onTranscription(data);
         } else {
           console.error('Error transcribing audio:', response.statusText);
         }
@@ -56,12 +53,22 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription }) => {
   };
 
   return (
-    <div style={{ textAlign: 'center' }}>
-      <IconButton onClick={recording ? stopRecording : startRecording} color="primary">
-        {recording ? <StopIcon fontSize="large" /> : <MicIcon fontSize="large" />}
-      </IconButton>
+    <div className="text-center">
+      <button
+        onClick={recording ? stopRecording : startRecording}
+        className={`p-3 rounded-full transition ${
+          recording ? 'bg-red-500' : 'bg-primary'
+        } hover:bg-opacity-80`}
+      >
+        {recording ? (
+          <StopIcon className="h-8 w-8 text-white" />
+        ) : (
+          <MicrophoneIcon className="h-8 w-8 text-white" />
+        )}
+      </button>
     </div>
   );
 };
 
 export default AudioRecorder;
+

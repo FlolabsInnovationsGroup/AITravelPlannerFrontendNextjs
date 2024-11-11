@@ -181,7 +181,7 @@ export const uploadAudio = async (
         'Content-Type': 'multipart/form-data', // Ensure the header is set correctly
       },
     });
-    return { content: response.data };
+    return { content: response.data.content };
   } catch (error) {
     console.error('Error uploading audio:', error);
     throw error; // Rethrow the error for handling upstream
