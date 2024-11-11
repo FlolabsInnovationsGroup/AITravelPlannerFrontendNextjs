@@ -4,12 +4,11 @@ import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
 
 interface AudioRecorderProps {
-  onAudioUpload: (audioFile: File) => Promise<void>;
+  onTranscription: (transcribedText: string) => void; // Prop to send transcribed text back
 }
 
-const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioUpload }) => {
+const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription }) => {
   const [recording, setRecording] = useState(false);
-  const [audioURL, setAudioURL] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunks: Blob[] = [];
 
@@ -29,9 +28,22 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioUpload }) => {
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
-        setAudioURL(URL.createObjectURL(audioBlob));
 
-        await onAudioUpload(audioFile);
+        const formData = new FormData();
+        formData.append('audioFile', audioFile); // Ensure the key matches the DTO on the backend
+
+        // Send the audio file to the backend for transcription
+        const response = await fetch('http://localhost:8081/api/audio/transcribe', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          const data = await response.text(); // Expecting plain text response from the backend
+          onTranscription(data); // Call the prop function with the transcribed text
+        } else {
+          console.error('Error transcribing audio:', response.statusText);
+        }
       };
     } catch (error) {
       console.error('Error starting audio recording:', error);
@@ -48,13 +60,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioUpload }) => {
       <IconButton onClick={recording ? stopRecording : startRecording} color="primary">
         {recording ? <StopIcon fontSize="large" /> : <MicIcon fontSize="large" />}
       </IconButton>
-      {audioURL && (
-        <audio
-          src={audioURL}
-          controls
-          style={{ width: '100%', marginTop: '1rem', borderRadius: '5px' }}
-        />
-      )}
     </div>
   );
 };

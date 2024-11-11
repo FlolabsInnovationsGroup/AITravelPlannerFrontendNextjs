@@ -188,60 +188,6 @@ export const uploadAudio = async (
   }
 };
 
-// export const uploadAudio = async (audioFile: File, sessionId: string): Promise<ChatResponse> => {
-//   try {
-//     const formData = new FormData(); // Use FormData to send file as multipart/form-data
-//     formData.append('media', audioFile); // Append the audio file
-//     formData.append('sessionId', sessionId); // Append the session ID as text field
-//     // formData.append('message', ""); // Optional: Append additional text field if needed
-//
-//     const response = await apiClient.post<ChatResponse>('/api/chat/call', formData, {
-//       headers: {
-//         'Content-Type': 'multipart/form-data', // Ensure the header is set correctly
-//       },
-//     });
-//     return response.data;
-//   } catch (error) {
-//     console.error('Error uploading audio:', error);
-//     throw error; // Rethrow the error for handling upstream
-//   }
-// };
-
-
-// Audio upload handling (Base64)
-// export const uploadAudio = async (audioFile: File, sessionId: string): Promise<ChatResponse> => {
-//   try {
-//     const reader = new FileReader();
-//     reader.readAsDataURL(audioFile);
-//
-//     return new Promise((resolve, reject) => {
-//       reader.onload = async () => {
-//         // const base64Audio = reader.result?.toString().split(',')[1]; // Remove Base64 metadata
-//         const payload = new FormData(); // Use FormData to send file as multipart/form-data
-//         payload.append('media', audioFile); // Append the audio file
-//         payload.append('sessionId', sessionId); // Append the session ID as text field
-//
-//
-//         try {
-//           const response = await apiClient.post<ChatResponse>('/api/chat/call', payload, {
-//             headers: {
-//               'Content-Type': 'multipart/form-data',
-//             },
-//           });
-//           resolve(response.data);
-//         } catch (error) {
-//           console.error('Error uploading audio:', error);
-//           reject(error);
-//         }
-//       };
-//       reader.onerror = (error) => reject(error);
-//     });
-//   } catch (error) {
-//     console.error('Error reading audio file:', error);
-//     throw error;
-//   }
-// };
-
 // Initialize guest user
 export const initializeGuestUser = async (): Promise<void> => {
   if (!getToken()) {
