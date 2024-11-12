@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Constants
-const API_BASE_URL = 'https://api.flomadtravel.com';
+const API_BASE_URL = 'http://localhost:8081';
 const TOKEN_KEY = 'token';
 
 // Types
@@ -109,35 +109,42 @@ export const createSession = async (title: string): Promise<SessionDTO> => {
 };
 
 // Message handling
+// Message handling
 export const sendMessage = async (
   message: string,
-  sessionId: string
+  sessionId: string,
+  audioBlob?: Blob
 ): Promise<ChatResponse> => {
   try {
-    const payload: AIMessageDTO = {
-      message,
-      sessionId
-    };
+    const formData = new FormData();
 
-    console.log('Sending message:', payload);
+    // Add sessionId and message to FormData
+    formData.append("sessionId", sessionId);
+    formData.append("message", message);
 
-    // Set the configuration for the axios request to handle formData
+    // If there’s an audio blob, add it to the form data as well
+    if (audioBlob) {
+      formData.append("file", audioBlob);
+    }
+
     const config = {
       headers: {
-        // Set content-type to multipart/form-data
         'Content-Type': 'multipart/form-data',
       },
     };
-    
-    const response = await apiClient.post<string>('/api/chat/call', payload, config);
-    console.log('Message sent successfully:', response.data);
-    
+
+    console.log("Sending message payload:", formData);
+    const response = await apiClient.post('/api/chat/call', formData, config);
     return { content: response.data };
   } catch (error) {
     console.error('Error sending message:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      console.error("Backend response error:", error.response.data);
+    }
     throw error;
   }
 };
+
 
 export const signIn = async (username: string, password: string) => {
   const response = await apiClient.post('/api/auth/signin', { username, password });
@@ -147,7 +154,6 @@ export const signIn = async (username: string, password: string) => {
 export const signUp = async (username: string, email: string, password: string) => {
   return await apiClient.post('/api/auth/signup', { username, email, password });
 };
-
 
 // Streaming message handling
 export const sendStreamMessage = async (
@@ -177,3 +183,4 @@ export const initializeGuestUser = async (): Promise<void> => {
     await createGuestToken();
   }
 };
+
