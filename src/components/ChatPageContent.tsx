@@ -11,6 +11,7 @@ import { sendMessage, createSession } from '@/lib/api';
 import { Send, MessageSquare, Heart, Globe, Bell, PlusCircle, Search, Menu, X, LogOut } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/contexts/AuthContext';
+import AudioRecorder from './AudioRecorder'; // Import the AudioRecorder component
 import { Components } from 'react-markdown';
 
 interface CodeProps extends React.HTMLAttributes<HTMLElement> {
@@ -33,10 +34,12 @@ export default function ChatPageContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [messageCount, setMessageCount] = useState(0); // For guest user message limits
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const { signOut: authSignOut } = useAuth();
 
   const prompts = [
     "What are the best places to visit in Paris?",
@@ -44,12 +47,13 @@ export default function ChatPageContent() {
     "What are some budget-friendly hotels in New York?",
     "How can I travel from Rome to Florence?",
     "What are the must-try foods in Barcelona?",
-    "I have 2000 dollars how much in moroccan currency?",
+    "I have 2000 dollars how much in Moroccan currency?",
   ];
 
   const signOut = () => {
-    // Add your sign-out logic here
-    console.log('Signing out...');
+    authSignOut?.();
+    router.push('/login');
+    toast.success("You have been signed out.");
   };
 
   useEffect(() => {
@@ -60,31 +64,27 @@ export default function ChatPageContent() {
       const initialMessage = searchParams.get('initialMessage');
 
       if (sessionId) {
-        console.log('Initializing with sessionId:', sessionId);
         setCurrentSession({ sessionId, title: 'New Chat' });
         setDisplayPrompts(false);
-        
+
         if (initialMessage && !messages.length) {
           const userMessage: Message = {
             id: Date.now(),
             messageType: 'USER',
-            content: decodeURIComponent(initialMessage)
+            content: decodeURIComponent(initialMessage),
           };
-          
+
           setMessages([userMessage]);
-          
+
           try {
             const response = await sendMessage(decodeURIComponent(initialMessage), sessionId);
-            
             const botMessage: Message = {
               id: Date.now() + 1,
               messageType: 'ASSISTANT',
-              content: response.content
+              content: response.content,
             };
-            
             setMessages([userMessage, botMessage]);
           } catch (error) {
-            console.error('Error processing initial message:', error);
             toast.error('Failed to process initial message');
           }
         }
@@ -103,14 +103,14 @@ export default function ChatPageContent() {
   }, [messages]);
 
   const markdownComponents: Components = {
-    p: ({...props}) => <p className="mb-4 last:mb-0" {...props} />,
-    ul: ({...props}) => <ul className="list-disc ml-4 mb-4" {...props} />,
-    ol: ({...props}) => <ol className="list-decimal ml-4 mb-4" {...props} />,
-    li: ({...props}) => <li className="mb-2" {...props} />,
-    h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-4" {...props} />,
-    h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-3" {...props} />,
-    h3: ({node, ...props}) => <h3 className="text-md font-bold mb-2" {...props} />,
-    code: ({inline, ...props}: CodeProps) => 
+    p: ({ ...props }) => <p className="mb-4 last:mb-0" {...props} />,
+    ul: ({ ...props }) => <ul className="list-disc ml-4 mb-4" {...props} />,
+    ol: ({ ...props }) => <ol className="list-decimal ml-4 mb-4" {...props} />,
+    li: ({ ...props }) => <li className="mb-2" {...props} />,
+    h1: ({ node, ...props }) => <h1 className="text-xl font-bold mb-4" {...props} />,
+    h2: ({ node, ...props }) => <h2 className="text-lg font-bold mb-3" {...props} />,
+    h3: ({ node, ...props }) => <h3 className="text-md font-bold mb-2" {...props} />,
+    code: ({ inline, ...props }: CodeProps) =>
       inline ? (
         <code className="bg-gray-100 px-1 py-0.5 rounded" {...props} />
       ) : (
@@ -125,66 +125,73 @@ export default function ChatPageContent() {
 
   const toggleChatHistory = () => {
     setShowChatHistory(!showChatHistory);
-    setIsMobileMenuOpen(false);
   };
 
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
 
+    if (messageCount >= 5) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          messageType: 'ASSISTANT',
+          content: "You've reached the message limit for guest users. Please sign up to continue chatting.",
+        },
+      ]);
+      return;
+    }
+
     setIsLoading(true);
     try {
       let sessionId = currentSession?.sessionId;
-      
+
       if (!sessionId) {
-        console.log('Creating new session');
         const newSession = await createSession('New Chat');
         sessionId = newSession.sessionId;
         setCurrentSession(newSession);
-        console.log('New session created:', newSession);
       }
-
-      console.log('Sending message with sessionId:', sessionId);
 
       const userMessage: Message = {
         id: Date.now(),
         messageType: 'USER',
-        content: message
+        content: message,
       };
-      setMessages(prev => [...prev, userMessage]);
+      setMessages((prev) => [...prev, userMessage]);
+      setMessageCount((prev) => prev + 1); // Increment guest message count
 
       const response = await sendMessage(message, sessionId);
-      console.log('Received response:', response);
-
       const botMessage: Message = {
         id: Date.now() + 1,
         messageType: 'ASSISTANT',
-        content: response.content
+        content: response.content,
       };
-      
-      setMessages(prev => [...prev, botMessage]);
+      setMessages((prev) => [...prev, botMessage]);
       setDisplayPrompts(false);
-
     } catch (error) {
-      console.error('Error sending message:', error);
-      toast.error('Failed to send message. Please try again.');
-      setMessages(prev => prev.filter(msg => msg.messageType !== 'USER' || msg.content !== message));
+      toast.error('Failed to send message');
     } finally {
       setIsLoading(false);
       setInputMessage('');
     }
   };
 
-  const handleNewChat = () => {
-    setCurrentSession(null);
-    setMessages([]);
-    setDisplayPrompts(true);
-    router.push('/chat');
-    setIsMobileMenuOpen(false);
+  const handleTranscription = (transcribedText: string) => {
+    setInputMessage(transcribedText);
   };
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
+
+  const handleNewChat = () => {
+    setCurrentSession(null); // Clear the current session
+    setMessages([]); // Clear the messages
+    setDisplayPrompts(true); // Display the prompts again
+    router.push('/chat'); // Redirect to the chat page
+    setIsMobileMenuOpen(false); // Close the mobile menu if open
+  };
+  
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gray-100">
@@ -331,8 +338,8 @@ export default function ChatPageContent() {
           <div className="flex-1 overflow-y-auto p-4">
             <div className="max-w-3xl mx-auto">
               {messages.map((message) => (
-                <div 
-                  key={message.id} 
+                <div
+                  key={message.id}
                   className={`mb-8 ${message.messageType === 'USER' ? 'ml-auto' : 'mr-auto'}`}
                 >
                   <div className="flex items-start gap-4">
@@ -341,10 +348,10 @@ export default function ChatPageContent() {
                         AI
                       </div>
                     )}
-                    <div 
+                    <div
                       className={`max-w-[80%] p-4 rounded-lg ${
-                        message.messageType === 'USER' 
-                          ? 'bg-blue-500 text-white ml-auto' 
+                        message.messageType === 'USER'
+                          ? 'bg-blue-500 text-white ml-auto'
                           : 'bg-white border border-gray-200'
                       }`}
                     >
@@ -385,7 +392,6 @@ export default function ChatPageContent() {
                 className="flex-1 border-none shadow-none focus:ring-0 py-6 px-4"
                 disabled={isLoading}
                 aria-label="Chat input"
-              
               />
               <Button
                 onClick={() => handleSendMessage(inputMessage)}
@@ -399,12 +405,16 @@ export default function ChatPageContent() {
                   <Send className="h-5 w-5" />
                 )}
               </Button>
+              {/* Audio Recorder */}
+              {currentSession?.sessionId && (
+                <AudioRecorder sessionId={currentSession.sessionId} onTranscription={handleTranscription} />
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Details Panel (hidden on mobile) */}
+      {/* Details Panel */}
       <div className="hidden md:block w-1/4 bg-white border-l p-4 overflow-y-auto">
         <h2 className="text-xl font-bold mb-4">Details</h2>
         <div className="flex flex-col items-center justify-center h-full">
