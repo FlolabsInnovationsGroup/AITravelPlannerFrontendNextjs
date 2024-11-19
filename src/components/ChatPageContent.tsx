@@ -35,6 +35,7 @@ export default function ChatPageContent() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [messageCount, setMessageCount] = useState(0); // For guest user message limits
+  const [hasReachedMessageLimit, setHasReachedMessageLimit] = useState(false); // For guest user message limits
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -129,38 +130,26 @@ export default function ChatPageContent() {
 
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
-
-    if (messageCount >= 5) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          messageType: 'ASSISTANT',
-          content: "You've reached the message limit for guest users. Please sign up to continue chatting.",
-        },
-      ]);
-      return;
-    }
-
+  
     setIsLoading(true);
     try {
       let sessionId = currentSession?.sessionId;
-
+  
       if (!sessionId) {
         const newSession = await createSession('New Chat');
         sessionId = newSession.sessionId;
         setCurrentSession(newSession);
       }
-
+  
       const userMessage: Message = {
         id: Date.now(),
         messageType: 'USER',
         content: message,
       };
       setMessages((prev) => [...prev, userMessage]);
-      setMessageCount((prev) => prev + 1); // Increment guest message count
-
+  
       const response = await sendMessage(message, sessionId);
+  
       const botMessage: Message = {
         id: Date.now() + 1,
         messageType: 'ASSISTANT',
@@ -168,13 +157,25 @@ export default function ChatPageContent() {
       };
       setMessages((prev) => [...prev, botMessage]);
       setDisplayPrompts(false);
-    } catch (error) {
-      toast.error('Failed to send message');
+    } catch (error: any) {
+      if (error.response?.status === 403 && error.response?.data === 'Guest session has reached the message limit of 5') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            messageType: 'ASSISTANT',
+            content: "You've reached the message limit for guest users. Please sign up to continue chatting.",
+          },
+        ]);
+      } else {
+        toast.error('Failed to send message. Please try again.');
+      }
     } finally {
       setIsLoading(false);
       setInputMessage('');
     }
   };
+  
 
   const handleTranscription = (transcribedText: string) => {
     setInputMessage(transcribedText);
@@ -187,7 +188,9 @@ export default function ChatPageContent() {
   const handleNewChat = () => {
     setCurrentSession(null); // Clear the current session
     setMessages([]); // Clear the messages
-    setDisplayPrompts(true); // Display the prompts again
+    setDisplayPrompts(true); 
+    setMessageCount(0);
+    setHasReachedMessageLimit(false);// Display the prompts again
     router.push('/chat'); // Redirect to the chat page
     setIsMobileMenuOpen(false); // Close the mobile menu if open
   };
