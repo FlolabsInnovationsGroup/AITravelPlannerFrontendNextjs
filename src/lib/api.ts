@@ -183,4 +183,3 @@ export const initializeGuestUser = async (): Promise<void> => {
     await createGuestToken();
   }
 };
-
