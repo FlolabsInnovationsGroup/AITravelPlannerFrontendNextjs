@@ -109,17 +109,36 @@ export const createSession = async (title: string): Promise<SessionDTO> => {
   }
 };
 
+<<<<<<< HEAD
 // Message handling (JSON)
+=======
+// Message handling
+// Message handling
+>>>>>>> a2d9535338b1cda4aff62fa253ce35a395c57be1
 export const sendMessage = async (
   message: string,
-  sessionId: string
+  sessionId: string,
+  audioBlob?: Blob
 ): Promise<ChatResponse> => {
   try {
-    const payload: AIMessageDTO = {
-      message,
-      sessionId
+    const formData = new FormData();
+
+    // Add sessionId and message to FormData
+    formData.append("sessionId", sessionId);
+    formData.append("message", message);
+
+    // If there’s an audio blob, add it to the form data as well
+    if (audioBlob) {
+      formData.append("file", audioBlob);
+    }
+
+    const config = {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     };
 
+<<<<<<< HEAD
     console.log('Sending message:', payload);
 
     const response = await apiClient.post<string>('/api/chat/call', payload, {
@@ -135,12 +154,35 @@ export const sendMessage = async (
       alert("You've reached the message limit for guest users. Please create an account to continue.");
     } else {
       console.error('Error sending message:', error);
+=======
+    console.log("Sending message payload:", formData);
+    const response = await apiClient.post('/api/chat/call', formData, config);
+    return { content: response.data };
+  } catch (error) {
+    console.error('Error sending message:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      console.error("Backend response error:", error.response.data);
+>>>>>>> a2d9535338b1cda4aff62fa253ce35a395c57be1
     }
     throw error;
   }
 };
 
+<<<<<<< HEAD
 // Streaming message handling (JSON)
+=======
+
+export const signIn = async (username: string, password: string) => {
+  const response = await apiClient.post('/api/auth/signin', { username, password });
+  return response.data;
+};
+
+export const signUp = async (username: string, email: string, password: string) => {
+  return await apiClient.post('/api/auth/signup', { username, email, password });
+};
+
+// Streaming message handling
+>>>>>>> a2d9535338b1cda4aff62fa253ce35a395c57be1
 export const sendStreamMessage = async (
   message: string,
   sessionId: string
@@ -194,6 +236,7 @@ export const initializeGuestUser = async (): Promise<void> => {
     await createGuestToken();
   }
 };
+<<<<<<< HEAD
 
 // Sign in and sign up handling
 export const signIn = async (username: string, password: string) => {
@@ -204,3 +247,5 @@ export const signIn = async (username: string, password: string) => {
 export const signUp = async (username: string, email: string, password: string) => {
   return await apiClient.post('/api/auth/signup', { username, email, password });
 };
+=======
+>>>>>>> a2d9535338b1cda4aff62fa253ce35a395c57be1
