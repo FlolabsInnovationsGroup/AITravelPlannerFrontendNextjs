@@ -13,7 +13,7 @@ import { ExploreSection } from '@/components/ExploreSection';
 import { TourPartners } from '@/components/TourPartners';
 import { Testimonials } from '@/components/Testimonials';
 import Footer from '@/components/Footer';
-import { createSession, sendMessage } from '@/lib/api';
+import { createSession, sendMessagesEntity } from '@/lib/api';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/contexts/AuthContext';
 

@@ -7,7 +7,7 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { sendMessage, createSession } from '@/lib/api';
+import { sendMessagesEntity, createSession } from '@/lib/api';
 import { Send, MessageSquare, Heart, Globe, Bell, PlusCircle, Search, Menu, X, LogOut } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/contexts/AuthContext';
@@ -36,6 +36,8 @@ export default function ChatPageContent() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [messageCount, setMessageCount] = useState(0); // For guest user message limits
   const [hasReachedMessageLimit, setHasReachedMessageLimit] = useState(false); // For guest user message limits
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -78,11 +80,11 @@ export default function ChatPageContent() {
           setMessages([userMessage]);
 
           try {
-            const response = await sendMessage(decodeURIComponent(initialMessage), sessionId);
+            const response = await sendMessagesEntity(decodeURIComponent(initialMessage), sessionId);
             const botMessage: Message = {
               id: Date.now() + 1,
               messageType: 'ASSISTANT',
-              content: response.content,
+              content: response.text,
             };
             setMessages([userMessage, botMessage]);
           } catch (error) {
@@ -119,6 +121,23 @@ export default function ChatPageContent() {
       ),
   };
 
+  const Suggestions = ({ suggestions, handleSendMessage }: { suggestions: string[]; handleSendMessage: (message: string) => void }) => (
+    <div className="mt-4">
+      <h3 className="text-lg font-semibold mb-2">Suggestions:</h3>
+      <div className="flex flex-wrap gap-2">
+        {suggestions.map((suggestion, index) => (
+          <button
+            key={index}
+            onClick={() => handleSendMessage(suggestion)}
+            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+          >
+            {suggestion}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   const handlePromptClick = async (prompt: string) => {
     setDisplayPrompts(false);
     await handleSendMessage(prompt);
@@ -148,14 +167,17 @@ export default function ChatPageContent() {
       };
       setMessages((prev) => [...prev, userMessage]);
   
-      const response = await sendMessage(message, sessionId);
+      const response = await sendMessagesEntity(message, sessionId);
   
       const botMessage: Message = {
         id: Date.now() + 1,
         messageType: 'ASSISTANT',
-        content: response.content,
+        content: response.text,
       };
       setMessages((prev) => [...prev, botMessage]);
+
+      // Update suggestions in state
+      setSuggestions(response.suggestions || []);
       setDisplayPrompts(false);
     } catch (error: any) {
       if (error.response?.status === 403 && error.response?.data === 'Guest session has reached the message limit of 5') {
@@ -175,6 +197,9 @@ export default function ChatPageContent() {
       setInputMessage('');
     }
   };
+
+
+  
   
 
   const handleTranscription = (transcribedText: string) => {
@@ -374,6 +399,10 @@ export default function ChatPageContent() {
               ))}
               <div ref={bottomRef} />
             </div>
+              {/* Render suggestions if available */}
+                {suggestions.length > 0 && (
+                <Suggestions suggestions={suggestions} handleSendMessage={handleSendMessage} />
+            )}
           </div>
         )}
 

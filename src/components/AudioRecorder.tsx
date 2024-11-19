@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Mic, MicOff, Loader2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import { sendMessagesEntity } from '@/lib/api'
 
 interface AudioRecorderProps {
   sessionId: string
@@ -70,43 +71,24 @@ export default function AudioRecorder({ sessionId, onTranscription }: AudioRecor
   }
 
   const transcribeAudio = async (audioBlob: Blob) => {
-    const formData = new FormData()
-    formData.append("audioFile", audioBlob)
-    formData.append("sessionId", sessionId)
-
-    const token = localStorage.getItem('token')
-
     try {
-      const response = await fetch("https://api.flomadtravel.com/api/audio/transcribe", {
-        method: "POST",
-        body: formData,
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      })
+      const response = await sendMessagesEntity("", sessionId, audioBlob);
+    
+      if (response.text) {
+        onTranscription(response.text)
+      } 
 
-      if (response.ok) {
-        const contentType = response.headers.get("content-type")
-        if (contentType && contentType.includes("application/json")) {
-          const data = await response.json()
-          onTranscription(data.transcription)
-        } else {
-          const textData = await response.text()
-          console.warn("Received non-JSON response:", textData)
-          onTranscription(textData)
-        }
-      } else {
-        const errorText = await response.text()
-        console.error("Transcription failed:", errorText)
-        toast.error("Failed to transcribe audio.")
+      if (response.suggestions) {
+        console.log("Suggestions:", response.suggestions);
       }
     } catch (error) {
-      console.error("Error during audio transcription:", error)
-      toast.error("Error during audio transcription.")
+      console.error("Error during audio transcription:", error);
+      toast.error("Error during audio transcription.");
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
+
 
   return (
     <div className="relative inline-flex items-center">

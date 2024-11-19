@@ -14,6 +14,11 @@ export interface AIMessageDTO {
   sessionId: string;
 }
 
+export interface AIMessageResponse {
+  text: string;
+  suggestions: string[];
+}
+
 export interface SessionDTO {
   sessionId: string;
   title: string;
@@ -109,7 +114,6 @@ export const createSession = async (title: string): Promise<SessionDTO> => {
 };
 
 // Message handling
-// Message handling
 export const sendMessage = async (
   message: string,
   sessionId: string,
@@ -144,6 +148,35 @@ export const sendMessage = async (
     throw error;
   }
 };
+
+// New method: Send message with entity processing
+export const sendMessagesEntity = async (
+  message: string,
+  sessionId: string,
+  audioBlob?: Blob
+): Promise<AIMessageResponse> => {
+  try {
+    const formData = new FormData();
+    formData.append("sessionId", sessionId);
+    formData.append("message", message);
+
+    if (audioBlob) {
+      formData.append("audioFile", audioBlob);
+    }
+
+    const response = await apiClient.post<AIMessageResponse>('/api/chat/call/entity', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Error sending message with entity:', error);
+    throw error;
+  }
+};
+
 
 
 export const signIn = async (username: string, password: string) => {
