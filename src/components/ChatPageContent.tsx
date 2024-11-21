@@ -44,14 +44,27 @@ export default function ChatPageContent() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { signOut: authSignOut } = useAuth();
 
-  const prompts = [
-    "What are the best places to visit in Paris?",
-    "Can you suggest a 5-day itinerary for Tokyo?",
-    "What are some budget-friendly hotels in New York?",
-    "How can I travel from Rome to Florence?",
-    "What are the must-try foods in Barcelona?",
-    "I have 2000 dollars how much in Moroccan currency?",
+  // Default prompts
+  const defaultPrompts = [
+    "What are the best attractions in Paris for first-time visitors?",
+    "Can you help me plan a family trip to Tokyo?",
+    "What are the top beaches to visit in Bali?",
+    "Which European city is best for a weekend getaway?",
+    "How can I travel to Europe on a budget?",
+    "What are the must-try dishes in Italy?"
   ];
+
+    // Generate dynamic prompts based on context
+    const generateDynamicPrompts = (context: string) => {
+      if (context.includes("flight")) {
+        return ["Book a flight", "Check flight prices", "View flight schedules", "Explore airline options"];
+      } else if (context.includes("hotel")) {
+        return ["Find nearby hotels", "Check hotel reviews", "View hotel deals", "Explore amenities"];
+      } else if (context.includes("beach")) {
+        return ["Explore beach resorts", "Find snorkeling spots", "Plan a beach vacation", "Check weather for beaches"];
+      }
+      return defaultPrompts.slice(0, 4); // Default fallback prompts
+    };
 
   const signOut = () => {
     authSignOut?.();
@@ -138,14 +151,6 @@ export default function ChatPageContent() {
     </div>
   );
 
-  const handlePromptClick = async (prompt: string) => {
-    setDisplayPrompts(false);
-    await handleSendMessage(prompt);
-  };
-
-  const toggleChatHistory = () => {
-    setShowChatHistory(!showChatHistory);
-  };
 
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
@@ -176,31 +181,38 @@ export default function ChatPageContent() {
       };
       setMessages((prev) => [...prev, botMessage]);
 
-      // Update suggestions in state
-      setSuggestions(response.suggestions || []);
-      setDisplayPrompts(false);
-    } catch (error: any) {
-      if (error.response?.status === 403 && error.response?.data === 'Guest session has reached the message limit of 5') {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now(),
-            messageType: 'ASSISTANT',
-            content: "You've reached the message limit for guest users. Please sign up to continue chatting.",
-          },
-        ]);
-      } else {
-        toast.error('Failed to send message. Please try again.');
-      }
-    } finally {
-      setIsLoading(false);
-      setInputMessage('');
-    }
+   
+  // Update suggestions dynamically
+  setSuggestions(response.suggestions || generateDynamicPrompts(response.text));
+  setDisplayPrompts(false);
+  } catch (error: any) {
+  if (error.response?.status === 403 && error.response?.data === 'Guest session has reached the message limit of 5') {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        messageType: 'ASSISTANT',
+        content: "You've reached the message limit for guest users. Please sign up to continue chatting.",
+      },
+    ]);
+  } else {
+    toast.error('Failed to send message. Please try again.');
+  }
+  } finally {
+  setIsLoading(false);
+  setInputMessage('');
+  }
   };
 
 
   
-  
+    const handlePromptClick = async (prompt: string) => {
+    setDisplayPrompts(false);
+    await handleSendMessage(prompt);
+  };
+  const toggleChatHistory = () => {
+    setShowChatHistory((prevState) => !prevState);
+  };
 
   const handleTranscription = (transcribedText: string) => {
     setInputMessage(transcribedText);
@@ -348,7 +360,7 @@ export default function ChatPageContent() {
                 How can I help you plan your trip today?
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {prompts.map((prompt, index) => (
+                {defaultPrompts.map((prompt: string, index: number) => (
                   <button
                     key={index}
                     onClick={() => handlePromptClick(prompt)}
