@@ -65,38 +65,50 @@ export default function ChatPageContent() {
       const sessionId = searchParams.get('sessionId');
       const initialMessage = searchParams.get('initialMessage');
 
-      if (sessionId) {
-        setCurrentSession({ sessionId, title: 'New Chat' });
-        setDisplayPrompts(false);
+      if (sessionId && initialMessage) {
+        try {
+          // Set current session
+          setCurrentSession({ sessionId, title: 'New Chat' });
+          setDisplayPrompts(false);
 
-        if (initialMessage && !messages.length) {
+          // Generate and update title
+          if (!currentUser?.id) {
+            throw new Error('User ID is required to update session');
+          }
+
+          const newTitle = generateSessionTitle(decodeURIComponent(initialMessage));
+          await updateSession(sessionId, newTitle, currentUser.id);
+
+          // Add user message
           const userMessage: Message = {
             id: Date.now(),
             messageType: 'USER',
             content: decodeURIComponent(initialMessage),
           };
 
-          setMessages([userMessage]);
+          // Get AI response
+          const response = await sendMessage(decodeURIComponent(initialMessage), sessionId);
+          const botMessage: Message = {
+            id: Date.now() + 1,
+            messageType: 'ASSISTANT',
+            content: response.content,
+          };
 
-          try {
-            const response = await sendMessage(decodeURIComponent(initialMessage), sessionId);
-            const botMessage: Message = {
-              id: Date.now() + 1,
-              messageType: 'ASSISTANT',
-              content: response.content,
-            };
-            setMessages([userMessage, botMessage]);
-          } catch (error) {
-            toast.error('Failed to process initial message');
-          }
+          setMessages([userMessage, botMessage]);
+          await fetchChatHistory(); // Refresh chat history to show new title
+        } catch (error) {
+          console.error('Error processing initial message:', error);
+          toast.error('Failed to process initial message');
         }
       }
 
       setIsInitialized(true);
     };
 
-    initializeChat();
-  }, [searchParams, isInitialized, messages.length]);
+    if (currentUser?.id) {
+      initializeChat();
+    }
+  }, [searchParams, isInitialized, currentUser?.id]);
 
   useEffect(() => {
     if (bottomRef.current) {
