@@ -7,7 +7,7 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { sendMessage, createSession } from '@/lib/api';
+import { sendMessage, createSession, getUserSessions, getSessionMessages, updateSession } from '@/lib/api';
 import { Send, MessageSquare, Heart, Globe, Bell, PlusCircle, Search, Menu, X, LogOut } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/contexts/AuthContext';
@@ -30,11 +30,13 @@ export default function ChatPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentSession, setCurrentSession] = useState<{ sessionId: string; title: string } | null>(null);
   const [displayPrompts, setDisplayPrompts] = useState(true);
-  const [showChatHistory, setShowChatHistory] = useState(false);
+  const [showChatHistory, setShowChatHistory] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [messageCount, setMessageCount] = useState(0); // For guest user message limits
+  const [chatHistory, setChatHistory] = useState<Array<{ sessionId: string; title: string }>>([]);
+  const { currentUser } = useAuth(); // Make sure you're getting the current user from AuthContext
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -52,7 +54,7 @@ export default function ChatPageContent() {
 
   const signOut = () => {
     authSignOut?.();
-    router.push('/login');
+    router.push('/signin');
     toast.success("You have been signed out.");
   };
 
@@ -127,38 +129,65 @@ export default function ChatPageContent() {
     setShowChatHistory(!showChatHistory);
   };
 
+  const generateSessionTitle = (message: string) => {
+    // Remove special characters and extra spaces
+    const cleanMessage = message.replace(/[^\w\s]/gi, ' ').replace(/\s+/g, ' ').trim();
+    
+    // If message is short enough, use it directly
+    if (cleanMessage.length <= 30) {
+      return cleanMessage;
+    }
+    
+    // Take first few words and add ellipsis
+    const words = cleanMessage.split(' ');
+    let title = '';
+    for (const word of words) {
+      if ((title + word).length > 27) break;
+      title += (title ? ' ' : '') + word;
+    }
+    return title + '...';
+  };
+
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
-
-    if (messageCount >= 5) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          messageType: 'ASSISTANT',
-          content: "You've reached the message limit for guest users. Please sign up to continue chatting.",
-        },
-      ]);
-      return;
-    }
 
     setIsLoading(true);
     try {
       let sessionId = currentSession?.sessionId;
+      let newSessionCreated = false;
 
       if (!sessionId) {
         const newSession = await createSession('New Chat');
         sessionId = newSession.sessionId;
         setCurrentSession(newSession);
+        newSessionCreated = true;
       }
 
+      // Add user message
       const userMessage: Message = {
         id: Date.now(),
         messageType: 'USER',
         content: message,
       };
       setMessages((prev) => [...prev, userMessage]);
-      setMessageCount((prev) => prev + 1); // Increment guest message count
+
+      // Update title immediately for new sessions
+      if (newSessionCreated || messages.length === 0) {
+        const newTitle = generateSessionTitle(message);
+        
+        // Make sure we have the userId
+        if (!currentUser?.id) {
+          throw new Error('User ID is required to update session');
+        }
+
+        await updateSession(sessionId, newTitle, currentUser.id);
+        
+        // Update current session first
+        setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
+        
+        // Fetch fresh chat history
+        await fetchChatHistory();
+      }
 
       const response = await sendMessage(message, sessionId);
       const botMessage: Message = {
@@ -169,6 +198,7 @@ export default function ChatPageContent() {
       setMessages((prev) => [...prev, botMessage]);
       setDisplayPrompts(false);
     } catch (error) {
+      console.error('Error in handleSendMessage:', error);
       toast.error('Failed to send message');
     } finally {
       setIsLoading(false);
@@ -185,13 +215,48 @@ export default function ChatPageContent() {
   };
 
   const handleNewChat = () => {
-    setCurrentSession(null); // Clear the current session
-    setMessages([]); // Clear the messages
-    setDisplayPrompts(true); // Display the prompts again
-    router.push('/chat'); // Redirect to the chat page
-    setIsMobileMenuOpen(false); // Close the mobile menu if open
+    setCurrentSession(null);
+    setMessages([]);
+    setDisplayPrompts(true);
+    router.push('/chat');
+    setIsMobileMenuOpen(false);
+    fetchChatHistory();
   };
-  
+
+  const fetchChatHistory = async () => {
+    if (!currentUser?.id) return;
+    
+    try {
+      const sessions = await getUserSessions(currentUser.id);
+      console.log('Fetched sessions:', sessions); // Debug log
+      setChatHistory(sessions);
+    } catch (error) {
+      console.error('Error fetching chat history:', error);
+      toast.error('Failed to load chat history');
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser?.id && messages.length > 0) {
+      fetchChatHistory();
+    }
+  }, [messages, currentUser?.id]);
+
+  const handleSessionClick = async (session: { sessionId: string; title: string }) => {
+    try {
+      setCurrentSession(session);
+      const sessionMessages = await getSessionMessages(session.sessionId);
+      const messageArray = Array.isArray(sessionMessages) ? sessionMessages : [];
+      setMessages(messageArray);
+      setDisplayPrompts(false);
+      setShowChatHistory(false);
+      setIsMobileMenuOpen(false);
+      await fetchChatHistory();
+    } catch (error) {
+      console.error('Error loading session messages:', error);
+      toast.error('Failed to load chat messages');
+    }
+  };
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gray-100">
@@ -277,11 +342,21 @@ export default function ChatPageContent() {
                   />
                 </div>
                 <ul>
-                  {currentSession && (
-                    <li className="py-2 px-4 cursor-pointer hover:bg-gray-100 bg-gray-200 rounded-md">
-                      <span className="truncate">{currentSession.title}</span>
-                    </li>
-                  )}
+                  {chatHistory
+                    .filter(session => 
+                      session.title.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .map((session) => (
+                      <li
+                        key={session.sessionId}
+                        className={`py-2 px-4 cursor-pointer hover:bg-gray-100 rounded-md ${
+                          currentSession?.sessionId === session.sessionId ? 'bg-gray-200' : ''
+                        }`}
+                        onClick={() => handleSessionClick(session)}
+                      >
+                        <span className="truncate">{session.title}</span>
+                      </li>
+                    ))}
                 </ul>
               </div>
             </div>
