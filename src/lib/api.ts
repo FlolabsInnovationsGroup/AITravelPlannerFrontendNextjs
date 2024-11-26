@@ -216,3 +216,61 @@ export const initializeGuestUser = async (): Promise<void> => {
     await createGuestToken();
   }
 };
+
+export const getChatHistory = async (path: string) => {
+  try {
+    const response = await apiClient.get(`/sessions/${path}`);
+    console.log('API Response:', response.data); // Debug log
+    return response.data;
+  } catch (error) {
+    console.error('Error getting chat history:', error);
+    throw error;
+  }
+};
+
+// Separate function for getting user sessions
+export const getUserSessions = async (userId: string) => {
+  try {
+    const response = await apiClient.get(`/sessions/user-sessions?userId=${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting user sessions:', error);
+    throw error;
+  }
+};
+
+// Separate function for getting session messages
+export const getSessionMessages = async (sessionId: string) => {
+  try {
+    const response = await apiClient.get(`/messages/session/${sessionId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting session messages:', error);
+    throw error;
+  }
+};
+
+// Update or add this function
+export const updateSession = async (sessionId: string, title: string, userId: string) => {
+  try {
+    const now = new Date().toISOString();
+    const payload = {
+      sessionId: sessionId,
+      userId: userId,
+      title: title,
+      createdAt: now,  // You might want to keep the original createdAt if available
+      updatedAt: now
+    };
+
+    console.log('Updating session with payload:', payload);
+    const response = await apiClient.put(`/sessions/${sessionId}`, payload);
+    return response.data;
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      console.error('Session update error:', error.response?.data);
+    } else {
+      console.error('Session update error:', error);
+    }
+    throw error;
+  }
+};

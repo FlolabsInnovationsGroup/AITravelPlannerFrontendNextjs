@@ -53,7 +53,6 @@ export default function LandingPage() {
       console.log('Session created:', sessionResponse);
 
       // Navigate to chat page with session info
-      // Don't send the message here - let the chat page handle it
       router.push(
         `/chat?sessionId=${sessionResponse.sessionId}&initialMessage=${encodeURIComponent(message)}`
       );
