@@ -200,6 +200,20 @@ export default function ChatPageContent() {
         sessionId = newSession.sessionId;
         setCurrentSession(newSession);
       }
+
+          // Check guest user message limit
+    if (messageCount >= 5 && !currentUser) { // Assuming `currentUser` is null for guest users
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          messageType: 'ASSISTANT',
+          content: "You've reached the message limit for guest users. Please sign up to continue chatting.",
+        },
+      ]);
+      setIsLoading(false);
+      return;
+    }
   
       // Add user message
       const userMessage: Message = {
