@@ -74,8 +74,8 @@ export default function AudioRecorder({ sessionId, onTranscription }: AudioRecor
     try {
       const response = await sendMessagesEntity("", sessionId, audioBlob);
     
-      if (response.text) {
-        onTranscription(response.text)
+      if (response.message) {
+        onTranscription(response.message)
       } 
 
       if (response.suggestions) {

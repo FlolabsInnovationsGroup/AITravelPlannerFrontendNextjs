@@ -15,7 +15,7 @@ export interface AIMessageDTO {
 }
 
 export interface AIMessageResponse {
-  text: string;
+  message: string;
   suggestions: string[];
 }
 
