@@ -102,12 +102,14 @@ export default function ChatPageContent() {
             content: decodeURIComponent(initialMessage),
           };
 
+          setMessages([userMessage]);
+
           // Get AI response
           const response = await sendMessagesEntity(decodeURIComponent(initialMessage), sessionId);
           const botMessage: Message = {
             id: Date.now() + 1,
             messageType: 'ASSISTANT',
-            content: response.text,
+            content: response.message,
           };
 
           setMessages([userMessage, botMessage]);
@@ -187,18 +189,16 @@ export default function ChatPageContent() {
 
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
-
+  
     setIsLoading(true);
     try {
       let sessionId = currentSession?.sessionId;
   
-      let newSessionCreated = false;
-
       if (!sessionId) {
+        console.log("Creating a new session...");
         const newSession = await createSession('New Chat');
         sessionId = newSession.sessionId;
         setCurrentSession(newSession);
-        newSessionCreated = true;
       }
   
       // Add user message
@@ -207,40 +207,44 @@ export default function ChatPageContent() {
         messageType: 'USER',
         content: message,
       };
-      setMessages((prev) => [...prev, userMessage]);
+      setMessages((prev) => [...prev, userMessage]); // Append user message
+      console.log("User message added:", userMessage);
   
+      // Send message to backend
+      console.log("Sending message to API:", message, sessionId);
       const response = await sendMessagesEntity(message, sessionId);
+      console.log("API Response:", response);
   
+      // Add bot message using the correct response property
       const botMessage: Message = {
         id: Date.now() + 1,
         messageType: 'ASSISTANT',
-        content: response.text,
+        content: response.message || "I couldn't process your request. Please try again.",
       };
-      setMessages((prev) => [...prev, botMessage]);
-
-   
-  // Update suggestions dynamically
-  setSuggestions(response.suggestions || generateDynamicPrompts(response.text));
-  setDisplayPrompts(false);
-  } catch (error: any) {
-      console.error('Error in handleSendMessage:', error);
-  if (error.response?.status === 403 && error.response?.data === 'Guest session has reached the message limit of 5') {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        messageType: 'ASSISTANT',
-        content: "You've reached the message limit for guest users. Please sign up to continue chatting.",
-      },
-    ]);
-  } else {
-    toast.error('Failed to send message. Please try again.');
-  }
-  } finally {
-  setIsLoading(false);
-  setInputMessage('');
-  }
+      setMessages((prev) => [...prev, botMessage]); // Append bot message
+      console.log("Bot message added:", botMessage);
+  
+      // Update suggestions dynamically
+      setSuggestions(response.suggestions || generateDynamicPrompts(response.message));
+      setDisplayPrompts(false);
+    } catch (error: any) {
+      console.error("Error in handleSendMessage:", error);
+  
+      // Fallback error message
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          messageType: 'ASSISTANT',
+          content: "Something went wrong. Please try again.",
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+      setInputMessage(''); // Clear input box
+    }
   };
+  
 
 
   
