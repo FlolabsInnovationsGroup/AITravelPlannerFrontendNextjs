@@ -13,6 +13,11 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/contexts/AuthContext';
 import AudioRecorder from './AudioRecorder'; // Import the AudioRecorder component
 import { Components } from 'react-markdown';
+import { Client } from '@stomp/stompjs'; // Import STOMP.js client
+import SockJS from 'sockjs-client'; // Import SockJS for WebSocket fallback
+import { addDotToMap, clearMap } from '@/lib/map-service'; // Import map-service functions
+import GoogleMapComponent from "@/components/GoogleMapComponent";
+
 
 interface CodeProps extends React.HTMLAttributes<HTMLElement> {
   inline?: boolean;
@@ -22,6 +27,14 @@ interface Message {
   id: number;
   messageType: 'USER' | 'ASSISTANT';
   content: string;
+}
+
+interface Location {
+  sessionId: string;
+  latitude: number;
+  longitude: number;
+  name?: string;
+  type?: string;
 }
 
 export default function ChatPageContent() {
@@ -39,6 +52,7 @@ export default function ChatPageContent() {
   const { currentUser } = useAuth(); // Make sure you're getting the current user from AuthContext
   const [hasReachedMessageLimit, setHasReachedMessageLimit] = useState(false); // For guest user message limits
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
 
 
   const router = useRouter();
@@ -68,11 +82,66 @@ export default function ChatPageContent() {
       return defaultPrompts.slice(0, 4); // Default fallback prompts
     };
 
+      // Dummy locations for testing (Replace or enhance dynamically)
+  const testLocations = [
+    { sessionId: "1", latitude: 40.712776, longitude: -74.005974, name: "New York" },
+    { sessionId: "2", latitude: 34.052235, longitude: -118.243683, name: "Los Angeles" },
+    { sessionId: "3", latitude: 51.507351, longitude: -0.127758, name: "London" },
+  ];
+
+
   const signOut = () => {
     authSignOut?.();
     router.push('/signin');
     toast.success("You have been signed out.");
   };
+
+    // WebSocket connection for real-time updates
+    useEffect(() => {
+      if (!currentSession?.sessionId) return; // Exit if no session is active
+  
+      const socketUrl = 'http://localhost:8081/ws'; // Replace with your backend WebSocket URL
+      const stompClient = new Client({
+        webSocketFactory: () => new SockJS(socketUrl), // Use SockJS for WebSocket fallback
+        reconnectDelay: 5000, // Retry connection every 5 seconds if disconnected
+        connectHeaders: {
+          // Add your authorization header here if needed
+          Authorization: `Bearer ${currentUser?.token || ''}`
+        },
+      });
+  
+      stompClient.onConnect = () => {
+        console.log('WebSocket connected');
+  
+        // Subscribe to the session's location updates
+        stompClient.subscribe(`/topic/locations/${currentSession.sessionId}`, (message) => {
+          const locationData = JSON.parse(message.body);
+  
+          if (locationData === 'MAP_CLEARED') {
+            console.log('Map cleared');
+            setLocations([]); // Clear the locations state
+            clearMap(); // Call the map-service to clear the map
+          } else {
+            console.log('Location received:', locationData);
+            setLocations((prevLocations) => [...prevLocations, locationData]); // Add the new location
+            addDotToMap(locationData); // Call the map-service to add the dot to the map
+          }
+        });
+      };
+  
+      stompClient.onStompError = (frame) => {
+        console.error('WebSocket error:', frame.headers['message']);
+      };
+  
+      stompClient.activate(); // Activate the WebSocket connection
+  
+      // Cleanup function to deactivate the WebSocket when the component unmounts
+      return () => {
+        stompClient.deactivate();
+        console.log('WebSocket disconnected');
+      };
+    }, [currentSession?.sessionId]); // Re-run when the session ID changes
+  
 
   useEffect(() => {
     const initializeChat = async () => {
@@ -558,13 +627,12 @@ export default function ChatPageContent() {
       </div>
 
       {/* Details Panel */}
-      <div className="hidden md:block w-1/4 bg-white border-l p-4 overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">Details</h2>
-        <div className="flex flex-col items-center justify-center h-full">
-          <Image src="/image/no-gradient.png" alt="Placeholder" width={200} height={200} />
-          <p className="mt-4 text-center">Additional information will appear here.</p>
-        </div>
-      </div>
+{/* Details Panel */}
+<div className="hidden md:block w-1/4 bg-white border-l p-4 overflow-y-auto">
+  <h2 className="text-xl font-bold mb-4">Map</h2>
+  {/* Google Map Integration */}
+  <GoogleMapComponent locations={locations} />
+</div>
     </div>
   );
 }

@@ -72,17 +72,21 @@ export const clearToken = () => {
 };
 
 // Guest token creation
-export const createGuestToken = async (): Promise<void> => {
+export const createGuestToken = async (): Promise<string> => {
   try {
     const response = await apiClient.post<GuestTokenResponse>('/api/auth/guest-token');
     if (response.data.token) {
-      setToken(response.data.token);
+      setToken(response.data.token); // Save token to local storage
+      return response.data.token;   // Return the token
+    } else {
+      throw new Error('Guest token missing in response');
     }
   } catch (error) {
     console.error('Error creating guest token:', error);
     throw error;
   }
 };
+
 
 // User management
 export const getCurrentUser = async (): Promise<{ id: string }> => {
