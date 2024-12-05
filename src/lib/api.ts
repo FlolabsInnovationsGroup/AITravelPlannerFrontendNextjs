@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Constants
-const API_BASE_URL = 'http://localhost:8081';
+const API_BASE_URL = 'http://localhost:8080';
 const TOKEN_KEY = 'token';
 
 // Types
@@ -23,6 +23,15 @@ export interface SessionDTO {
   sessionId: string;
   title: string;
   userId: string;
+}
+
+export interface Location {
+  id: string;
+  sessionId: string;
+  latitude: number;
+  longitude: number;
+  name?: string;
+  type?: string;
 }
 
 interface GuestTokenResponse {
@@ -250,6 +259,18 @@ export const getSessionMessages = async (sessionId: string) => {
     return response.data;
   } catch (error) {
     console.error('Error getting session messages:', error);
+    throw error;
+  }
+};
+
+
+// Get locations by session ID
+export const getLocationsBySession = async (sessionId: string): Promise<Location[]> => {
+  try {
+    const response = await apiClient.get(`/api/locations/${sessionId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting locations by session:', error);
     throw error;
   }
 };
