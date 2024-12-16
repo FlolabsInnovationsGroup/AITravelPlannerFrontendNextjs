@@ -2,7 +2,7 @@ import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 
 const ChatPageContent = dynamic(() => import('@/components/ChatPageContent'), {
-  ssr: false,
+  ssr: true,
 })
 
 export default function ChatPage() {

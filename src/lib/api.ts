@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Constants
-const API_BASE_URL = 'http://localhost:8081';
+const API_BASE_URL = 'http://localhost:8080';
 const TOKEN_KEY = 'token';
 
 // Types
@@ -23,6 +23,15 @@ export interface SessionDTO {
   sessionId: string;
   title: string;
   userId: string;
+}
+
+export interface Location {
+  id: string;
+  sessionId: string;
+  latitude: number;
+  longitude: number;
+  name?: string;
+  type?: string;
 }
 
 interface GuestTokenResponse {
@@ -72,17 +81,21 @@ export const clearToken = () => {
 };
 
 // Guest token creation
-export const createGuestToken = async (): Promise<void> => {
+export const createGuestToken = async (): Promise<string> => {
   try {
     const response = await apiClient.post<GuestTokenResponse>('/api/auth/guest-token');
     if (response.data.token) {
-      setToken(response.data.token);
+      setToken(response.data.token); // Save token to local storage
+      return response.data.token;   // Return the token
+    } else {
+      throw new Error('Guest token missing in response');
     }
   } catch (error) {
     console.error('Error creating guest token:', error);
     throw error;
   }
 };
+
 
 // User management
 export const getCurrentUser = async (): Promise<{ id: string }> => {
@@ -246,6 +259,18 @@ export const getSessionMessages = async (sessionId: string) => {
     return response.data;
   } catch (error) {
     console.error('Error getting session messages:', error);
+    throw error;
+  }
+};
+
+
+// Get locations by session ID
+export const getLocationsBySession = async (sessionId: string): Promise<Location[]> => {
+  try {
+    const response = await apiClient.get(`/api/locations/${sessionId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting locations by session:', error);
     throw error;
   }
 };

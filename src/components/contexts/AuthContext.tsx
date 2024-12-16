@@ -1,11 +1,16 @@
 'use client';
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { getToken, setToken, clearToken, getCurrentUser, initializeGuestUser } from '@/lib/api';
+import { getToken, setToken, clearToken, getCurrentUser, createGuestToken } from '@/lib/api';
+
+interface User {
+  id: string;
+  token: string; // Add token property to the User type
+}
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  currentUser: { id: string } | null;
+  currentUser: User | null; // Ensure currentUser includes the token
   signIn: (token: string) => void;
   signOut: () => void;
 }
@@ -19,18 +24,23 @@ const AuthContext = createContext<AuthContextType>({
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
     const initializeAuth = async () => {
       try {
         // Ensure we have a token (guest or authenticated)
-        await initializeGuestUser();
-        
+        if (!getToken()) {
+          const guestToken = await createGuestToken(); // Explicitly get the guest token
+          setToken(guestToken); // Save guest token for API requests
+        }
+
         // Get current user info
         const user = await getCurrentUser();
-        setCurrentUser(user);
-        setIsAuthenticated(!!getToken());
+        if (user) {
+          setCurrentUser({ ...user, token: getToken() || '' }); // Include token in currentUser
+          setIsAuthenticated(true);
+        }
       } catch (error) {
         console.error('Error initializing auth:', error);
         clearToken();
@@ -42,13 +52,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = (token: string) => {
-    setToken(token);
+    setToken(token); // Save token to local storage
     setIsAuthenticated(true);
+
+    // Refresh the current user info
+    getCurrentUser()
+      .then((user) => {
+        if (user) {
+          setCurrentUser({ ...user, token });
+        }
+      })
+      .catch((error) => console.error('Error fetching user after sign-in:', error));
+
     window.location.href = '/chat';
   };
 
   const signOut = () => {
-    clearToken();
+    clearToken(); // Clear token from local storage
     setIsAuthenticated(false);
     setCurrentUser(null);
     window.location.href = '/signin';
