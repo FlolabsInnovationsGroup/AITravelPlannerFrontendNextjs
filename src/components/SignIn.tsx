@@ -30,7 +30,7 @@ function SignInContent() {
   }
 
   const handleOAuthLogin = () => {
-    window.location.href = `http://localhost:8080/oauth2/authorization/google`;
+    window.location.href = `https://api.flomadtravel.com/oauth2/authorization/google`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
