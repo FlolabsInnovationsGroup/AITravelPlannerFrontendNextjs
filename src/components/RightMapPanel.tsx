@@ -30,7 +30,7 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({ currentSessionId, current
 
         fetchLocations();
 
-        const socketUrl = 'http://localhost:8080/ws';
+        const socketUrl = 'https://api.flomadtravel.com/ws';
 
         const stompClient = new Client({
             webSocketFactory: () => new SockJS(socketUrl),
