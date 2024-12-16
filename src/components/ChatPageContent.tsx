@@ -7,7 +7,7 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { sendMessage, createSession, getUserSessions, getSessionMessages, updateSession } from '@/lib/api';
+import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession } from '@/lib/api';
 import { Send, MessageSquare, Heart, Globe, Bell, PlusCircle, Search, Menu, X, LogOut } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/contexts/AuthContext';
@@ -37,20 +37,36 @@ export default function ChatPageContent() {
   const [messageCount, setMessageCount] = useState(0); // For guest user message limits
   const [chatHistory, setChatHistory] = useState<Array<{ sessionId: string; title: string }>>([]);
   const { currentUser } = useAuth(); // Make sure you're getting the current user from AuthContext
+  const [hasReachedMessageLimit, setHasReachedMessageLimit] = useState(false); // For guest user message limits
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const bottomRef = useRef<HTMLDivElement>(null);
   const { signOut: authSignOut } = useAuth();
 
-  const prompts = [
-    "What are the best places to visit in Paris?",
-    "Can you suggest a 5-day itinerary for Tokyo?",
-    "What are some budget-friendly hotels in New York?",
-    "How can I travel from Rome to Florence?",
-    "What are the must-try foods in Barcelona?",
-    "I have 2000 dollars how much in Moroccan currency?",
+  // Default prompts
+  const defaultPrompts = [
+    "What are the best attractions in Paris for first-time visitors?",
+    "Can you help me plan a family trip to Tokyo?",
+    "What are the top beaches to visit in Bali?",
+    "Which European city is best for a weekend getaway?",
+    "How can I travel to Europe on a budget?",
+    "What are the must-try dishes in Italy?"
   ];
+
+    // Generate dynamic prompts based on context
+    const generateDynamicPrompts = (context: string) => {
+      if (context.includes("flight")) {
+        return ["Book a flight", "Check flight prices", "View flight schedules", "Explore airline options"];
+      } else if (context.includes("hotel")) {
+        return ["Find nearby hotels", "Check hotel reviews", "View hotel deals", "Explore amenities"];
+      } else if (context.includes("beach")) {
+        return ["Explore beach resorts", "Find snorkeling spots", "Plan a beach vacation", "Check weather for beaches"];
+      }
+      return defaultPrompts.slice(0, 4); // Default fallback prompts
+    };
 
   const signOut = () => {
     authSignOut?.();
@@ -86,12 +102,14 @@ export default function ChatPageContent() {
             content: decodeURIComponent(initialMessage),
           };
 
+          setMessages([userMessage]);
+
           // Get AI response
-          const response = await sendMessage(decodeURIComponent(initialMessage), sessionId);
+          const response = await sendMessagesEntity(decodeURIComponent(initialMessage), sessionId);
           const botMessage: Message = {
             id: Date.now() + 1,
             messageType: 'ASSISTANT',
-            content: response.content,
+            content: response.message,
           };
 
           setMessages([userMessage, botMessage]);
@@ -132,14 +150,23 @@ export default function ChatPageContent() {
       ),
   };
 
-  const handlePromptClick = async (prompt: string) => {
-    setDisplayPrompts(false);
-    await handleSendMessage(prompt);
-  };
+  const Suggestions = ({ suggestions, handleSendMessage }: { suggestions: string[]; handleSendMessage: (message: string) => void }) => (
+    <div className="mt-4">
+      <h3 className="text-lg font-semibold mb-2">Suggestions:</h3>
+      <div className="flex flex-wrap gap-2">
+        {suggestions.map((suggestion, index) => (
+          <button
+            key={index}
+            onClick={() => handleSendMessage(suggestion)}
+            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+          >
+            {suggestion}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
-  const toggleChatHistory = () => {
-    setShowChatHistory(!showChatHistory);
-  };
 
   const generateSessionTitle = (message: string) => {
     // Remove special characters and extra spaces
@@ -162,60 +189,85 @@ export default function ChatPageContent() {
 
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
-
+  
     setIsLoading(true);
     try {
       let sessionId = currentSession?.sessionId;
-      let newSessionCreated = false;
-
+  
       if (!sessionId) {
+        console.log("Creating a new session...");
         const newSession = await createSession('New Chat');
         sessionId = newSession.sessionId;
         setCurrentSession(newSession);
-        newSessionCreated = true;
       }
 
+          // Check guest user message limit
+    if (messageCount >= 5 && !currentUser) { // Assuming `currentUser` is null for guest users
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          messageType: 'ASSISTANT',
+          content: "You've reached the message limit for guest users. Please sign up to continue chatting.",
+        },
+      ]);
+      setIsLoading(false);
+      return;
+    }
+  
       // Add user message
       const userMessage: Message = {
         id: Date.now(),
         messageType: 'USER',
         content: message,
       };
-      setMessages((prev) => [...prev, userMessage]);
-
-      // Update title immediately for new sessions
-      if (newSessionCreated || messages.length === 0) {
-        const newTitle = generateSessionTitle(message);
-        
-        // Make sure we have the userId
-        if (!currentUser?.id) {
-          throw new Error('User ID is required to update session');
-        }
-
-        await updateSession(sessionId, newTitle, currentUser.id);
-        
-        // Update current session first
-        setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
-        
-        // Fetch fresh chat history
-        await fetchChatHistory();
-      }
-
-      const response = await sendMessage(message, sessionId);
+      setMessages((prev) => [...prev, userMessage]); // Append user message
+      console.log("User message added:", userMessage);
+  
+      // Send message to backend
+      console.log("Sending message to API:", message, sessionId);
+      const response = await sendMessagesEntity(message, sessionId);
+      console.log("API Response:", response);
+  
+      // Add bot message using the correct response property
       const botMessage: Message = {
         id: Date.now() + 1,
         messageType: 'ASSISTANT',
-        content: response.content,
+        content: response.message || "I couldn't process your request. Please try again.",
       };
-      setMessages((prev) => [...prev, botMessage]);
+      setMessages((prev) => [...prev, botMessage]); // Append bot message
+      console.log("Bot message added:", botMessage);
+  
+      // Update suggestions dynamically
+      setSuggestions(response.suggestions || generateDynamicPrompts(response.message));
       setDisplayPrompts(false);
-    } catch (error) {
-      console.error('Error in handleSendMessage:', error);
-      toast.error('Failed to send message');
+    } catch (error: any) {
+      console.error("Error in handleSendMessage:", error);
+  
+      // Fallback error message
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          messageType: 'ASSISTANT',
+          content: "Something went wrong. Please try again.",
+        },
+      ]);
     } finally {
       setIsLoading(false);
-      setInputMessage('');
+      setInputMessage(''); // Clear input box
     }
+  };
+  
+
+
+  
+    const handlePromptClick = async (prompt: string) => {
+    setDisplayPrompts(false);
+    await handleSendMessage(prompt);
+  };
+  const toggleChatHistory = () => {
+    setShowChatHistory((prevState) => !prevState);
   };
 
   const handleTranscription = (transcribedText: string) => {
@@ -407,7 +459,7 @@ export default function ChatPageContent() {
                 How can I help you plan your trip today?
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {prompts.map((prompt, index) => (
+                {defaultPrompts.map((prompt: string, index: number) => (
                   <button
                     key={index}
                     onClick={() => handlePromptClick(prompt)}
@@ -458,6 +510,10 @@ export default function ChatPageContent() {
               ))}
               <div ref={bottomRef} />
             </div>
+              {/* Render suggestions if available */}
+                {suggestions.length > 0 && (
+                <Suggestions suggestions={suggestions} handleSendMessage={handleSendMessage} />
+            )}
           </div>
         )}
 
@@ -512,4 +568,5 @@ export default function ChatPageContent() {
     </div>
   );
 }
+
 
