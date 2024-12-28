@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { signIn } from '@/lib/api'
 import { useEffect, useState } from 'react'
-import { useAuth } from '@/components/contexts/AuthContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'react-hot-toast'
 import { Suspense } from 'react'
 
@@ -74,7 +74,7 @@ function SignInContent() {
         
         <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
         <p className="text-gray-600 mb-6">
-          New member? <Link href="/signup" className="text-blue-600 hover:underline">Sign up</Link>
+          New member? <Link href="/auth/signup" className="text-blue-600 hover:underline">Sign up</Link>
         </p>
         <form onSubmit={handleSubmit}>
           <Input

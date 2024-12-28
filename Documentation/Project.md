@@ -1,4 +1,4 @@
-# Your Project Name
+# Flomad Travel -v1
 
 This project is built with Next.js, pnpm, Tailwind CSS, shadcn/ui, and Docker.
 

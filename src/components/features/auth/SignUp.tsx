@@ -41,7 +41,7 @@ export function SignUp() {
       const response = await signUp(username, email, password);
       console.log('Signup successful:', response);
       toast.success('Signup successful! Please check your email for verification.');
-      router.push('/signin');
+      router.push('/auth/signin');
     } catch (error: any) {
       console.error('Signup error:', error);
       toast.error(error.response?.data?.message || 'Failed to sign up. Please try again.');
@@ -70,7 +70,7 @@ export function SignUp() {
         
         <h2 className="text-2xl font-bold mb-2">Sign up for free!</h2>
         <p className="text-gray-600 mb-6">
-          Have an account? <Link href="/signin" className="text-blue-600 hover:underline">Login</Link>
+          Have an account? <Link href="/auth/signin" className="text-blue-600 hover:underline">Login</Link>
         </p>
         
         <form onSubmit={handleSignUp}>

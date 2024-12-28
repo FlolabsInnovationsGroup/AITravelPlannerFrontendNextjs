@@ -1,7 +1,8 @@
+//src/lib/api.ts
 import axios from 'axios';
 
 // Constants
-const API_BASE_URL = 'https://api.flomadtravel.com';
+const API_BASE_URL = 'http://localhost:8080';
 const TOKEN_KEY = 'token';
 
 // Types
@@ -61,7 +62,7 @@ apiClient.interceptors.response.use(
   async (error) => {
     if (error.response?.status === 401) {
       clearToken();
-      window.location.href = '/signin';
+      window.location.href = '/auth/signin';
     }
     return Promise.reject(error);
   }
