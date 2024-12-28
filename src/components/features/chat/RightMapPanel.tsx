@@ -1,4 +1,3 @@
-//src/components/features/chat/RightMapPanel.tsx
 import React, { useState, useEffect } from 'react';
 import GoogleMapComponent from "@/components/features/map/GoogleMapComponent";
 import { Client } from '@stomp/stompjs';
