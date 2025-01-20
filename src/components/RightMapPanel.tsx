@@ -30,7 +30,7 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({ currentSessionId, current
 
         fetchLocations();
 
-        const socketUrl = 'https://api.flomadtravel.com/ws';
+        const socketUrl = 'http://localhost:8080/ws';
 
         const stompClient = new Client({
             webSocketFactory: () => new SockJS(socketUrl),
@@ -46,7 +46,7 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({ currentSessionId, current
             // Subscribe to the session's location updates
             stompClient.subscribe(`/topic/locations/${currentSessionId}`, (message) => {
                 const messageBody = message.body;
-
+            
                 let data;
                 try {
                     data = JSON.parse(messageBody);
@@ -54,7 +54,9 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({ currentSessionId, current
                     console.error('Error parsing message body:', e);
                     return;
                 }
-
+            
+                console.log('Received WebSocket message:', data);
+            
                 if (data.type && data.payload !== undefined) {
                     switch (data.type) {
                         case 'LOCATION_ADDED':
@@ -64,10 +66,7 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({ currentSessionId, current
                             handleLocationRemoved(data.payload);
                             break;
                         case 'MAP_CLEARED':
-                            handleMapCleared();
-                            break;
-                        case 'ERROR':
-                            console.error('Error from server:', data.payload.message);
+                            handleMapCleared(); // Ensure this is called
                             break;
                         default:
                             console.warn('Unknown message type:', data.type);
@@ -76,6 +75,7 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({ currentSessionId, current
                     console.warn('Invalid message format:', data);
                 }
             });
+            
         };
 
         stompClient.onStompError = (frame) => {
@@ -119,9 +119,11 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({ currentSessionId, current
     };
 
     const handleMapCleared = () => {
-        setLocations([]);
-        console.log('Map cleared');
+        console.log('Received MAP_CLEARED message');
+        setLocations([]); // This clears the locations state
+        console.log('Locations state cleared');
     };
+    
 
     return (
         <div className="hidden md:block w-1/4 bg-white border-l p-4 overflow-y-auto">

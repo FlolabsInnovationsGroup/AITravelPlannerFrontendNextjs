@@ -124,7 +124,7 @@ export default function ChatPageContent() {
             }
 
             // Check guest user message limit
-            if (messageCount >= 5 && !currentUser) {
+            if (messageCount >= 1000 && !currentUser) {
                 setMessages((prev) => [
                     ...prev,
                     {

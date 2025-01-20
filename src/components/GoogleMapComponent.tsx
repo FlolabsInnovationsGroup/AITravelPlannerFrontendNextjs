@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {GoogleMap, LoadScript, Marker} from "@react-google-maps/api";
 import { Location } from '@/lib/api';
 
@@ -12,17 +12,29 @@ const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({locations}) => {
         height: "400px",
     };
 
+
+//Default center coordinates for the map
     const defaultCenter = {
-        lat: locations[0]?.latitude || 0,
-        lng: locations[0]?.longitude || 0,
+        lat: 0, // Adjust as needed
+        lng: 0, // Adjust as needed
     };
 
+
+//Debugging to ensure locations update correctly
+    useEffect(() => {
+        console.log("Updated locations:", locations);
+    }, [locations]);
+    
     return (
         <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}>
             <GoogleMap
                 mapContainerStyle={mapContainerStyle}
-                center={defaultCenter}
-                zoom={10}
+                center={
+                    locations.length > 0
+                        ? { lat: locations[0].latitude, lng: locations[0].longitude }
+                        : defaultCenter // Reset to default center if no locations
+                }
+                zoom={locations.length > 0 ? 10 : 2} // Adjust zoom level when no location
             >
                 {locations.map((location) => (
                     <Marker
