@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import GoogleMapComponent from "@/components/GoogleMapComponent";
+import MapboxComponent from "@/components/MapBoxComponent";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import Image from "next/image";
@@ -138,7 +138,7 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({
             <div className="relative h-full w-full">
                 {locations.length > 0 ? (
                     <div className="h-full w-full p-2 bg-white rounded-lg">
-                        <GoogleMapComponent locations={locations} />
+                        <MapboxComponent locations={locations} />
                     </div>
                 ) : (
                     <div className="flex items-center justify-center h-full w-full p-2">
