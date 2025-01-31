@@ -1,7 +1,9 @@
+
 import React, { useRef, useEffect, useState, forwardRef } from "react";
 import Map, { Marker, Popup, MapRef } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import mapboxgl from "mapbox-gl";
+
 
 interface Location {
     latitude: number;
