@@ -22,6 +22,7 @@ export function SignUp() {
   const handleCancel = () => {
     router.push('/')
   }
+
   const handleOAuthLogin = (loginProvider: string) => {
 
     if (loginProvider === 'google') {
