@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { signUp } from '@/lib/api'
 import { toast } from 'react-hot-toast'
+import { LinkedInLogoIcon } from "@radix-ui/react-icons"
+import { Facebook, Linkedin } from 'lucide-react'
 
 export function SignUp() {
   const router = useRouter()
@@ -20,10 +22,16 @@ export function SignUp() {
   const handleCancel = () => {
     router.push('/')
   }
-  const handleOAuthLogin = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth2/authorization/google`;
-  };
-  
+  const handleOAuthLogin = (loginProvider: string) => {
+
+    if (loginProvider === 'google') {
+      window.location.href = `http://localhost:8080/oauth2/authorization/google`;
+    }else if (loginProvider === 'linkedin') {
+      window.location.href = `http://localhost:8080/oauth2/authorization/linkedin`;
+      }else {
+        window.location.href = `http://localhost:8080/oauth2/authorization/facebook`;
+        }
+    }
   
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -120,10 +128,20 @@ export function SignUp() {
           </div>
         </div>
         
-        <Button variant="outline" className="w-full" onClick={handleOAuthLogin}>
-          <Image src="/image/google.png" alt="Google Logo" width={20} height={20} className="mr-2" />
-          Sign up with Google
+        <div className="space-y-4">
+        <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('google')}>
+          <Image src="/image/google.png" className="mr-4" alt="Google Logo" width={25} height={25}/>
+          Login in with Google
         </Button>
+        <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('linkedin')}>
+          <LinkedInLogoIcon className="mr-4" style={{ width: 25, height: 25,color: '#0077B5' }}/>
+          Login in with LinkedIn
+        </Button>
+        <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('facebook')}>
+          <Facebook size={25} className="mr-4" style={{ color: '#FFFFFF', background: '#1877F2', borderRadius: 3 }}/>
+          Login in with Facebook
+        </Button>
+        </div>
       </div>
     </div>
   )
