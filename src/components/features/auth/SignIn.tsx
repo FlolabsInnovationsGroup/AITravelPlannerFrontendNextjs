@@ -36,11 +36,11 @@ function SignInContent() {
   const handleOAuthLogin = (loginProvider: string) => {
 
     if (loginProvider === 'google') {
-      window.location.href = `http://localhost:8080/oauth2/authorization/google`;
+      window.location.href = `https://api.flomadtravel.com/oauth2/authorization/google`;
     }else if (loginProvider === 'linkedin') {
-      window.location.href = `http://localhost:8080/oauth2/authorization/linkedin`;
+      window.location.href = `https://api.flomadtravel.com/oauth2/authorization/linkedin`;
       }else {
-        window.location.href = `http://localhost:8080/oauth2/authorization/facebook`;
+        window.location.href = `https://api.flomadtravel.com/oauth2/authorization/facebook`;
         }
     }
 
