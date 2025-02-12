@@ -177,18 +177,32 @@ export const sendMessagesEntity = async (
       formData.append("audioFile", audioBlob);
     }
 
+    // ✅ Retrieve JWT token from localStorage or AuthContext
+    const authToken = localStorage.getItem("authToken"); 
+
     const response = await apiClient.post<AIMessageResponse>('/api/chat/call/entity', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}), //  Attach token if available
       },
+      withCredentials: true, // Ensure cookies are sent with the request
     });
+
+    if (!response.data || typeof response.data.message !== "string") {
+      console.warn("API returned an unexpected format:", response.data);
+      return { message: "Sorry, I couldn't understand that.", suggestions: [] }; // Safe fallback
+    }
 
     return response.data;
   } catch (error) {
     console.error('Error sending message with entity:', error);
-    throw error;
+
+    //  If response is an HTML page, return an error message
+    return { message: "Authentication required. Please sign in.", suggestions: [] };
   }
 };
+
+
 
 
 

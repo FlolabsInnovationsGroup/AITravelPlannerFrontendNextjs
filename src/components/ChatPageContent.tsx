@@ -58,16 +58,25 @@ export default function ChatPageContent() {
     ];
 
     // Generate dynamic prompts based on context
-    const generateDynamicPrompts = (context: string) => {
-        if (context.includes("flight")) {
+    const generateDynamicPrompts = (context: string | undefined) => {
+        if (!context) {
+            console.warn("generateDynamicPrompts received an undefined context.");
+            return defaultPrompts.slice(0, 4); // Return default prompts instead of crashing
+        }
+    
+        const lowerCaseContext = context.toLowerCase(); // Ensure case-insensitive search
+    
+        if (lowerCaseContext.includes("flight")) {
             return ["Book a flight", "Check flight prices", "View flight schedules", "Explore airline options"];
-        } else if (context.includes("hotel")) {
+        } else if (lowerCaseContext.includes("hotel")) {
             return ["Find nearby hotels", "Check hotel reviews", "View hotel deals", "Explore amenities"];
-        } else if (context.includes("beach")) {
+        } else if (lowerCaseContext.includes("beach")) {
             return ["Explore beach resorts", "Find snorkeling spots", "Plan a beach vacation", "Check weather for beaches"];
         }
+    
         return defaultPrompts.slice(0, 4); // Default fallback prompts
     };
+    
 
     // Event handlers and functions
     const signOut = () => {
@@ -123,7 +132,6 @@ export default function ChatPageContent() {
         try {
             let sessionId = currentSession?.sessionId;
     
-            // Create a new session if needed
             if (!sessionId) {
                 console.log("Creating a new session...");
                 const newSession = await createSession('New Chat');
@@ -137,7 +145,6 @@ export default function ChatPageContent() {
                 setCurrentSession(newSession);
             }
     
-            // Check guest user message limit
             if (messageCount >= 1000 && !currentUser) {
                 setMessages((prev) => [
                     ...prev,
@@ -151,7 +158,6 @@ export default function ChatPageContent() {
                 return;
             }
     
-            // Add user message to the chat
             const userMessage: Message = {
                 id: Date.now(),
                 messageType: 'USER',
@@ -159,17 +165,22 @@ export default function ChatPageContent() {
             };
             setMessages((prev) => [...prev, userMessage]);
     
-            // Send the message to the backend and get the response
             const response = await sendMessagesEntity(message, sessionId);
-            const botMessage: Message = {
-                id: Date.now() + 1,
-                messageType: 'ASSISTANT',
-                content: response.message || "I couldn't process your request. Please try again.",
-            };
-            setMessages((prev) => [...prev, botMessage]);
     
-            // Update suggestions dynamically
-            setSuggestions(response.suggestions || generateDynamicPrompts(response.message));
+            if (!response || typeof response.message !== "string") {
+                console.error("Invalid response format:", response);
+                setSuggestions(defaultPrompts.slice(0, 4)); // ✅ Use safe fallback
+            } else {
+                const botMessage: Message = {
+                    id: Date.now() + 1,
+                    messageType: 'ASSISTANT',
+                    content: response.message,
+                };
+                setMessages((prev) => [...prev, botMessage]);
+    
+                setSuggestions(response.suggestions || generateDynamicPrompts(response.message));
+            }
+    
             setDisplayPrompts(false);
         } catch (error) {
             console.error('Error sending message:', error);
@@ -187,14 +198,18 @@ export default function ChatPageContent() {
         }
     };
     
+    
     const handlePromptClick = async (prompt: string) => {
         setDisplayPrompts(false);
         await handleSendMessage(prompt);
     };
     
     const handleTranscription = (transcribedText: string) => {
+        console.log("✅ Received transcription:", transcribedText);
         setInputMessage(transcribedText);
+        handleSendMessage(transcribedText); // ✅ Auto-send
     };
+    
     
     const fetchChatHistory = async () => {
         if (!currentUser?.id) return;
