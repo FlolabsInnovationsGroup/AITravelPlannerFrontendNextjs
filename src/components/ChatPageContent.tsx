@@ -124,7 +124,7 @@ export default function ChatPageContent() {
             }
 
             // Check guest user message limit
-            if (messageCount >= 5 && !currentUser) {
+            if (messageCount >= 1000 && !currentUser) {
                 setMessages((prev) => [
                     ...prev,
                     {
@@ -319,17 +319,7 @@ export default function ChatPageContent() {
     }, [searchParams, isInitialized, currentUser?.id]);
 
     return (
-        <div className="flex flex-col md:flex-row h-screen bg-gray-100">
-            {/* Mobile Header */}
-            <div className="md:hidden bg-white p-4 flex justify-between items-center border-b">
-                <Link href="/">
-                    <Image src="/logo.png" alt="AiTripPlanner Logo" width={24} height={24} />
-                </Link>
-                <Button variant="ghost" onClick={toggleMobileMenu} aria-label="Toggle menu">
-                    {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-                </Button>
-            </div>
-
+        <div className="flex h-screen bg-gray-100">
             {/* Left Menu Bar */}
             <LeftMenuBar
                 isMobileMenuOpen={isMobileMenuOpen}
@@ -344,77 +334,91 @@ export default function ChatPageContent() {
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
             />
-
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-                {displayPrompts ? (
-                    <div className="flex-1 p-6 flex flex-col items-center justify-center bg-gray-50 overflow-y-auto">
-                        <div className="flex justify-center mb-8">
-                            <Image src="/logo.png" alt="AiTripPlanner Logo" width={128} height={128} />
+    
+            {/* Middle Chat Section */}
+            <div className="flex-[3.3] flex flex-col bg-white border-l border-r overflow-hidden">
+                {/* Chat Section */}
+                <div className="flex-1 flex flex-col h-full overflow-hidden">
+                    {displayPrompts ? (
+                        <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
+                        {/* Wrapper for Logo */}
+                        <div className="flex justify-center mt-6 mb-8">
+                            <Image
+                                src="/logo.png"
+                                alt="AiTripPlanner Logo"
+                                width={128}
+                                height={128}
+                                className="object-contain"
+                            />
                         </div>
-                        <div className="max-w-3xl w-full space-y-4">
-                            <h2 className="text-2xl font-semibold text-center mb-6">
-                                How can I help you plan your trip today?
-                            </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {defaultPrompts.map((prompt: string, index: number) => (
-                                    <button
-                                        key={index}
-                                        onClick={() => handlePromptClick(prompt)}
-                                        className="text-left p-6 rounded-lg bg-white hover:bg-gray-100
-                             transition-all duration-200 shadow-sm hover:shadow
-                             border border-gray-200 hover:border-gray-300"
-                                    >
-                                        <p className="text-lg text-gray-800">{prompt}</p>
-                                    </button>
-                                ))}
+                    
+                        {/* Wrapper for Prompts */}
+                        <div className="flex-1 flex flex-col items-center justify-center px-6">
+                            <div className="max-w-3xl w-full text-center">
+                                <h2 className="text-2xl font-semibold mb-6">
+                                    How can I help you plan your trip today?
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {defaultPrompts.map((prompt: string, index: number) => (
+                                        <button
+                                            key={index}
+                                            onClick={() => handlePromptClick(prompt)}
+                                            className="text-left p-6 rounded-lg bg-white hover:bg-gray-100
+                                                     transition-all duration-200 shadow-sm hover:shadow
+                                                     border border-gray-200 hover:border-gray-300"
+                                        >
+                                            <p className="text-lg text-gray-800">{prompt}</p>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
-                ) : (
-                    <div className="flex-1 overflow-y-auto p-4">
-                        <div className="max-w-3xl mx-auto">
-                            {messages.map((message) => (
-                                <div
-                                    key={message.id}
-                                    className={`mb-8 ${message.messageType === 'USER' ? 'ml-auto' : 'mr-auto'}`}
-                                >
-                                    <div className="flex items-start gap-4">
-                                        {message.messageType === 'ASSISTANT' && (
-                                            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                                                AI
+                    
+                    ) : (
+                        <div className="flex-1 overflow-y-auto p-4">
+                            <div className="max-w-3xl mx-auto">
+                                {messages.map((message) => (
+                                    <div
+                                        key={message.id}
+                                        className={`mb-8 ${message.messageType === 'USER' ? 'ml-auto' : 'mr-auto'}`}
+                                    >
+                                        <div className="flex items-start gap-4">
+                                            {message.messageType === 'ASSISTANT' && (
+                                                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                                                    AI
+                                                </div>
+                                            )}
+                                            <div
+                                                className={`max-w-[80%] p-4 rounded-lg ${
+                                                    message.messageType === 'USER'
+                                                        ? 'bg-blue-500 text-white ml-auto'
+                                                        : 'bg-white border border-gray-200'
+                                                }`}
+                                            >
+                                                <div className="prose max-w-none">
+                                                    <ReactMarkdown components={markdownComponents}>
+                                                        {message.content}
+                                                    </ReactMarkdown>
+                                                </div>
                                             </div>
-                                        )}
-                                        <div
-                                            className={`max-w-[80%] p-4 rounded-lg ${
-                                                message.messageType === 'USER'
-                                                    ? 'bg-blue-500 text-white ml-auto'
-                                                    : 'bg-white border border-gray-200'
-                                            }`}
-                                        >
-                                            <div className="prose max-w-none">
-                                                <ReactMarkdown components={markdownComponents}>
-                                                    {message.content}
-                                                </ReactMarkdown>
-                                            </div>
+                                            {message.messageType === 'USER' && (
+                                                <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
+                                                    You
+                                                </div>
+                                            )}
                                         </div>
-                                        {message.messageType === 'USER' && (
-                                            <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
-                                                You
-                                            </div>
-                                        )}
                                     </div>
-                                </div>
-                            ))}
-                            <div ref={bottomRef} />
+                                ))}
+                                <div ref={bottomRef} />
+                            </div>
+                            {suggestions.length > 0 && (
+                                <Suggestions suggestions={suggestions} handleSendMessage={handleSendMessage} />
+                            )}
                         </div>
-                        {/* Render suggestions if available */}
-                        {suggestions.length > 0 && (
-                            <Suggestions suggestions={suggestions} handleSendMessage={handleSendMessage} />
-                        )}
-                    </div>
-                )}
-
+                    )}
+                </div>
+    
                 {/* Chat Input */}
                 <div className="border-t bg-white p-4">
                     <div className="max-w-3xl mx-auto">
@@ -441,12 +445,14 @@ export default function ChatPageContent() {
                                 aria-label="Send message"
                             >
                                 {isLoading ? (
-                                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" aria-hidden="true" />
+                                    <div
+                                        className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"
+                                        aria-hidden="true"
+                                    />
                                 ) : (
                                     <Send className="h-5 w-5" />
                                 )}
                             </Button>
-                            {/* Audio Recorder */}
                             {currentSession?.sessionId && (
                                 <AudioRecorder sessionId={currentSession.sessionId} onTranscription={handleTranscription} />
                             )}
@@ -454,12 +460,27 @@ export default function ChatPageContent() {
                     </div>
                 </div>
             </div>
-
+    
             {/* Right Map Panel */}
-            <RightMapPanel
-                currentSessionId={currentSession?.sessionId || null}
-                currentUserToken={currentUser?.token || null}
-            />
+            <div className="flex-[2.7] bg-white overflow-hidden p-4 h-full">
+                <RightMapPanel
+                    currentSessionId={currentSession?.sessionId || null}
+                    currentUserToken={currentUser?.token || null}
+                />
+            </div>
         </div>
     );
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 }
+    

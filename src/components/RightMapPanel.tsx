@@ -1,37 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import GoogleMapComponent from "@/components/GoogleMapComponent";
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
+import { Client } from "@stomp/stompjs";
+import SockJS from "sockjs-client";
 import Image from "next/image";
-import { getLocationsBySession, Location } from '@/lib/api'; // Import the API function and Location interface
+import { getLocationsBySession, Location } from "@/lib/api";
 
 interface RightMapPanelProps {
     currentSessionId: string | null;
     currentUserToken: string | null;
 }
 
-const RightMapPanel: React.FC<RightMapPanelProps> = ({ currentSessionId, currentUserToken }) => {
+const RightMapPanel: React.FC<RightMapPanelProps> = ({
+    currentSessionId,
+    currentUserToken,
+}) => {
     const [locations, setLocations] = useState<Location[]>([]);
+    const [isFullScreen, setIsFullScreen] = useState(false);
+
+    const toggleFullScreen = () => {
+        setIsFullScreen((prev) => !prev);
+    };
 
     useEffect(() => {
-        if (!currentSessionId || !currentUserToken) return;
+        if (!currentSessionId || !currentUserToken) {
+            console.warn("Session ID or user token is missing.");
+            return;
+        }
 
-        // Fetch existing locations when the component mounts or when currentSessionId changes
+        // Fetch existing locations
         const fetchLocations = async () => {
             try {
-                console.log('Fetching existing locations...');
+                console.log("Fetching existing locations...");
                 const existingLocations = await getLocationsBySession(currentSessionId);
-                console.log('Existing locations:', existingLocations);
+                console.log("Fetched locations:", existingLocations);
                 setLocations(existingLocations);
             } catch (error) {
-                console.error('Error fetching existing locations:', error);
+                console.error("Error fetching locations:", error);
             }
         };
 
         fetchLocations();
 
-        const socketUrl = 'https://api.flomadtravel.com/ws';
-
+        // WebSocket setup
+        const socketUrl = "http://localhost:8080/ws";
         const stompClient = new Client({
             webSocketFactory: () => new SockJS(socketUrl),
             reconnectDelay: 5000,
@@ -41,105 +52,115 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({ currentSessionId, current
         });
 
         stompClient.onConnect = () => {
-            console.log('WebSocket connected');
+            console.log("WebSocket connected.");
+            stompClient.subscribe(
+                `/topic/locations/${currentSessionId}`,
+                (message) => {
+                    try {
+                        const data = JSON.parse(message.body);
+                        console.log("WebSocket message received:", data);
 
-            // Subscribe to the session's location updates
-            stompClient.subscribe(`/topic/locations/${currentSessionId}`, (message) => {
-                const messageBody = message.body;
-
-                let data;
-                try {
-                    data = JSON.parse(messageBody);
-                } catch (e) {
-                    console.error('Error parsing message body:', e);
-                    return;
-                }
-
-                if (data.type && data.payload !== undefined) {
-                    switch (data.type) {
-                        case 'LOCATION_ADDED':
-                            handleLocationAdded(data.payload);
-                            break;
-                        case 'LOCATION_REMOVED':
-                            handleLocationRemoved(data.payload);
-                            break;
-                        case 'MAP_CLEARED':
-                            handleMapCleared();
-                            break;
-                        case 'ERROR':
-                            console.error('Error from server:', data.payload.message);
-                            break;
-                        default:
-                            console.warn('Unknown message type:', data.type);
+                        if (data.type && data.payload !== undefined) {
+                            handleWebSocketEvent(data.type, data.payload);
+                        } else {
+                            console.warn("Invalid WebSocket message format:", data);
+                        }
+                    } catch (error) {
+                        console.error("Error parsing WebSocket message:", error);
                     }
-                } else {
-                    console.warn('Invalid message format:', data);
                 }
-            });
+            );
         };
 
         stompClient.onStompError = (frame) => {
-            console.error('WebSocket error:', frame.headers['message']);
+            console.error("WebSocket error:", frame.headers["message"]);
         };
 
         stompClient.activate();
 
-        // Cleanup function to deactivate the WebSocket when the component unmounts or when session changes
         return () => {
+            console.log("Deactivating WebSocket...");
             stompClient.deactivate();
-            console.log('WebSocket disconnected');
         };
     }, [currentSessionId, currentUserToken]);
 
+    const handleWebSocketEvent = (type: string, payload: any) => {
+        switch (type) {
+            case "LOCATION_ADDED":
+                handleLocationAdded(payload);
+                break;
+            case "LOCATION_REMOVED":
+                handleLocationRemoved(payload);
+                break;
+            case "MAP_CLEARED":
+                handleMapCleared();
+                break;
+            default:
+                console.warn("Unknown WebSocket event type:", type);
+        }
+    };
+
     const handleLocationAdded = (location: Location) => {
-        if (location && location.id && location.latitude && location.longitude) {
+        if (location && location.latitude && location.longitude) {
+            console.log("Adding location:", location);
             setLocations((prevLocations) => {
                 const exists = prevLocations.some((loc) => loc.id === location.id);
-                if (!exists) {
-                    return [...prevLocations, location];
-                }
-                return prevLocations;
+                return exists ? prevLocations : [...prevLocations, location];
             });
-            console.log('Location added:', location);
         } else {
-            console.warn('Invalid location data:', location);
+            console.error("Invalid location data received:", location);
         }
     };
 
     const handleLocationRemoved = (payload: { locationId: string }) => {
         const { locationId } = payload;
         if (locationId) {
+            console.log("Removing location with ID:", locationId);
             setLocations((prevLocations) =>
                 prevLocations.filter((loc) => loc.id !== locationId)
             );
-            console.log('Location removed:', locationId);
         } else {
-            console.warn('Invalid payload for LOCATION_REMOVED:', payload);
+            console.warn("Invalid payload for LOCATION_REMOVED event:", payload);
         }
     };
 
     const handleMapCleared = () => {
+        console.log("Clearing all locations from the map.");
         setLocations([]);
-        console.log('Map cleared');
     };
 
     return (
-        <div className="hidden md:block w-1/4 bg-white border-l p-4 overflow-y-auto">
-            {locations.length > 0 ? (
-                <>
-                    <h2 className="text-xl font-bold mb-4">Map</h2>
-                    {/* Google Map Integration */}
-                    <GoogleMapComponent locations={locations} />
-                </>
-            ) : (
-                <>
-                    <h2 className="text-xl font-bold mb-4">Details</h2>
-                    <div className="flex flex-col items-center justify-center h-full">
-                        <Image src="/image/no-gradient.png" alt="Placeholder" width={200} height={200} />
-                        <p className="mt-4 text-center">Additional information will appear here.</p>
+        <div
+            className={`${
+                isFullScreen ? "absolute inset-0 z-50" : "hidden md:block flex-grow"
+            } bg-white border-l h-screen p-4 overflow-hidden`}
+        >
+            <div className="relative h-full w-full">
+                {locations.length > 0 ? (
+                    <div className="h-full w-full p-2 bg-white rounded-lg">
+                        <GoogleMapComponent locations={locations} />
                     </div>
-                </>
-            )}
+                ) : (
+                    <div className="flex items-center justify-center h-full w-full p-2">
+                        <div className="relative h-full w-full bg-white rounded-lg">
+                            <Image
+                                src="/image/travelagentpic1.png"
+                                alt="Your Personal AI Travel Agent"
+                                fill
+                                className="object-cover rounded-lg"
+                                priority
+                            />
+                        </div>
+                    </div>
+                )}
+                {/* Full-Screen Toggle Button */}
+                <button
+                    onClick={toggleFullScreen}
+                    className="absolute top-4 right-4 bg-blue-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-blue-700"
+                >
+                    {isFullScreen ? "Exit Full Screen" : "Full Screen"}
+                </button>
+            </div>
         </div>
     );
 };
