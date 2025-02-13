@@ -23,75 +23,91 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({
         setIsFullScreen((prev) => !prev);
     };
 
-    useEffect(() => {
-        if (!currentSessionId || !currentUserToken) {
-            console.warn("Session ID or user token is missing.");
-            return;
-        }
-    
-        console.log("Initializing WebSocket connection...");
-    
-        // Use HTTP or HTTPS based on the current environment for SockJS
-        const protocol = window.location.protocol === "https:" ? "https" : "http";
-        const socketUrl = `${protocol}://localhost:8080/ws`; // Replace 'localhost' with your production host if needed
-    
-        const stompClient = new Client({
-            webSocketFactory: () => new SockJS(socketUrl), // SockJS expects HTTP/HTTPS
-            reconnectDelay: 5000,
-            connectHeaders: {
-                Authorization: `Bearer ${currentUserToken}`,
-            },
-        });
-    
-        stompClient.onConnect = () => {
-            console.log("WebSocket connected.");
-            stompClient.subscribe(
-                `/topic/locations/${currentSessionId}`,
-                (message) => {
-                    try {
-                        const data = JSON.parse(message.body);
-                        handleWebSocketEvent(data.type, data.payload);
-                    } catch (error) {
-                        console.error("Error parsing WebSocket message:", error);
-                    }
+useEffect(() => {
+    if (!currentSessionId || !currentUserToken) {
+        console.warn("⚠️ Session ID or user token is missing.");
+        return;
+    }
+
+    console.log(`🔄 Connecting WebSocket for session: ${currentSessionId}`);
+
+    const protocol = window.location.protocol === "https:" ? "https" : "http";
+    const socketUrl = `${protocol}://localhost:8080/ws`;
+
+    const stompClient = new Client({
+        webSocketFactory: () => new SockJS(socketUrl),
+        reconnectDelay: 5000,
+        connectHeaders: {
+            Authorization: `Bearer ${currentUserToken}`,
+        },
+    });
+
+    stompClient.onConnect = () => {
+        console.log(`✅ WebSocket connected. Subscribing to: /topic/locations/${currentSessionId}`);
+
+        stompClient.subscribe(
+            `/topic/locations/${currentSessionId}`,
+            (message) => {
+                try {
+                    const data = JSON.parse(message.body);
+                    console.log("📡 WebSocket Received:", data);
+                    handleWebSocketEvent(data.type, data.payload);
+                } catch (error) {
+                    console.error("🚨 Error parsing WebSocket message:", error);
                 }
-            );
-        };
-    
-        stompClient.onStompError = (frame) => {
-            console.error("WebSocket STOMP error:", frame.headers["message"]);
-        };
-    
-        stompClient.activate();
-    
-        return () => {
-            console.log("Deactivating WebSocket...");
-            stompClient.deactivate();
-        };
-    }, [currentSessionId, currentUserToken]);
+            }
+        );
+    };
+
+    stompClient.onStompError = (frame) => {
+        console.error("❌ WebSocket STOMP error:", frame.headers["message"]);
+    };
+
+    stompClient.activate();
+
+    return () => {
+        console.log("🔌 Disconnecting WebSocket...");
+        stompClient.deactivate();
+    };
+}, [currentSessionId, currentUserToken]);
+
     
 
     const handleWebSocketEvent = (type: string, payload: any) => {
-        switch (type) {
-            case "LOCATION_ADDED":
-                setLocations((prev) =>
-                    prev.some((loc) => loc.id === payload.id)
-                        ? prev
-                        : [...prev, payload]
-                );
-                break;
-            case "LOCATION_REMOVED":
-                setLocations((prev) =>
-                    prev.filter((loc) => loc.id !== payload.locationId)
-                );
-                break;
-            case "MAP_CLEARED":
-                setLocations([]);
-                break;
-            default:
-                console.warn("Unknown WebSocket event type:", type);
+        if (!payload || !payload.id) {
+            console.error("🚨 Invalid WebSocket payload:", payload);
+            return;
         }
+    
+        console.log(`📡 WebSocket Received [${type}]:`, payload);
+    
+        setLocations((prevLocations) => {
+            const locationIds = new Set(prevLocations.map(loc => loc.id));
+    
+            switch (type) {
+                case "LOCATION_ADDED":
+                    if (!locationIds.has(payload.id)) {
+                        console.log("✅ Adding new location:", payload);
+                        return [...prevLocations, payload]; // Append new location
+                    } else {
+                        console.warn("⚠️ Duplicate location detected, skipping:", payload);
+                        return prevLocations;
+                    }
+                case "LOCATION_REMOVED":
+                    console.log("🗑 Removing location:", payload.locationId);
+                    return prevLocations.filter(loc => loc.id !== payload.locationId);
+                case "MAP_CLEARED":
+                    console.log("🗺 Clearing all locations.");
+                    return [];
+                default:
+                    console.warn("⚠️ Unknown WebSocket event type:", type);
+                    return prevLocations;
+            }
+        });
     };
+    
+    
+    
 
     return (
         <div
