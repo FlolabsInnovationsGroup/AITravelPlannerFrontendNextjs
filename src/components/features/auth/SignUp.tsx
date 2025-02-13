@@ -132,15 +132,15 @@ export function SignUp() {
         <div className="space-y-4">
         <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('google')}>
           <Image src="/image/google.png" className="mr-4" alt="Google Logo" width={25} height={25}/>
-          Login in with Google
+          Signup in with Google
         </Button>
         <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('linkedin')}>
           <LinkedInLogoIcon className="mr-4" style={{ width: 25, height: 25,color: '#0077B5' }}/>
-          Login in with LinkedIn
+          Signup in with LinkedIn
         </Button>
         <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('facebook')}>
           <Facebook size={25} className="mr-4" style={{ color: '#FFFFFF', background: '#1877F2', borderRadius: 3 }}/>
-          Login in with Facebook
+          Signup in with Facebook
         </Button>
         </div>
       </div>
