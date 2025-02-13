@@ -177,7 +177,7 @@ export const sendMessagesEntity = async (
       formData.append("audioFile", audioBlob);
     }
 
-    const response = await apiClient.post<AIMessageResponse>('/api/chat/call/entity', formData, {
+    const response = await apiClient.post<AIMessageResponse>('/api/chat/entity', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
