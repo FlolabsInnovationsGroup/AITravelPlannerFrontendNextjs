@@ -38,8 +38,8 @@ export default function AboutPage() {
             <strong>Revolutionizing Travel with AI</strong>
           </p>
           <p className="mt-4 text-lg text-gray-700">
-            At <strong>Flomad Travel</strong>, we believe travel should be **seamless, personalized, and stress-free**.
-            Our AI-powered platform helps travelers **plan, explore, and book** journeys with ease. Whether you're a 
+            At <strong>Flomad Travel</strong>, we believe travel should be seamless, personalized, and stress-free.
+            Our AI-powered platform helps travelers plan, explore, and book journeys with ease. Whether you're a 
             <strong> digital nomad, an adventure seeker, traveling for business, or vacation</strong>, our AI assistant provides 
             real-time recommendations, itinerary planning, and insider insights to enhance your experience.
           </p>
@@ -47,8 +47,8 @@ export default function AboutPage() {
 
         <h2 className="text-4xl font-semibold mt-14 text-[#0056b3] tracking-tight">Our Vision</h2>
         <p className="mt-4 text-lg text-gray-700">
-          We aim to **redefine travel** by integrating AI and automation. With Flomad Travel, your next trip isn’t just a vacation—it’s a 
-          **personalized adventure**, curated to your preferences.
+          We aim to redefine travel by integrating AI and automation. With Flomad Travel, your next trip isn’t just a vacation—it’s a 
+          personalized adventure, curated to your preferences.
         </p>
 
         <h2 className="text-4xl font-semibold mt-14 text-[#0056b3] tracking-tight">What We Offer</h2>
@@ -74,7 +74,7 @@ export default function AboutPage() {
         <h2 className="text-4xl font-semibold mt-14 text-[#0056b3] tracking-tight">Who We Are</h2>
         <p className="mt-4 text-lg text-gray-700">
           Flomad Travel is part of the <strong>Flomad ecosystem</strong>, a network of AI-driven projects designed to 
-          enhance the way people **work, travel, and live**.
+          enhance the way people work, travel, and live.
         </p>
 
         <h2 className="text-4xl font-semibold mt-14 text-[#0056b3] tracking-tight">Join the Flomad Community</h2>
