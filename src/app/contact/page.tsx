@@ -34,8 +34,8 @@ export default function ContactPage() {
             <p className="text-lg text-gray-700">We’d love to hear from you! Feel free to reach out.</p>
             
             <div className="space-y-3 text-lg text-gray-600">
-              <p>📧 Email: <a href="mailto:hr@flomadlabs.com" className="text-blue-500 hover:underline">Email Us</a></p>
-              <p>💼 LinkedIn: <a href="https://www.linkedin.com/company/flomad-labs-r-d/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Send us a message</a></p>
+              <p>Email: <a href="mailto:hr@flomadlabs.com" className="text-blue-500 hover:underline">Email Us</a></p>
+              <p>LinkedIn: <a href="https://www.linkedin.com/company/flomad-labs-r-d/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Send us a message</a></p>
             </div>
           </div>
 
