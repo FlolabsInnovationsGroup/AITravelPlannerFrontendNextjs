@@ -67,28 +67,29 @@ export default function LandingPage() {
     <div className="flex flex-col min-h-screen">
       <div className="relative h-screen">
         {backgroundImages.map((img, index) => (
+          <div className="absolute inset-0">
           <Image
             key={img}
             src={img}
             alt={`Travel scene ${index + 1}`}
             fill
             sizes="100vw"
-            style={{
-              objectFit: 'cover',
-            }}
             quality={85}
             priority={index === 0}
-            className={`transition-opacity duration-1000 ${
+            className={`object-cover transition-opacity duration-1000 ${
               index === currentImageIndex ? 'opacity-100' : 'opacity-0'
             }`}
           />
+        </div>
+        
         ))}
         
         <div className="absolute inset-0 bg-black opacity-30" />
         
         <div className="relative z-10 flex flex-col h-full">
-          <header className="py-4 px-6 md:px-10">
-            <nav className="flex justify-between items-center">
+        <header className="fixed top-0 left-0 right-0 z-50 py-4 px-6 md:px-10 bg-black/30 backdrop-blur-md">
+  <nav className="flex justify-between items-center">
+
               <div className="flex items-center">
                 <Image
                   src="/logo.png"
@@ -97,11 +98,11 @@ export default function LandingPage() {
                   height={25}
                   className="mr-2"
                 />
-                <span className="text-white text-2xl font-semibold">flomad travel</span>
+                <span className="text-white text-2xl font-semibold">Flomad Travel</span>
               </div>
               <div className="flex items-center space-x-6">
-                <Link href="/about" className="text-white hover:text-gray-300">about</Link>
-                <Link href="/contact" className="text-white hover:text-gray-300">contact</Link>
+                <Link href="/about" className="text-white hover:text-gray-300">About</Link>
+                <Link href="/contact" className="text-white hover:text-gray-300">Contact</Link>
                 <Link href={isAuthenticated ? "/chat" : "/auth/signup"} passHref>
                   <Button variant="secondary" className="bg-white text-black hover:bg-gray-200">
                     {isAuthenticated ? "Go to Chat" : "Create Account"}
@@ -113,9 +114,10 @@ export default function LandingPage() {
 
           <main className="flex-grow flex items-center px-6 md:px-10">
             <div className="max-w-2xl">
-              <h1 className="text-5xl md:text-6xl font-bold text-white mb-4 leading-tight">
-                Explore The World<br />In Comfort.
-              </h1>
+            <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-4 leading-tight drop-shadow-lg">
+  Explore The World<br />In Comfort.
+</h1>
+
               <p className="text-xl text-white mb-8">
                 Explore your way, all the way.
               </p>
