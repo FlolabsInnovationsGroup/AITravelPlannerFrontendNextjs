@@ -24,7 +24,8 @@ export default function AboutPage() {
 
     {/* Centered Navigation */}
     <div className="flex items-center space-x-6">
-      <Link href="/about" className="text-white hover:text-gray-300">About</Link>
+      <Link href="/" className="text-white hover:text-gray-300">Home</Link>
+        <Link href="/about" className="text-white hover:text-gray-300">About</Link>
       <Link href="/contact" className="text-white hover:text-gray-300">Contact</Link>
       <Link href="/auth/signup" passHref>
         <Button variant="secondary" className="bg-white text-black hover:bg-gray-200">
