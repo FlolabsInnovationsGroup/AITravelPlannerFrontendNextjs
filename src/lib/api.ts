@@ -180,13 +180,18 @@ export const sendMessagesEntity = async (
     // ✅ Retrieve JWT token from localStorage or AuthContext
     const authToken = localStorage.getItem("authToken"); 
 
-    const response = await apiClient.post<AIMessageResponse>('/api/chat/call/entity', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}), //  Attach token if available
-      },
-      withCredentials: true, // Ensure cookies are sent with the request
-    });
+const response = await apiClient.post<AIMessageResponse>(
+  '/api/chat/entity',  // ✅ Correct API endpoint
+  formData,
+  {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    },
+    withCredentials: true, 
+  }
+);
+
 
     if (!response.data || typeof response.data.message !== "string") {
       console.warn("API returned an unexpected format:", response.data);
