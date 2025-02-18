@@ -121,21 +121,27 @@ useEffect(() => {
                 }`}
             >
                 {locations.length > 0 ? (
-                    <div className="h-full w-full p-2 bg-white rounded-lg">
-                        <MapboxComponent
-                            locations={locations}
-                            isFullScreen={isFullScreen}
-                            ref={mapRef} // Pass the ref here
-                        />
-                        {/* Full-Screen Toggle Button (Only for Map) */}
-                        <button
-                            onClick={toggleFullScreen}
-                            className="absolute top-4 right-4 bg-blue-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105"
-                        >
-                            {isFullScreen ? "Exit Full Screen" : "Full Screen"}
-                        </button>
-                    </div>
-                ) : (
+    <div className="h-full w-full p-2 bg-white rounded-lg">
+        {/* <MapboxComponent
+            locations={locations}
+            isFullScreen={isFullScreen}
+            ref={mapRef} // Pass the ref here
+        /> */}
+        <div className="flex items-center justify-center h-full w-full p-2">
+            <div className="relative h-full w-full bg-white rounded-lg">
+                <Image
+                    src="/image/travelagentpic1.png"
+                    alt="Your Personal AI Travel Agent"
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover rounded-lg"
+                    priority
+                />
+            </div>
+        </div>
+    </div>
+) : (
+
                     <div className="flex items-center justify-center h-full w-full p-2">
                         <div className="relative h-full w-full bg-white rounded-lg">
                             <Image

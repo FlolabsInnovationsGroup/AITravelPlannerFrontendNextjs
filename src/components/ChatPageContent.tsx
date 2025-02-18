@@ -429,46 +429,47 @@ export default function ChatPageContent() {
                 </div>
     
                 {/* Chat Input */}
-                <div className="border-t bg-white p-4">
-                    <div className="max-w-3xl mx-auto">
-                        <div className="flex items-center gap-4 bg-white rounded-lg border shadow-sm">
-                            <Input
-                                type="text"
-                                placeholder="Type your message..."
-                                value={inputMessage}
-                                onChange={(e) => setInputMessage(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault();
-                                        handleSendMessage(inputMessage);
-                                    }
-                                }}
-                                className="flex-1 border-none shadow-none focus:ring-0 py-6 px-4"
-                                disabled={isLoading}
-                                aria-label="Chat input"
-                            />
-                            <Button
-                                onClick={() => handleSendMessage(inputMessage)}
-                                disabled={isLoading || !inputMessage.trim()}
-                                className="m-2 px-6"
-                                aria-label="Send message"
-                            >
-                                {isLoading ? (
-                                    <div
-                                        className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"
-                                        aria-hidden="true"
-                                    />
-                                ) : (
-                                    <Send className="h-5 w-5" />
-                                )}
-                            </Button>
-                            {currentSession?.sessionId && (
-                                <AudioRecorder sessionId={currentSession.sessionId} onTranscription={handleTranscription} />
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
+<div className="border-t bg-white p-4">
+    <div className="max-w-3xl mx-auto">
+        <div className="flex items-center gap-4 bg-white rounded-xl border shadow-md p-3">
+            <Input
+                type="text"
+                placeholder="Type your message..."
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage(inputMessage);
+                    }
+                }}
+                className="flex-1 border-none shadow-none focus:ring-0 py-4 px-4 rounded-xl bg-gray-100"
+                disabled={isLoading}
+                aria-label="Chat input"
+            />
+            <Button
+                onClick={() => handleSendMessage(inputMessage)}
+                disabled={isLoading || !inputMessage.trim()}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl shadow"
+                aria-label="Send message"
+            >
+                {isLoading ? (
+                    <div
+                        className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"
+                        aria-hidden="true"
+                    />
+                ) : (
+                    <Send className="h-5 w-5" />
+                )}
+            </Button>
+            {currentSession?.sessionId && (
+                <AudioRecorder sessionId={currentSession.sessionId} onTranscription={handleTranscription} />
+            )}
+        </div>
+    </div>
+</div>
+</div>
+
     
 {/* Right Map Panel */}
 <div className="flex-[2.7] bg-white overflow-hidden p-4 h-full">
@@ -479,18 +480,9 @@ export default function ChatPageContent() {
 </div>
 </div>
 
+
     );      
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-}
+        }
     

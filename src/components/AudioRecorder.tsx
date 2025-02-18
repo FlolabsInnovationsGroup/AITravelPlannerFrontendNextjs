@@ -153,17 +153,7 @@ const transcribeAudio = async (audioBlob: Blob) => {
     )}
 </Button>
 
-      {isRecording && (
-        <div className="absolute left-12 top-1/2 -translate-y-1/2 flex items-center">
-          <div className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-red-500 bg-red-50 dark:bg-red-900/20 rounded-full">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-            </span>
-            {Math.floor(recordingDuration)}s
-          </div>
-        </div>
-      )}
+
     </div>
   )
 }
