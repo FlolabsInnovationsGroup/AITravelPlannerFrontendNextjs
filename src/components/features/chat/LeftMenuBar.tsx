@@ -119,20 +119,27 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
                 />
               </div>
               <ul>
-                {chatHistory
-                  .filter((session) => session.title.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .map((session) => (
-                    <li
-                      key={session.sessionId}
-                      className={`py-2 px-4 cursor-pointer hover:bg-gray-100 rounded-md ${
-                        currentSessionId === session.sessionId ? 'bg-gray-200' : ''
-                      }`}
-                      onClick={() => handleSessionClick(session)}
-                    >
-                      <span className="truncate">{session.title}</span>
-                    </li>
-                  ))}
-              </ul>
+  {Array.isArray(chatHistory) ? (
+    chatHistory
+      .filter((session) =>
+        session.title.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      .map((session) => (
+        <li
+          key={session.sessionId}
+          className={`py-2 px-4 cursor-pointer hover:bg-gray-100 rounded-md ${
+            currentSessionId === session.sessionId ? "bg-gray-200" : ""
+          }`}
+          onClick={() => handleSessionClick(session)}
+        >
+          <span className="truncate">{session.title}</span>
+        </li>
+      ))
+  ) : (
+    <p className="text-gray-500">No chat history available</p>
+  )}
+</ul>
+
             </div>
           </div>
           <Button

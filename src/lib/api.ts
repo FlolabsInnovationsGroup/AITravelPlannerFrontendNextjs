@@ -170,42 +170,39 @@ export const sendMessagesEntity = async (
 ): Promise<AIMessageResponse> => {
   try {
     const formData = new FormData();
+
+    // ✅ Send `sessionId` and `message` as separate fields
     formData.append("sessionId", sessionId);
-    formData.append("message", message);
+    formData.append("message", message); // Ensure it's a string, NOT a JSON object
 
+    // ✅ Append audio file if exists
     if (audioBlob) {
-      formData.append("audioFile", audioBlob);
+      formData.append("file", audioBlob, "audio.wav"); // Ensure backend expects "file"
     }
 
-    // ✅ Retrieve JWT token from localStorage or AuthContext
-    const authToken = localStorage.getItem("authToken"); 
+    // ✅ Get authentication token
+    const authToken = getToken();
 
-const response = await apiClient.post<AIMessageResponse>(
-  '/api/chat/entity',  // ✅ Correct API endpoint
-  formData,
-  {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-    },
-    withCredentials: true, 
-  }
-);
-
-
-    if (!response.data || typeof response.data.message !== "string") {
-      console.warn("API returned an unexpected format:", response.data);
-      return { message: "Sorry, I couldn't understand that.", suggestions: [] }; // Safe fallback
-    }
+    // ✅ Send request
+    const response = await apiClient.post<AIMessageResponse>(
+      "/api/chat/call/entity",
+      formData,
+      {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        withCredentials: true,
+      }
+    );
 
     return response.data;
   } catch (error) {
-    console.error('Error sending message with entity:', error);
-
-    //  If response is an HTML page, return an error message
-    return { message: "Authentication required. Please sign in.", suggestions: [] };
+    console.error("❌ Error sending message entity:", error);
+    throw error;
   }
 };
+
+
+
+
 
 
 
