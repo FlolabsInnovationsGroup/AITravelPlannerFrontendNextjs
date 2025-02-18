@@ -159,7 +159,7 @@ export default function LandingPage() {
       <FeaturedTourPlaces />
       <ExploreSection />
       <TopCities />
-      <Testimonials />
+      {/*<Testimonials /> */}
       <Footer />
     </div>
   )
