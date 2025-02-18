@@ -1,29 +1,37 @@
 import Footer from "@/components/features/landing/Footer";
 import Image from "next/image";
 import Link from "next/link";
+import { Button } from "@/components/ui/button"; // Adjust the import path as necessary
 
 export default function AboutPage() {
   return (
     <div className="flex flex-col min-h-screen bg-white text-gray-900">
       
-{/* HEADER - Logo (Left) + Centered Navigation */}
-<header className="py-4 px-6 md:px-10 bg-white shadow-md flex items-center justify-between w-full fixed top-0 left-0 right-0 z-50">
-  {/* Left-Aligned Logo */}
-  <Link href="/" className="flex items-center">
-    <Image 
-      src="/logo.png" 
-      alt="Flomad Travel Logo" 
-      width={50}  
-      height={25} 
-      className="ml-6"
-    />
-  </Link>
+{/* HEADER - Matches Landing Page */}
+<header className="fixed top-0 left-0 right-0 z-50 py-4 px-6 md:px-10 bg-black/30 backdrop-blur-md">
+  <nav className="flex justify-between items-center">
+    {/* Logo Left-Aligned */}
+    <div className="flex items-center">
+      <Image
+        src="/logo.png"
+        alt="Flomad Travel Logo"
+        width={20}
+        height={25}
+        className="mr-2"
+      />
+      <span className="text-white text-2xl font-semibold">Flomad Travel</span>
+    </div>
 
-  {/* Centered Navigation */}
-  <nav className="absolute left-1/2 transform -translate-x-1/2 flex space-x-8">
-    <Link href="/" className="text-gray-700 hover:text-[#004494] text-lg font-medium transition-colors duration-300">Home</Link>
-    <Link href="/about" className="text-[#0056b3] font-semibold text-lg">About</Link> {/* Active Link */}
-    <Link href="/contact" className="text-gray-700 hover:text-[#004494] text-lg font-medium transition-colors duration-300">Contact</Link>
+    {/* Centered Navigation */}
+    <div className="flex items-center space-x-6">
+      <Link href="/about" className="text-white hover:text-gray-300">About</Link>
+      <Link href="/contact" className="text-white hover:text-gray-300">Contact</Link>
+      <Link href="/auth/signup" passHref>
+        <Button variant="secondary" className="bg-white text-black hover:bg-gray-200">
+          Create Account
+        </Button>
+      </Link>
+    </div>
   </nav>
 </header>
 
