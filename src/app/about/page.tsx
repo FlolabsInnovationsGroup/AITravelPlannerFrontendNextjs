@@ -13,7 +13,7 @@ export default function AboutPage() {
     <Image 
       src="/logo.png" 
       alt="Flomad Travel Logo" 
-      width={50}  // Adjusted smaller size
+      width={50}  
       height={25} 
       className="ml-6"
     />
@@ -26,6 +26,7 @@ export default function AboutPage() {
     <Link href="/contact" className="text-gray-700 hover:text-[#004494] text-lg font-medium transition-colors duration-300">Contact</Link>
   </nav>
 </header>
+
 
 
       {/* ABOUT PAGE CONTENT */}
