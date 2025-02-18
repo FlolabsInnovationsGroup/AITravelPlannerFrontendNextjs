@@ -1,7 +1,6 @@
 import Footer from "@/components/features/landing/Footer";
 import Image from "next/image";
 import Link from "next/link";
-import { Button } from "@/components/ui/button"; // Adjust the import path as necessary
 
 export default function AboutPage() {
   return (
@@ -26,11 +25,6 @@ export default function AboutPage() {
       <Link href="/" className="text-white hover:text-gray-300">Home</Link>
         <Link href="/about" className="text-white hover:text-gray-300">About</Link>
       <Link href="/contact" className="text-white hover:text-gray-300">Contact</Link>
-      <Link href="/auth/signup" passHref>
-        <Button variant="secondary" className="bg-white text-black hover:bg-gray-200">
-          Create Account
-        </Button>
-      </Link>
     </div>
   </nav>
 </header>
