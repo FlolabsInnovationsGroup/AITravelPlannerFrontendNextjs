@@ -1,5 +1,3 @@
-// /lib/map-service.ts
-
 // Use the LatLngLiteral type from the Google Maps JavaScript API
 type LatLngLiteral = {
     lat: number;

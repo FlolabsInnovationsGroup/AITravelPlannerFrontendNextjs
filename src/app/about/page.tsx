@@ -1,4 +1,4 @@
-import Footer from "@/components/Footer";
+import Footer from "@/components/features/landing/Footer";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -6,24 +6,26 @@ export default function AboutPage() {
   return (
     <div className="flex flex-col min-h-screen bg-white text-gray-900">
       
-{/* HEADER - Logo (Left) + Centered Navigation */}
-<header className="py-4 px-6 md:px-10 bg-white shadow-md flex items-center justify-between w-full fixed top-0 left-0 right-0 z-50">
-  {/* Left-Aligned Logo */}
+{/* HEADER - Matches Landing Page */}
+<header className="fixed top-0 left-0 right-0 z-50 py-4 px-6 md:px-10 bg-black/30 backdrop-blur-md">
+  <nav className="flex justify-between items-center">
   <Link href="/" className="flex items-center">
-    <Image 
-      src="/logo.png" 
-      alt="Flomad Travel Logo" 
-      width={50}  // Adjusted smaller size
-      height={25} 
-      className="ml-6"
-    />
-  </Link>
+      <Image
+        src="/logo.png"
+        alt="Flomad Travel Logo"
+        width={20}
+        height={25}
+        className="mr-2"
+      />
+      <span className="text-white text-2xl font-semibold">Flomad Travel</span>
+    </Link>
 
-  {/* Centered Navigation */}
-  <nav className="absolute left-1/2 transform -translate-x-1/2 flex space-x-8">
-    <Link href="/" className="text-gray-700 hover:text-[#004494] text-lg font-medium transition-colors duration-300">Home</Link>
-    <Link href="/about" className="text-[#0056b3] font-semibold text-lg">About</Link> {/* Active Link */}
-    <Link href="/contact" className="text-gray-700 hover:text-[#004494] text-lg font-medium transition-colors duration-300">Contact</Link>
+    {/* Centered Navigation */}
+    <div className="flex items-center space-x-6">
+      <Link href="/" className="text-white hover:text-gray-300">Home</Link>
+        <Link href="/about" className="text-white hover:text-gray-300">About</Link>
+      <Link href="/contact" className="text-white hover:text-gray-300">Contact</Link>
+    </div>
   </nav>
 </header>
 
@@ -38,8 +40,8 @@ export default function AboutPage() {
             <strong>Revolutionizing Travel with AI</strong>
           </p>
           <p className="mt-4 text-lg text-gray-700">
-            At <strong>Flomad Travel</strong>, we believe travel should be **seamless, personalized, and stress-free**.
-            Our AI-powered platform helps travelers **plan, explore, and book** journeys with ease. Whether you're a 
+            At <strong>Flomad Travel</strong>, we believe travel should be seamless, personalized, and stress-free.
+            Our AI-powered platform helps travelers plan, explore, and book journeys with ease. Whether you're a 
             <strong> digital nomad, an adventure seeker, traveling for business, or vacation</strong>, our AI assistant provides 
             real-time recommendations, itinerary planning, and insider insights to enhance your experience.
           </p>
@@ -47,8 +49,8 @@ export default function AboutPage() {
 
         <h2 className="text-4xl font-semibold mt-14 text-[#0056b3] tracking-tight">Our Vision</h2>
         <p className="mt-4 text-lg text-gray-700">
-          We aim to **redefine travel** by integrating AI and automation. With Flomad Travel, your next trip isn’t just a vacation—it’s a 
-          **personalized adventure**, curated to your preferences.
+          We aim to redefine travel by integrating AI and automation. With Flomad Travel, your next trip isn’t just a vacation—it’s a 
+          personalized adventure, curated to your preferences.
         </p>
 
         <h2 className="text-4xl font-semibold mt-14 text-[#0056b3] tracking-tight">What We Offer</h2>
@@ -74,7 +76,7 @@ export default function AboutPage() {
         <h2 className="text-4xl font-semibold mt-14 text-[#0056b3] tracking-tight">Who We Are</h2>
         <p className="mt-4 text-lg text-gray-700">
           Flomad Travel is part of the <strong>Flomad ecosystem</strong>, a network of AI-driven projects designed to 
-          enhance the way people **work, travel, and live**.
+          enhance the way people work, travel, and live.
         </p>
 
         <h2 className="text-4xl font-semibold mt-14 text-[#0056b3] tracking-tight">Join the Flomad Community</h2>
