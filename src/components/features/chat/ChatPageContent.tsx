@@ -10,11 +10,11 @@ import { Button } from "@/components/ui/button";
 import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession } from '@/lib/api';
 import { Send, Menu, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { useAuth } from '@/components/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import AudioRecorder from './AudioRecorder';
 import { Components } from 'react-markdown';
-import LeftMenuBar from '@/components/LeftMenuBar';
-import RightMapPanel from '@/components/RightMapPanel';
+import LeftMenuBar from '@/components/features/chat/LeftMenuBar';
+import RightMapPanel from '@/components/features/chat/RightMapPanel';
 
 interface CodeProps extends React.HTMLAttributes<HTMLElement> {
     inline?: boolean;
@@ -80,11 +80,9 @@ export default function ChatPageContent() {
 
     // Event handlers and functions
     const signOut = () => {
-        if (authSignOut) {
-            authSignOut();
-            router.push('/signin');
-            toast.success("You have been signed out.");
-        }
+        authSignOut?.();
+        router.push('/auth/signin');
+        toast.success("You have been signed out.");
     };
     
     const handleNewChat = async () => {

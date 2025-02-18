@@ -61,7 +61,7 @@ apiClient.interceptors.response.use(
   async (error) => {
     if (error.response?.status === 401) {
       clearToken();
-      window.location.href = '/signin';
+      window.location.href = '/auth/signin';
     }
     return Promise.reject(error);
   }

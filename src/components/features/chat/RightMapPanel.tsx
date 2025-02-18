@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from 'react';
+import GoogleMapComponent from "@/components/features/map/GoogleMapComponent";
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import { MapRef } from "react-map-gl";
 import MapboxComponent from "@/components/MapBoxComponent";
-import { Client } from "@stomp/stompjs";
-import SockJS from "sockjs-client";
 import Image from "next/image";
 import { getLocationsBySession, Location } from "@/lib/api";
 

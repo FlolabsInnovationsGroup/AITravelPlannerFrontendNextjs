@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearToken(); // Clear token from local storage
     setIsAuthenticated(false);
     setCurrentUser(null);
-    window.location.href = '/signin';
+    window.location.href = '/auth/signin';
   };
 
   return (

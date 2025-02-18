@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useAuth } from '@/components/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 
 export default function GoogleCallback() {
@@ -15,12 +15,12 @@ export default function GoogleCallback() {
 
     if (error) {
       toast.error(`Authentication failed: ${error}`);
-      window.location.href = '/signin';
+      window.location.href = '/auth/signin';
     } else if (token) {
       signIn(token);
       
     } else {
-      window.location.href = '/signin';
+      window.location.href = '/auth/signin';
     }
   }, [searchParams, signIn]);
 

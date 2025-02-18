@@ -1,7 +1,7 @@
 import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 
-const ChatPageContent = dynamic(() => import('@/components/ChatPageContent'), {
+const ChatPageContent = dynamic(() => import('@/components/features/chat/ChatPageContent'), {
   ssr: true,
 })
 

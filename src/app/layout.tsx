@@ -1,7 +1,7 @@
 import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from "@/components/ui/theme-provider"
-import { AuthProviderWrapper } from '@/components/contexts/AuthProviderWrapper'
+import { AuthProviderWrapper } from '@/contexts/AuthProviderWrapper'
 import Script from 'next/script';
 import '@/styles/globals.css'
 

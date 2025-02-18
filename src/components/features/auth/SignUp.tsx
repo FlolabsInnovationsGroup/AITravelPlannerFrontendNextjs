@@ -1,4 +1,3 @@
-//src/components/SignUp.tsx
 "use client"
 
 import Image from "next/legacy/image"
@@ -9,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { signUp } from '@/lib/api'
 import { toast } from 'react-hot-toast'
+import { LinkedInLogoIcon } from "@radix-ui/react-icons"
+import { Facebook, Linkedin } from 'lucide-react'
 
 export function SignUp() {
   const router = useRouter()
@@ -21,10 +22,17 @@ export function SignUp() {
   const handleCancel = () => {
     router.push('/')
   }
-  const handleOAuthLogin = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth2/authorization/google`;
-  };
-  
+
+  const handleOAuthLogin = (loginProvider: string) => {
+
+    if (loginProvider === 'google') {
+      window.location.href = `https://api.flomadtravel.com/oauth2/authorization/google`;
+    }else if (loginProvider === 'linkedin') {
+      window.location.href = `https://api.flomadtravel.com/oauth2/authorization/linkedin`;
+      }else {
+        window.location.href = `https://api.flomadtravel.com/oauth2/authorization/facebook`;
+        }
+    }
   
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -41,7 +49,7 @@ export function SignUp() {
       const response = await signUp(username, email, password);
       console.log('Signup successful:', response);
       toast.success('Signup successful! Please check your email for verification.');
-      router.push('/signin');
+      router.push('/auth/signin');
     } catch (error: any) {
       console.error('Signup error:', error);
       toast.error(error.response?.data?.message || 'Failed to sign up. Please try again.');
@@ -70,7 +78,7 @@ export function SignUp() {
         
         <h2 className="text-2xl font-bold mb-2">Sign up for free!</h2>
         <p className="text-gray-600 mb-6">
-          Have an account? <Link href="/signin" className="text-blue-600 hover:underline">Login</Link>
+          Have an account? <Link href="/auth/signin" className="text-blue-600 hover:underline">Login</Link>
         </p>
         
         <form onSubmit={handleSignUp}>
@@ -121,10 +129,20 @@ export function SignUp() {
           </div>
         </div>
         
-        <Button variant="outline" className="w-full" onClick={handleOAuthLogin}>
-          <Image src="/image/google.png" alt="Google Logo" width={20} height={20} className="mr-2" />
-          Sign up with Google
+        <div className="space-y-4">
+        <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('google')}>
+          <Image src="/image/google.png" className="mr-4" alt="Google Logo" width={25} height={25}/>
+          Signup in with Google
         </Button>
+        <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('linkedin')}>
+          <LinkedInLogoIcon className="mr-4" style={{ width: 25, height: 25,color: '#0077B5' }}/>
+          Signup in with LinkedIn
+        </Button>
+        <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('facebook')}>
+          <Facebook size={25} className="mr-4" style={{ color: '#FFFFFF', background: '#1877F2', borderRadius: 3 }}/>
+          Signup in with Facebook
+        </Button>
+        </div>
       </div>
     </div>
   )
