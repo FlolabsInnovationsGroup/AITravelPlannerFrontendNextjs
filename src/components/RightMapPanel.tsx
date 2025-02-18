@@ -23,6 +23,8 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({
         setIsFullScreen((prev) => !prev);
     };
 
+const stompClientRef = useRef<Client | null>(null);
+
 useEffect(() => {
     if (!currentSessionId || !currentUserToken) {
         console.warn("⚠️ Session ID or user token is missing.");
@@ -31,10 +33,15 @@ useEffect(() => {
 
     console.log(`🔄 Connecting WebSocket for session: ${currentSessionId}`);
 
+    if (stompClientRef.current) {
+        console.log("🛑 WebSocket connection already exists, skipping reinitialization.");
+        return;
+    }
+
     const protocol = window.location.protocol === "https:" ? "https" : "http";
     const socketUrl = `${protocol}://localhost:8080/ws`;
 
-    const stompClient = new Client({
+    const client = new Client({
         webSocketFactory: () => new SockJS(socketUrl),
         reconnectDelay: 5000,
         connectHeaders: {
@@ -42,32 +49,31 @@ useEffect(() => {
         },
     });
 
-    stompClient.onConnect = () => {
+    client.onConnect = () => {
         console.log(`✅ WebSocket connected. Subscribing to: /topic/locations/${currentSessionId}`);
 
-        stompClient.subscribe(
-            `/topic/locations/${currentSessionId}`,
-            (message) => {
-                try {
-                    const data = JSON.parse(message.body);
-                    console.log("📡 WebSocket Received:", data);
-                    handleWebSocketEvent(data.type, data.payload);
-                } catch (error) {
-                    console.error("🚨 Error parsing WebSocket message:", error);
-                }
+        client.subscribe(`/topic/locations/${currentSessionId}`, (message) => {
+            try {
+                const data = JSON.parse(message.body);
+                console.log("📡 WebSocket Received:", data);
+                handleWebSocketEvent(data.type, data.payload);
+            } catch (error) {
+                console.error("🚨 Error parsing WebSocket message:", error);
             }
-        );
+        });
     };
 
-    stompClient.onStompError = (frame) => {
+    client.onStompError = (frame) => {
         console.error("❌ WebSocket STOMP error:", frame.headers["message"]);
     };
 
-    stompClient.activate();
+    client.activate();
+    stompClientRef.current = client;
 
     return () => {
         console.log("🔌 Disconnecting WebSocket...");
-        stompClient.deactivate();
+        stompClientRef.current?.deactivate();
+        stompClientRef.current = null;
     };
 }, [currentSessionId, currentUserToken]);
 
