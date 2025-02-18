@@ -10,8 +10,7 @@ export default function AboutPage() {
 {/* HEADER - Matches Landing Page */}
 <header className="fixed top-0 left-0 right-0 z-50 py-4 px-6 md:px-10 bg-black/30 backdrop-blur-md">
   <nav className="flex justify-between items-center">
-    {/* Logo Left-Aligned */}
-    <div className="flex items-center">
+  <Link href="/" className="flex items-center">
       <Image
         src="/logo.png"
         alt="Flomad Travel Logo"
@@ -20,11 +19,12 @@ export default function AboutPage() {
         className="mr-2"
       />
       <span className="text-white text-2xl font-semibold">Flomad Travel</span>
-    </div>
+    </Link>
 
     {/* Centered Navigation */}
     <div className="flex items-center space-x-6">
-      <Link href="/about" className="text-white hover:text-gray-300">About</Link>
+      <Link href="/" className="text-white hover:text-gray-300">Home</Link>
+        <Link href="/about" className="text-white hover:text-gray-300">About</Link>
       <Link href="/contact" className="text-white hover:text-gray-300">Contact</Link>
       <Link href="/auth/signup" passHref>
         <Button variant="secondary" className="bg-white text-black hover:bg-gray-200">
