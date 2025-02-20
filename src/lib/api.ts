@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Constants
-const API_BASE_URL = 'https://api.flomadtravel.com';
+const API_BASE_URL = 'http://localhost:8080';
 const TOKEN_KEY = 'token';
 
 // Types
@@ -170,25 +170,41 @@ export const sendMessagesEntity = async (
 ): Promise<AIMessageResponse> => {
   try {
     const formData = new FormData();
-    formData.append("sessionId", sessionId);
-    formData.append("message", message);
 
+    // ✅ Send `sessionId` and `message` as separate fields
+    formData.append("sessionId", sessionId);
+    formData.append("message", message); // Ensure it's a string, NOT a JSON object
+
+    // ✅ Append audio file if exists
     if (audioBlob) {
-      formData.append("audioFile", audioBlob);
+      formData.append("file", audioBlob, "audio.wav"); // Ensure backend expects "file"
     }
 
-    const response = await apiClient.post<AIMessageResponse>('/api/chat/entity', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // ✅ Get authentication token
+    const authToken = getToken();
+
+    // ✅ Send request
+    const response = await apiClient.post<AIMessageResponse>(
+      "/api/chat/call/entity",
+      formData,
+      {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        withCredentials: true,
+      }
+    );
 
     return response.data;
   } catch (error) {
-    console.error('Error sending message with entity:', error);
+    console.error("❌ Error sending message entity:", error);
     throw error;
   }
 };
+
+
+
+
+
+
 
 
 

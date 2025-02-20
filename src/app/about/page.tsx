@@ -30,7 +30,6 @@ export default function AboutPage() {
 </header>
 
 
-
       {/* ABOUT PAGE CONTENT */}
       <main className="flex-grow max-w-5xl mx-auto px-8 py-16 pt-60">
 
