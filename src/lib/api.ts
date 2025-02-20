@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Constants
-const API_BASE_URL = 'http://localhost:8080';
+const API_BASE_URL = 'https://api.flomadtravel.com';
 const TOKEN_KEY = 'token';
 
 // Types
