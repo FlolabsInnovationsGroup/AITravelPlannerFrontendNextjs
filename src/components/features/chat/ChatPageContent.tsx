@@ -499,6 +499,9 @@ export default function ChatPageContent() {
                                         </div>
                                     </div>
                                 ))}
+                                    {/* ✅ Loader Display */}
+                                    {isLoading && <MessageLoader />}
+                                    <div ref={bottomRef} />
                                 <div ref={bottomRef} />
                             </div>
                             {suggestions.length > 0 && (
