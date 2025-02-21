@@ -159,11 +159,12 @@ export default function ChatPageContent() {
     
             // ✅ Ensure UI updates immediately by using functional state update
             setMessages((prev) => {
-                // Prevent duplicate message additions
-                if (prev.some((m) => m.content === message && m.messageType === "USER")) {
-                    console.warn("⚠️ Duplicate message detected, skipping:", message);
-                    return prev;
-                }
+// Allow sending duplicates but prevent spamming the exact same message instantly
+if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.length - 1].messageType === "USER") {
+    console.warn("⚠️ Duplicate message detected immediately after the last one, skipping:", message);
+    return prev;
+}
+
     
                 console.log("✅ Message added to state:", message);
                 return [...prev, { id: Date.now(), messageType: 'USER', content: message }];
@@ -343,11 +344,14 @@ export default function ChatPageContent() {
                 try {
                     const decodedMessage = decodeURIComponent(initialMessage);
         
-                    // 🛑 Prevent duplicate messages using sessionStorage
-                    if (sessionStorage.getItem("sentMessage") === decodedMessage) {
-                        console.log("⚠️ Message already sent, skipping duplicate.");
-                        return;
-                    }
+
+            // ✅ Prevent duplicate processing but allow future messages
+            if (sessionStorage.getItem("sentMessage") === decodedMessage) {
+            console.log("⚠️ Message already sent, skipping duplicate.");
+            sessionStorage.removeItem("sentMessage"); // Clear it after sending once
+            return;
+            }
+
         
                     // ✅ Add to state (avoid duplicate messages)
                     setMessages((prev) => {
@@ -499,6 +503,9 @@ export default function ChatPageContent() {
                                         </div>
                                     </div>
                                 ))}
+                                    {/* ✅ Loader Display */}
+                                    {isLoading && <MessageLoader />}
+                                    <div ref={bottomRef} />
                                 <div ref={bottomRef} />
                             </div>
                             {suggestions.length > 0 && (
