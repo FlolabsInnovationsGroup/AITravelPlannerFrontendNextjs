@@ -11,7 +11,7 @@ export function FeaturedTourPlaces() {
   return (
     <section className="py-16 bg-gray-100">
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold mb-8">Featured Tour Places</h2>
+        <h2 className="text-3xl font-bold mb-8">Experiences</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {places.map((place, index) => (
             <div key={index} className="relative aspect-square">

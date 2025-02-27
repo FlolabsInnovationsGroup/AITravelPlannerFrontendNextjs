@@ -92,7 +92,7 @@ export default function LandingPage() {
 
               <div className="flex items-center">
                 <Image
-                  src="/logo.png"
+                  src="/image/logowhite.png"
                   alt="Flomad Travel Logo"
                   width={20}
                   height={25}
@@ -115,12 +115,9 @@ export default function LandingPage() {
           <main className="flex-grow flex items-center px-6 md:px-10">
             <div className="max-w-2xl">
             <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-4 leading-tight drop-shadow-lg">
-  Explore The World<br />In Comfort.
+  Explore your way,<br />all the way.
 </h1>
 
-              <p className="text-xl text-white mb-8">
-                Explore your way, all the way.
-              </p>
               <div className="flex">
                 <Input
                   type="text"
@@ -157,7 +154,7 @@ export default function LandingPage() {
 
       <WeProvideBest />
       <FeaturedTourPlaces />
-      <ExploreSection />
+      {/*<ExploreSection /> */}
       <TopCities />
       {/*<Testimonials /> */}
       <Footer />
