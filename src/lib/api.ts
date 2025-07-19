@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 // Constants
-const API_BASE_URL = 'https://api.flomadtravel.com';
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://api.flomadtravel.com' 
+  : 'http://localhost:8080';
 const TOKEN_KEY = 'token';
 
 // Types
@@ -83,7 +85,7 @@ export const clearToken = () => {
 // Guest token creation
 export const createGuestToken = async (): Promise<string> => {
   try {
-    const response = await apiClient.post<GuestTokenResponse>('/api/auth/guest-token');
+    const response = await apiClient.post<GuestTokenResponse>('/api/auth/guest-session');
     if (response.data.token) {
       setToken(response.data.token); // Save token to local storage
       return response.data.token;   // Return the token
@@ -100,7 +102,9 @@ export const createGuestToken = async (): Promise<string> => {
 // User management
 export const getCurrentUser = async (): Promise<{ id: string }> => {
   try {
-    const response = await apiClient.get<{ id: string }>('/users/current');
+    const response = await apiClient.get<{ id: string }>('/users/current', {
+      withCredentials: true // Ensure cookies are sent
+    });
     return response.data;
   } catch (error) {
     console.error('Error getting current user:', error);
@@ -111,14 +115,19 @@ export const getCurrentUser = async (): Promise<{ id: string }> => {
 // Session handling
 export const createSession = async (title: string): Promise<SessionDTO> => {
   try {
-    const user = await getCurrentUser();
-    
+    // For session-based auth, we don't need to get the user first
+    // The backend will automatically get the current user from the session
     const payload = {
       title,
-      userId: user.id
+      userId: null // Let the backend set this from the session
     };
 
-    const response = await apiClient.post<SessionDTO>('/sessions', payload);
+    // Add a small delay to ensure authentication is established
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const response = await apiClient.post<SessionDTO>('/sessions', payload, {
+      withCredentials: true // Ensure cookies are sent
+    });
     return response.data;
   } catch (error) {
     console.error('Error creating session:', error);
@@ -209,12 +218,23 @@ export const sendMessagesEntity = async (
 
 
 export const signIn = async (username: string, password: string) => {
-  const response = await apiClient.post('/api/auth/signin', { username, password });
-  return response.data;
+  console.log('API: Making signIn request to /api/auth/signin');
+  try {
+    const response = await apiClient.post('/api/auth/signin', { username, password }, {
+      withCredentials: true // Important: This ensures cookies are sent and received
+    });
+    console.log('API: SignIn response received:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('API: SignIn error:', error);
+    throw error;
+  }
 };
 
 export const signUp = async (username: string, email: string, password: string) => {
-  return await apiClient.post('/api/auth/signup', { username, email, password });
+  return await apiClient.post('/api/auth/signup', { username, email, password }, {
+    withCredentials: true // Important: This ensures cookies are sent and received
+  });
 };
 
 // Streaming message handling

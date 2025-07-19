@@ -29,17 +29,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // Ensure we have a token (guest or authenticated)
-        if (!getToken()) {
-          const guestToken = await createGuestToken(); // Explicitly get the guest token
-          setToken(guestToken); // Save guest token for API requests
+        // First try to get current user (for session-based auth)
+        try {
+          const user = await getCurrentUser();
+          if (user) {
+            setCurrentUser({ ...user, token: 'session-auth' });
+            setIsAuthenticated(true);
+            return; // User is authenticated, no need for guest token
+          }
+        } catch (userError) {
+          console.log('No authenticated user found, will try guest token');
         }
 
-        // Get current user info
-        const user = await getCurrentUser();
-        if (user) {
-          setCurrentUser({ ...user, token: getToken() || '' }); // Include token in currentUser
-          setIsAuthenticated(true);
+        // If no authenticated user, try guest token
+        if (!getToken()) {
+          const guestToken = await createGuestToken();
+          setToken(guestToken);
+        }
+
+        // Try to get current user again (might be guest user)
+        try {
+          const user = await getCurrentUser();
+          if (user) {
+            setCurrentUser({ ...user, token: getToken() || '' });
+            setIsAuthenticated(true);
+          }
+        } catch (userError) {
+          console.log('No user found after guest token creation');
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -52,18 +68,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = (token: string) => {
-    setToken(token); // Save token to local storage
-    setIsAuthenticated(true);
-
-    // Refresh the current user info
-    getCurrentUser()
-      .then((user) => {
-        if (user) {
-          setCurrentUser({ ...user, token });
-        }
-      })
-      .catch((error) => console.error('Error fetching user after sign-in:', error));
-
+    // For session-based auth, we don't need to store a token
+    // The JSESSIONID cookie handles authentication
+    if (token === 'session-auth') {
+      setIsAuthenticated(true);
+      
+      // Refresh the current user info
+      getCurrentUser()
+        .then((user) => {
+          if (user) {
+            setCurrentUser({ ...user, token: 'session-auth' });
+          }
+        })
+        .catch((error) => console.error('Error fetching user after sign-in:', error));
+    } else {
+      // Handle token-based auth (for guest tokens, etc.)
+      setToken(token);
+      setIsAuthenticated(true);
+      
+      getCurrentUser()
+        .then((user) => {
+          if (user) {
+            setCurrentUser({ ...user, token });
+          }
+        })
+        .catch((error) => console.error('Error fetching user after sign-in:', error));
+    }
+    
+    // Redirect to chat page after successful authentication
     window.location.href = '/chat';
   };
 
