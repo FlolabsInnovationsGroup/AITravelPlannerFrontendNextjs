@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { MapRef } from "react-map-gl";
 import MapboxComponent from "@/components/MapBoxComponent";
-import { Client } from "@stomp/stompjs";
-import SockJS from "sockjs-client";
 import Image from "next/image";
-import { getLocationsBySession, Location } from "@/lib/api";
+import { Location } from "@/types/map";
+import { MapService } from "@/services/MapService";
 
 interface RightMapPanelProps {
     currentSessionId: string | null;
@@ -17,123 +16,119 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({
 }) => {
     const [locations, setLocations] = useState<Location[]>([]);
     const [isFullScreen, setIsFullScreen] = useState(false);
-    const mapRef = useRef<MapRef>(null); // Ref for Mapbox
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const mapRef = useRef<MapRef>(null);
+    const mapServiceRef = useRef<MapService | null>(null);
 
     const toggleFullScreen = () => {
         setIsFullScreen((prev) => !prev);
     };
 
-const stompClientRef = useRef<Client | null>(null);
-
-useEffect(() => {
-    if (!currentSessionId || !currentUserToken) {
-        console.warn("⚠️ Session ID or user token is missing.");
-        return;
-    }
-
-    console.log(`🔄 Connecting WebSocket for session: ${currentSessionId}`);
-
-    if (stompClientRef.current) {
-        console.log("🛑 WebSocket connection already exists, skipping reinitialization.");
-        return;
-    }
-
-    const protocol = window.location.protocol === "https:" ? "https" : "http";
-    const socketUrl = `${protocol}://api.flomadtravel.com/ws`;
-
-    const client = new Client({
-        webSocketFactory: () => new SockJS(socketUrl),
-        reconnectDelay: 5000,
-        connectHeaders: {
-            Authorization: `Bearer ${currentUserToken}`,
-        },
-    });
-
-    client.onConnect = () => {
-        console.log(`✅ WebSocket connected. Subscribing to: /topic/locations/${currentSessionId}`);
-
-        client.subscribe(`/topic/locations/${currentSessionId}`, (message) => {
-            try {
-                const data = JSON.parse(message.body);
-                console.log("📡 WebSocket Received:", data);
-                handleWebSocketEvent(data.type, data.payload);
-            } catch (error) {
-                console.error("🚨 Error parsing WebSocket message:", error);
-            }
-        });
-    };
-
-    client.onStompError = (frame) => {
-        console.error("❌ WebSocket STOMP error:", frame.headers["message"]);
-    };
-
-    client.activate();
-    stompClientRef.current = client;
-
-    return () => {
-        console.log("🔌 Disconnecting WebSocket...");
-        stompClientRef.current?.deactivate();
-        stompClientRef.current = null;
-    };
-}, [currentSessionId, currentUserToken]);
-
-    
-
-    const handleWebSocketEvent = (type: string, payload: any) => {
-        if (!payload || !payload.id) {
-            console.error("🚨 Invalid WebSocket payload:", payload);
+    useEffect(() => {
+        if (!currentSessionId || !currentUserToken) {
+            setError("Session ID or user token is missing.");
             return;
         }
-    
-        console.log(`📡 WebSocket Received [${type}]:`, payload);
-    
+
+        setIsLoading(true);
+        setError(null);
+
+        // Initialize MapService
+        mapServiceRef.current = new MapService(currentUserToken);
+
+        // Load initial locations
+        mapServiceRef.current.getLocations(currentSessionId)
+            .then(fetchedLocations => {
+                setLocations(fetchedLocations);
+                setIsLoading(false);
+            })
+            .catch(err => {
+                console.error("Failed to fetch initial locations:", err);
+                setError("Failed to load locations");
+                setIsLoading(false);
+            });
+
+        // Set up WebSocket connection
+        mapServiceRef.current.connectWebSocket(currentSessionId);
+        mapServiceRef.current.onMessage((event) => {
+            console.log("� WebSocket Event:", event);
+            handleWebSocketEvent(event.type, event.payload);
+        });
+
+        return () => {
+            mapServiceRef.current?.disconnect();
+            mapServiceRef.current = null;
+        };
+    }, [currentSessionId, currentUserToken]);
+
+
+
+    const handleWebSocketEvent = (type: string, payload: any) => {
+        console.log(`📡 WebSocket Event [${type}]:`, payload);
+
         setLocations((prevLocations) => {
-            const locationIds = new Set(prevLocations.map(loc => loc.id));
-    
             switch (type) {
-                case "LOCATION_ADDED":
-                    if (!locationIds.has(payload.id)) {
-                        console.log("✅ Adding new location:", payload);
-                        return [...prevLocations, payload]; // Append new location
-                    } else {
-                        console.warn("⚠️ Duplicate location detected, skipping:", payload);
-                        return prevLocations;
+                case "LOCATION_ADDED": {
+                    const newLocation = payload as Location;
+                    const exists = prevLocations.some(loc => loc.id === newLocation.id);
+                    if (!exists) {
+                        console.log("✅ Adding new location:", newLocation);
+                        return [...prevLocations, newLocation];
                     }
-                case "LOCATION_REMOVED":
-                    console.log("🗑 Removing location:", payload.locationId);
-                    return prevLocations.filter(loc => loc.id !== payload.locationId);
-                case "MAP_CLEARED":
-                    console.log("🗺 Clearing all locations.");
+                    console.warn("⚠️ Duplicate location skipped:", newLocation);
+                    return prevLocations;
+                }
+                case "LOCATION_REMOVED": {
+                    const { locationId } = payload;
+                    console.log("🗑 Removing location:", locationId);
+                    return prevLocations.filter(loc => loc.id !== locationId);
+                }
+                case "MAP_CLEARED": {
+                    console.log("🗺 Clearing all locations");
                     return [];
+                }
                 default:
-                    console.warn("⚠️ Unknown WebSocket event type:", type);
+                    console.warn("⚠️ Unknown event type:", type);
                     return prevLocations;
             }
         });
     };
-    
-    
-    
+
+
+
 
     return (
         <div
-            className={`${
-                isFullScreen ? "absolute inset-0 z-50" : "hidden md:block flex-grow"
-            } bg-white border-l h-screen p-4 overflow-hidden`}
+            className={`${isFullScreen ? "absolute inset-0 z-50" : "hidden md:block flex-grow"
+                } bg-white border-l h-screen p-4 overflow-hidden`}
         >
             <div
-                className={`relative h-full w-full ${
-                    isFullScreen ? "fullscreen-map" : ""
-                }`}
+                className={`relative h-full w-full ${isFullScreen ? "fullscreen-map" : ""
+                    }`}
             >
-                {locations.length > 0 ? (
+                {error ? (
+                    <div className="flex items-center justify-center h-full w-full">
+                        <div className="text-red-500 text-center">
+                            <p className="text-lg font-semibold">Error</p>
+                            <p>{error}</p>
+                        </div>
+                    </div>
+                ) : isLoading ? (
+                    <div className="flex items-center justify-center h-full w-full">
+                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+                    </div>
+                ) : locations.length > 0 ? (
                     <div className="h-full w-full p-2 bg-white rounded-lg">
                         <MapboxComponent
                             locations={locations}
                             isFullScreen={isFullScreen}
-                            ref={mapRef} // Pass the ref here
+                            ref={mapRef}
+                            onMarkerClick={(location) => {
+                                console.log("Marker clicked:", location);
+                                // Add any marker click handling here
+                            }}
                         />
-                        {/* Full-Screen Toggle Button (Only for Map) */}
                         <button
                             onClick={toggleFullScreen}
                             className="absolute top-4 right-4 bg-blue-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105"

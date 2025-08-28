@@ -3,18 +3,21 @@ import React, { useRef, useEffect, useState, forwardRef } from "react";
 import Map, { Marker, Popup, MapRef } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import mapboxgl from "mapbox-gl";
-
-
-interface Location {
-    latitude: number;
-    longitude: number;
-    name?: string;
-}
+import { Location, LocationType } from "@/types/map";
 
 interface MapboxComponentProps {
     locations: Location[];
     isFullScreen: boolean;
+    onMarkerClick?: (location: Location) => void;
 }
+
+const markerColors: Record<LocationType, string> = {
+    attraction: '#FF4B4B',
+    cafe: '#4CAF50',
+    hotel: '#2196F3',
+    restaurant: '#FF9800',
+    transport: '#9C27B0'
+};
 
 const MapboxComponent = forwardRef<MapRef, MapboxComponentProps>(({ locations, isFullScreen }, mapRef) => {
     const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);

@@ -30,7 +30,7 @@ function SignInContent() {
   }
 
   const handleOAuthLogin = () => {
-    window.location.href = `https://api.flomadtravel.com/oauth2/authorization/google`;
+    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/google`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,7 +57,7 @@ function SignInContent() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-96 relative">
-        <button 
+        <button
           onClick={handleCancel}
           className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
           aria-label="Close"
@@ -66,12 +66,12 @@ function SignInContent() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        
+
         <div className="flex items-center mb-6">
           <Image src="/logo.png" alt="Flomad Travel Logo" width={24} height={24} />
           <span className="ml-2 text-xl font-semibold">flomad travel</span>
         </div>
-        
+
         <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
         <p className="text-gray-600 mb-6">
           New member? <Link href="/signup" className="text-blue-600 hover:underline">Sign up</Link>
@@ -95,8 +95,8 @@ function SignInContent() {
             required
             disabled={isLoading}
           />
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             className="w-full bg-black text-white hover:bg-gray-800 mb-4"
             disabled={isLoading}
           >
@@ -106,7 +106,7 @@ function SignInContent() {
         <Link href="/forgot-password" className="block text-center text-blue-600 hover:underline mb-4">
           Forgot password?
         </Link>
-        
+
         <div className="relative mb-4">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300"></div>
@@ -115,7 +115,7 @@ function SignInContent() {
             <span className="px-2 bg-white text-gray-500">or</span>
           </div>
         </div>
-        
+
         <Button variant="outline" className="w-full" onClick={handleOAuthLogin}>
           <Image src="/image/google.png" alt="Google Logo" width={20} height={20} className="mr-2" />
           Sign in with Google

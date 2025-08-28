@@ -1,0 +1,36 @@
+export interface Location {
+    id: string;
+    sessionId: string;
+    latitude: number;
+    longitude: number;
+    name?: string;
+    type?: LocationType;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export type LocationType = 'attraction' | 'cafe' | 'hotel' | 'restaurant' | 'transport';
+
+export interface WebSocketEvent<T> {
+    type: WebSocketEventType;
+    payload: T;
+}
+
+export type WebSocketEventType = 'LOCATION_ADDED' | 'LOCATION_REMOVED' | 'MAP_CLEARED';
+
+export interface LocationAddedPayload {
+    id: string;
+    sessionId: string;
+    latitude: number;
+    longitude: number;
+    name?: string;
+    type?: LocationType;
+}
+
+export interface LocationRemovedPayload {
+    locationId: string;
+}
+
+export interface MapClearedPayload {
+    sessionId: string;
+}

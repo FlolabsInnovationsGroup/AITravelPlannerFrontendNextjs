@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Constants
-const API_BASE_URL = 'https://api.flomadtravel.com';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;
 const TOKEN_KEY = 'token';
 
 // Types
@@ -112,7 +112,7 @@ export const getCurrentUser = async (): Promise<{ id: string }> => {
 export const createSession = async (title: string): Promise<SessionDTO> => {
   try {
     const user = await getCurrentUser();
-    
+
     const payload = {
       title,
       userId: user.id
