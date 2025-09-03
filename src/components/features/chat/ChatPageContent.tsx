@@ -7,7 +7,7 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession } from '@/lib/api';
+import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession, getLocationsBySession, getToken } from '@/lib/api';
 import { Send, Menu, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,6 +15,8 @@ import AudioRecorder from './AudioRecorder';
 import { Components } from 'react-markdown';
 import LeftMenuBar from '@/components/features/chat/LeftMenuBar';
 import RightMapPanel from '@/components/features/chat/RightMapPanel';
+import { LocationExtractionService } from '@/services/LocationExtractionService';
+import { LoadScript, LoadScriptProps } from '@react-google-maps/api';
 
 // Loader Component
 const MessageLoader = () => {
@@ -40,10 +42,13 @@ interface Message {
     content: string;
 }
 
+const libraries: LoadScriptProps["libraries"] = ["places"];
+
 export default function ChatPageContent() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputMessage, setInputMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
     const [currentSession, setCurrentSession] = useState<{ sessionId: string; title: string } | null>(null);
     const [displayPrompts, setDisplayPrompts] = useState(true);
     const [showChatHistory, setShowChatHistory] = useState(true);
@@ -137,12 +142,42 @@ export default function ChatPageContent() {
         }
     };
     
+    const locationService = useRef<LocationExtractionService | null>(null);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && isGoogleMapsLoaded) {
+            locationService.current = new LocationExtractionService();
+        }
+    }, [isGoogleMapsLoaded]);
+
     const handleSendMessage = async (message: string) => {
         if (!message.trim()) return;
     
         setIsLoading(true);
     
         try {
+            // Check if the message mentions locations
+            const locationKeywords = ['show', 'find', 'where', 'restaurant', 'place', 'location', 'near', 'at', 'in', 'visit'];
+            const hasLocationKeyword = locationKeywords.some(keyword => 
+                message.toLowerCase().includes(keyword)
+            );
+
+            // Extract locations from the message if it contains location keywords
+            if (hasLocationKeyword && locationService.current) {
+                console.log("🔍 Extracting location from message:", message);
+                const locationResult = await locationService.current.extractLocationFromMessage(message);
+                if (locationResult.extractedLocation) {
+                    console.log("📍 Found location:", locationResult.extractedLocation);
+                    const event = new CustomEvent('newLocation', { 
+                        detail: locationResult.extractedLocation 
+                    });
+                    window.dispatchEvent(event);
+                    console.log("🌍 Location event dispatched");
+                } else if (locationResult.error) {
+                    console.warn("⚠️ Location extraction error:", locationResult.error);
+                }
+            }
+
             let sessionId = currentSession?.sessionId;
     
             if (!sessionId) {
@@ -189,8 +224,41 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
                     messageType: 'ASSISTANT',
                     content: response.message,
                 }]);
-    
-                // ✅ Update suggestions dynamically
+
+                    // Check if the message might contain location data
+                const locationKeywords = ['show', 'find', 'where', 'restaurant', 'place', 'location', 'near', 'at', 'in'];
+                const hasLocationKeyword = locationKeywords.some(keyword => 
+                    message.toLowerCase().includes(keyword)
+                );
+
+                if (hasLocationKeyword) {
+                    // Add a small delay to allow the backend to process locations
+                    setTimeout(async () => {
+                        try {
+                            console.log('🗺️ Fetching locations for session:', sessionId);
+                            const locations = await getLocationsBySession(sessionId);
+                            
+                            if (locations && locations.length > 0) {
+                                console.log(`📍 Found ${locations.length} locations:`, locations);
+                                toast.success(`Found ${locations.length} locations on the map`);
+                            } else {
+                                console.log('⚠️ No locations found for the request');
+                                // Only show the message if it's likely we should have found locations
+                                if (message.toLowerCase().includes('restaurant') || 
+                                    message.toLowerCase().includes('place') ||
+                                    message.toLowerCase().includes('where is')) {
+                                    toast('No specific locations found for this request. Try being more specific with the location.', {
+                                        icon: '🗺️',
+                                        duration: 4000
+                                    });
+                                }
+                            }
+                        } catch (error: any) {
+                            console.error('❌ Error fetching locations:', error);
+                            toast.error(error.message || 'Failed to load location data');
+                        }
+                    }, 1000); // 1 second delay to allow backend processing
+                }                // ✅ Update suggestions dynamically
                 setSuggestions(response.suggestions || generateDynamicPrompts(response.message));
             }
     
@@ -310,11 +378,14 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
 
     useEffect(() => {
         const initializeChat = async () => {
-            if (isInitialized) return;
+            if (isInitialized || !currentUser || typeof window === 'undefined') return;
         
             console.log("Initializing chat...");
         
-            let sessionId = searchParams.get("sessionId") || sessionStorage.getItem("chatSessionId");
+            let sessionId = searchParams.get("sessionId");
+            if (typeof window !== 'undefined') {
+                sessionId = sessionId || sessionStorage.getItem("chatSessionId");
+            }
             let initialMessage = searchParams.get("initialMessage") || sessionStorage.getItem("initialMessage");
         
             console.log("➡️ Checking sessionId:", sessionId);
@@ -411,165 +482,166 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
 
 
     return (
-        <div className="flex h-screen bg-gray-100">
-            {/* Left Menu Bar */}
-            <LeftMenuBar
-                isMobileMenuOpen={isMobileMenuOpen}
-                showChatHistory={showChatHistory}
-                toggleChatHistory={toggleChatHistory}
-                toggleMobileMenu={toggleMobileMenu}
-                signOut={signOut}
-                handleNewChat={handleNewChat}
-                chatHistory={chatHistory}
-                currentSessionId={currentSession?.sessionId || null}
-                handleSessionClick={handleSessionClick}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-            />
+        <LoadScript
+            googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}
+            libraries={libraries}
+            onLoad={() => setIsGoogleMapsLoaded(true)}
+        >
+            <div className="flex h-screen bg-gray-100">
+                <div className="flex flex-1">
+                    {/* Left Menu Bar */}
+                    <LeftMenuBar
+                        isMobileMenuOpen={isMobileMenuOpen}
+                        showChatHistory={showChatHistory}
+                        toggleChatHistory={toggleChatHistory}
+                        toggleMobileMenu={toggleMobileMenu}
+                        signOut={signOut}
+                        handleNewChat={handleNewChat}
+                        chatHistory={chatHistory}
+                        currentSessionId={currentSession?.sessionId || null}
+                        handleSessionClick={handleSessionClick}
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                    />
     
-            {/* Middle Chat Section */}
-            <div className="flex-[3.3] flex flex-col bg-white border-l border-r overflow-hidden">
-                {/* Chat Section */}
-                <div className="flex-1 flex flex-col h-full overflow-hidden">
-                {displayPrompts && messages.length === 0 ? (
-
-                        <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
-                        {/* Wrapper for Logo */}
-                        <div className="flex justify-center mt-6 mb-8">
-                            <Image
-                                src="/logo.png"
-                                alt="AiTripPlanner Logo"
-                                width={128}
-                                height={128}
-                                className="object-contain"
-                            />
+                    {/* Middle Chat Section */}
+                    <div className="flex-[3.3] flex flex-col bg-white border-l border-r overflow-hidden">
+                        {/* Chat Section */}
+                        <div className="flex-1 flex flex-col h-full overflow-hidden">
+                            {displayPrompts && messages.length === 0 ? (
+                                <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
+                                    {/* Wrapper for Logo */}
+                                    <div className="flex justify-center mt-6 mb-8">
+                                        <Image
+                                            src="/logo.png"
+                                            alt="AiTripPlanner Logo"
+                                            width={128}
+                                            height={128}
+                                            className="object-contain"
+                                        />
+                                    </div>
+                                
+                                    {/* Wrapper for Prompts */}
+                                    <div className="flex-1 flex flex-col items-center justify-center px-6">
+                                        <div className="max-w-3xl w-full text-center">
+                                            <h2 className="text-2xl font-semibold mb-6">
+                                                How can I help you plan your trip today?
+                                            </h2>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {defaultPrompts.map((prompt: string, index: number) => (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() => handlePromptClick(prompt)}
+                                                        className="text-left p-6 rounded-lg bg-white hover:bg-gray-100
+                                                                 transition-all duration-200 shadow-sm hover:shadow
+                                                                 border border-gray-200 hover:border-gray-300"
+                                                    >
+                                                        <p className="text-lg text-gray-800">{prompt}</p>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex-1 overflow-y-auto p-4">
+                                    <div className="max-w-3xl mx-auto">
+                                        {messages.map((message) => (
+                                            <div
+                                                key={message.id}
+                                                className={`mb-8 ${message.messageType === 'USER' ? 'ml-auto' : 'mr-auto'}`}
+                                            >
+                                                <div className="flex items-start gap-4">
+                                                    {message.messageType === 'ASSISTANT' && (
+                                                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                                                            AI
+                                                        </div>
+                                                    )}
+                                                    <div
+                                                        className={`max-w-[80%] p-4 rounded-lg ${
+                                                            message.messageType === 'USER'
+                                                                ? 'bg-blue-500 text-white ml-auto'
+                                                                : 'bg-white border border-gray-200'
+                                                        }`}
+                                                    >
+                                                        <div className="prose max-w-none">
+                                                            <ReactMarkdown components={markdownComponents}>
+                                                                {message.content}
+                                                            </ReactMarkdown>
+                                                        </div>
+                                                    </div>
+                                                    {message.messageType === 'USER' && (
+                                                        <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
+                                                            You
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {/* ✅ Loader Display */}
+                                        {isLoading && <MessageLoader />}
+                                        <div ref={bottomRef} />
+                                    </div>
+                                    {suggestions.length > 0 && (
+                                        <Suggestions suggestions={suggestions} handleSendMessage={handleSendMessage} />
+                                    )}
+                                </div>
+                            )}
                         </div>
-                    
-                        {/* Wrapper for Prompts */}
-                        <div className="flex-1 flex flex-col items-center justify-center px-6">
-                            <div className="max-w-3xl w-full text-center">
-                                <h2 className="text-2xl font-semibold mb-6">
-                                    How can I help you plan your trip today?
-                                </h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {defaultPrompts.map((prompt: string, index: number) => (
-                                        <button
-                                            key={index}
-                                            onClick={() => handlePromptClick(prompt)}
-                                            className="text-left p-6 rounded-lg bg-white hover:bg-gray-100
-                                                     transition-all duration-200 shadow-sm hover:shadow
-                                                     border border-gray-200 hover:border-gray-300"
-                                        >
-                                            <p className="text-lg text-gray-800">{prompt}</p>
-                                        </button>
-                                    ))}
+    
+                        {/* Chat Input */}
+                        <div className="border-t bg-white p-4">
+                            <div className="max-w-3xl mx-auto">
+                                <div className="flex items-center gap-4 bg-white rounded-xl border shadow-md p-3">
+                                    <Input
+                                        type="text"
+                                        placeholder="Type your message..."
+                                        value={inputMessage}
+                                        onChange={(e) => setInputMessage(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                handleSendMessage(inputMessage);
+                                            }
+                                        }}
+                                        className="flex-1 border-none shadow-none focus:ring-0 py-4 px-4 rounded-xl bg-gray-100"
+                                        disabled={isLoading}
+                                        aria-label="Chat input"
+                                    />
+                                    <Button
+                                        onClick={() => handleSendMessage(inputMessage)}
+                                        disabled={isLoading || !inputMessage.trim()}
+                                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl shadow"
+                                        aria-label="Send message"
+                                    >
+                                        {isLoading ? (
+                                            <div
+                                                className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"
+                                                aria-hidden="true"
+                                            />
+                                        ) : (
+                                            <Send className="h-5 w-5" />
+                                        )}
+                                    </Button>
+                                    {currentSession?.sessionId && (
+                                        <AudioRecorder sessionId={currentSession.sessionId} onTranscription={handleTranscription} />
+                                    )}
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
-                    ) : (
-                        <div className="flex-1 overflow-y-auto p-4">
-                            <div className="max-w-3xl mx-auto">
-                                {messages.map((message) => (
-                                    <div
-                                        key={message.id}
-                                        className={`mb-8 ${message.messageType === 'USER' ? 'ml-auto' : 'mr-auto'}`}
-                                    >
-                                        <div className="flex items-start gap-4">
-                                            {message.messageType === 'ASSISTANT' && (
-                                                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                                                    AI
-                                                </div>
-                                            )}
-                                            <div
-                                                className={`max-w-[80%] p-4 rounded-lg ${
-                                                    message.messageType === 'USER'
-                                                        ? 'bg-blue-500 text-white ml-auto'
-                                                        : 'bg-white border border-gray-200'
-                                                }`}
-                                            >
-                                                <div className="prose max-w-none">
-                                                    <ReactMarkdown components={markdownComponents}>
-                                                        {message.content}
-                                                    </ReactMarkdown>
-                                                </div>
-                                            </div>
-                                            {message.messageType === 'USER' && (
-                                                <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
-                                                    You
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                                    {/* ✅ Loader Display */}
-                                    {isLoading && <MessageLoader />}
-                                    <div ref={bottomRef} />
-                                <div ref={bottomRef} />
-                            </div>
-                            {suggestions.length > 0 && (
-                                <Suggestions suggestions={suggestions} handleSendMessage={handleSendMessage} />
-                            )}
-                        </div>
-                    )}
+    
+                    {/* Right Map Panel */}
+                    <div className="flex-[2.7] bg-white overflow-hidden p-4 h-full">
+                        {typeof window !== 'undefined' && (
+                            <RightMapPanel
+                                currentSessionId={currentSession?.sessionId || null}
+                                currentUserToken={getToken()}
+                            />
+                        )}
+                    </div>
                 </div>
-    
-                {/* Chat Input */}
-<div className="border-t bg-white p-4">
-    <div className="max-w-3xl mx-auto">
-        <div className="flex items-center gap-4 bg-white rounded-xl border shadow-md p-3">
-            <Input
-                type="text"
-                placeholder="Type your message..."
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage(inputMessage);
-                    }
-                }}
-                className="flex-1 border-none shadow-none focus:ring-0 py-4 px-4 rounded-xl bg-gray-100"
-                disabled={isLoading}
-                aria-label="Chat input"
-            />
-            <Button
-                onClick={() => handleSendMessage(inputMessage)}
-                disabled={isLoading || !inputMessage.trim()}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl shadow"
-                aria-label="Send message"
-            >
-                {isLoading ? (
-                    <div
-                        className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"
-                        aria-hidden="true"
-                    />
-                ) : (
-                    <Send className="h-5 w-5" />
-                )}
-            </Button>
-            {currentSession?.sessionId && (
-                <AudioRecorder sessionId={currentSession.sessionId} onTranscription={handleTranscription} />
-            )}
-        </div>
-    </div>
-</div>
-</div>
-
-    
-{/* Right Map Panel */}
-<div className="flex-[2.7] bg-white overflow-hidden p-4 h-full">
-<RightMapPanel
-    currentSessionId={currentSession?.sessionId || ""}
-    currentUserToken={currentUser?.token || ""}
-/>
-
-</div>
-</div>
-
-
-    );      
-    
-    
-        }
+            </div>
+        </LoadScript>
+    );
+}

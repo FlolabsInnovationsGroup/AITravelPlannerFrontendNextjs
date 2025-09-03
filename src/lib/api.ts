@@ -73,7 +73,10 @@ export const setToken = (token: string) => {
 };
 
 export const getToken = () => {
-  return localStorage.getItem(TOKEN_KEY);
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem(TOKEN_KEY);
+  }
+  return null;
 };
 
 export const clearToken = () => {
@@ -188,7 +191,9 @@ export const sendMessagesEntity = async (
       "/api/chat/call/entity",
       formData,
       {
-        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        headers: {
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+        },
         withCredentials: true,
       }
     );
@@ -283,11 +288,37 @@ export const getSessionMessages = async (sessionId: string) => {
 // Get locations by session ID
 export const getLocationsBySession = async (sessionId: string): Promise<Location[]> => {
   try {
-    const response = await apiClient.get(`/api/locations/${sessionId}`);
-    return response.data;
-  } catch (error) {
-    console.error('Error getting locations by session:', error);
-    throw error;
+    console.log('🔍 Fetching locations for session:', sessionId);
+    // First try to get any existing locations
+    const response = await apiClient.get(`/api/locations/${sessionId}`, {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.data) {
+      console.warn('⚠️ No location data received from server');
+      return [];
+    }
+
+    // Ensure we're getting an array
+    let locations = Array.isArray(response.data) ? response.data : [];
+    
+    // Log when no locations are found
+    if (locations.length === 0) {
+      console.log('� No locations found for this session yet');
+    }
+
+    console.log(`✅ Retrieved ${locations.length} locations:`, locations);
+    return locations;
+  } catch (error: any) {
+    console.error('❌ Error getting locations by session:', {
+      error,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    throw new Error(error.response?.data?.message || 'Failed to fetch locations');
   }
 };
 

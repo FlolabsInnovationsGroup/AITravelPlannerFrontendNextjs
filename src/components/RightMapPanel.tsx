@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { MapRef } from "react-map-gl";
-import MapboxComponent from "@/components/MapBoxComponent";
 import Image from "next/image";
 import { Location } from "@/types/map";
 import { MapService } from "@/services/MapService";
+import GoogleMapComponent from "@/components/features/map/GoogleMapComponent";
 
 interface RightMapPanelProps {
     currentSessionId: string | null;
@@ -18,7 +17,7 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const mapRef = useRef<MapRef>(null);
+    const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
     const mapServiceRef = useRef<MapService | null>(null);
 
     const toggleFullScreen = () => {
@@ -100,13 +99,11 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({
 
     return (
         <div
-            className={`${isFullScreen ? "absolute inset-0 z-50" : "hidden md:block flex-grow"
-                } bg-white border-l h-screen p-4 overflow-hidden`}
+            className={`${
+                isFullScreen ? "fixed inset-0 z-50" : "hidden md:block flex-grow"
+            } bg-white border-l h-screen overflow-hidden`}
         >
-            <div
-                className={`relative h-full w-full ${isFullScreen ? "fullscreen-map" : ""
-                    }`}
-            >
+            <div className="relative h-full w-full">
                 {error ? (
                     <div className="flex items-center justify-center h-full w-full">
                         <div className="text-red-500 text-center">
@@ -118,36 +115,29 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({
                     <div className="flex items-center justify-center h-full w-full">
                         <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
                     </div>
-                ) : locations.length > 0 ? (
-                    <div className="h-full w-full p-2 bg-white rounded-lg">
-                        <MapboxComponent
+                ) : (
+                    <div className="relative h-full w-full">
+                        <GoogleMapComponent
                             locations={locations}
-                            isFullScreen={isFullScreen}
-                            ref={mapRef}
-                            onMarkerClick={(location) => {
-                                console.log("Marker clicked:", location);
-                                // Add any marker click handling here
+                            onLocationSelect={(location) => {
+                                console.log("Location selected:", location);
+                                setSelectedLocation(location);
                             }}
                         />
                         <button
                             onClick={toggleFullScreen}
-                            className="absolute top-4 right-4 bg-blue-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105"
+                            className="absolute top-4 right-4 z-10 bg-white text-gray-700 py-2 px-4 rounded-lg shadow-md hover:bg-gray-50 transition-all transform hover:scale-105 flex items-center gap-2"
                         >
-                            {isFullScreen ? "Exit Full Screen" : "Full Screen"}
-                        </button>
-                    </div>
-                ) : (
-                    <div className="flex items-center justify-center h-full w-full p-2">
-                        <div className="relative h-full w-full bg-white rounded-lg">
                             <Image
-                                src="/image/travelagentpic1.png"
-                                alt="Your Personal AI Travel Agent"
-                                fill
-                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                className="object-cover rounded-lg"
-                                priority
+                                src={isFullScreen ? "/icons/minimize.svg" : "/icons/maximize.svg"}
+                                alt={isFullScreen ? "Exit full screen" : "Enter full screen"}
+                                width={20}
+                                height={20}
                             />
-                        </div>
+                            <span className="hidden sm:inline">
+                                {isFullScreen ? "Exit Full Screen" : "Full Screen"}
+                            </span>
+                        </button>
                     </div>
                 )}
             </div>

@@ -2,10 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import GoogleMapComponent from "@/components/features/map/GoogleMapComponent";
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { MapRef } from "react-map-gl";
-import MapboxComponent from "@/components/MapBoxComponent";
 import Image from "next/image";
-import { getLocationsBySession, Location } from "@/lib/api";
+import { getLocationsBySession } from "@/lib/api";
+import { Location, LocationType } from "@/types/map";
 
 interface RightMapPanelProps {
     currentSessionId: string | null;
@@ -18,13 +17,44 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({
 }) => {
     const [locations, setLocations] = useState<Location[]>([]);
     const [isFullScreen, setIsFullScreen] = useState(false);
-    const mapRef = useRef<MapRef>(null); // Ref for Mapbox
+    const [mapRef, setMapRef] = useState<google.maps.Map | null>(null);
 
     const toggleFullScreen = () => {
         setIsFullScreen((prev) => !prev);
     };
 
     const stompClientRef = useRef<Client | null>(null);
+
+    // Load initial locations
+    // Listen for new locations from chat
+    useEffect(() => {
+        const handleNewLocation = (event: CustomEvent<Location>) => {
+            setLocations(prev => [...prev, event.detail]);
+        };
+
+        window.addEventListener('newLocation', handleNewLocation as EventListener);
+        return () => {
+            window.removeEventListener('newLocation', handleNewLocation as EventListener);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (currentSessionId) {
+            getLocationsBySession(currentSessionId)
+                .then(response => {
+                    console.log("📍 Initial locations loaded:", response);
+                    // Convert API location type to map location type
+                    const convertedLocations = response.map(loc => ({
+                        ...loc,
+                        type: loc.type as LocationType
+                    }));
+                    setLocations(convertedLocations);
+                })
+                .catch(error => {
+                    console.error("🚨 Error loading locations:", error);
+                });
+        }
+    }, [currentSessionId]);
 
     useEffect(() => {
         if (!currentSessionId || !currentUserToken) {
@@ -127,23 +157,9 @@ const RightMapPanel: React.FC<RightMapPanelProps> = ({
             >
                 {locations.length > 0 ? (
                     <div className="h-full w-full p-2 bg-white rounded-lg">
-                        {/* <MapboxComponent
-            locations={locations}
-            isFullScreen={isFullScreen}
-            ref={mapRef} // Pass the ref here
-        /> */}
-                        <div className="flex items-center justify-center h-full w-full p-2">
-                            <div className="relative h-full w-full bg-white rounded-lg">
-                                <Image
-                                    src="/image/travelagentpic1.png"
-                                    alt="Your Personal AI Travel Agent"
-                                    fill
-                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                    className="object-cover rounded-lg"
-                                    priority
-                                />
-                            </div>
-                        </div>
+                        <GoogleMapComponent
+                            locations={locations}
+                        />
                     </div>
                 ) : (
 

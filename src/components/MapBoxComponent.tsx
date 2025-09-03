@@ -5,6 +5,9 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import mapboxgl from "mapbox-gl";
 import { Location, LocationType } from "@/types/map";
 
+// Set Mapbox access token
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
+
 interface MapboxComponentProps {
     locations: Location[];
     isFullScreen: boolean;
@@ -44,13 +47,13 @@ const MapboxComponent = forwardRef<MapRef, MapboxComponentProps>(({ locations, i
         <div className="relative h-full w-full">
             <Map
                 ref={mapRef}
+                style={{ width: '100%', height: '100%' }}
+                mapStyle="mapbox://styles/mapbox/streets-v11"
                 initialViewState={{
-                    latitude: locations.length > 0 ? locations[0].latitude : 0,
-                    longitude: locations.length > 0 ? locations[0].longitude : 0,
+                    latitude: locations.length > 0 ? locations[0].latitude : 40.7128,
+                    longitude: locations.length > 0 ? locations[0].longitude : -74.0060,
                     zoom: locations.length > 0 ? 10 : 2,
                 }}
-                style={{ width: "100%", height: "100%" }}
-                mapStyle="mapbox://styles/mapbox/streets-v11"
                 mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
             >
                 {/* Render markers */}
@@ -62,7 +65,8 @@ const MapboxComponent = forwardRef<MapRef, MapboxComponentProps>(({ locations, i
                         onClick={() => setSelectedLocation(location)}
                     >
                         <div
-                            className="marker w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg cursor-pointer hover:scale-110 transition-transform"
+                            style={{ backgroundColor: location.type ? markerColors[location.type] : '#2196F3' }}
+                            className="marker w-6 h-6 rounded-full border-2 border-white shadow-lg cursor-pointer hover:scale-110 transition-transform"
                             title={location.name || "Marker"}
                         />
                     </Marker>
@@ -79,8 +83,12 @@ const MapboxComponent = forwardRef<MapRef, MapboxComponentProps>(({ locations, i
                     >
                         <div className="p-2">
                             <h3 className="font-bold text-lg">{selectedLocation.name || "Location"}</h3>
-                            <p className="text-sm text-gray-600">Latitude: {selectedLocation.latitude}</p>
-                            <p className="text-sm text-gray-600">Longitude: {selectedLocation.longitude}</p>
+                            {selectedLocation.type && (
+                                <p className="text-sm text-gray-600 capitalize mb-2">Type: {selectedLocation.type}</p>
+                            )}
+                            <p className="text-xs text-gray-500">
+                                ({selectedLocation.latitude.toFixed(4)}, {selectedLocation.longitude.toFixed(4)})
+                            </p>
                         </div>
                     </Popup>
                 )}
