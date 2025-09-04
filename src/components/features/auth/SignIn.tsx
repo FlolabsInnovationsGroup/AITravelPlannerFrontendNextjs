@@ -79,7 +79,7 @@ function SignInContent() {
         </button>
 
         <div className="flex items-center mb-6">
-          <Image src="/logo.png" alt="Flomad Travel Logo" width={24} height={24} />
+          <Image src="/logo.png" alt="Flomad Travel Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} />
           <span className="ml-2 text-xl font-semibold">flomad travel</span>
         </div>
 

@@ -9,7 +9,9 @@ export default function Footer() {
           {/* Left column */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Image src="/logo.png?height=24&width=24" alt="Flomad Travel Logo" width={24} height={24} />
+              <div className="relative w-6 h-6">
+                <Image src="/logo.png" alt="Flomad Travel Logo" fill className="object-contain" sizes="24px" />
+              </div>
               <span className="text-xl font-bold">flomad travel</span>
             </div>
             <p className="text-sm text-gray-400 max-w-md">

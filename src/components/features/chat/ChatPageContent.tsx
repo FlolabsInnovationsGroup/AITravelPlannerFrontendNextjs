@@ -14,8 +14,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import AudioRecorder from './AudioRecorder';
 import { Components } from 'react-markdown';
 import LeftMenuBar from '@/components/features/chat/LeftMenuBar';
-import RightMapPanel from '@/components/features/chat/RightMapPanel';
+import RightMapPanel from '@/components/features/map/RightMapPanel';
 import { LocationExtractionService } from '@/services/LocationExtractionService';
+import { LocationService } from '@/services/LocationService';
+import { MapService } from '@/services/MapService';
 import { LoadScript, LoadScriptProps } from '@react-google-maps/api';
 
 // Loader Component
@@ -57,6 +59,8 @@ export default function ChatPageContent() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [messageCount, setMessageCount] = useState(0);
     const [chatHistory, setChatHistory] = useState<Array<{ sessionId: string; title: string }>>([]);
+    const [wsConnected, setWsConnected] = useState(false);
+    const [wsRetryCount, setWsRetryCount] = useState(0);
     const { currentUser } = useAuth();
     const [hasReachedMessageLimit, setHasReachedMessageLimit] = useState(false);
     const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -65,6 +69,97 @@ export default function ChatPageContent() {
     const searchParams = useSearchParams();
     const bottomRef = useRef<HTMLDivElement>(null);
     const { signOut: authSignOut } = useAuth();
+    const mapServiceRef = useRef<MapService | null>(null);
+    const wsReconnectTimerRef = useRef<NodeJS.Timeout>();
+    const MAX_WS_RETRIES = 3;
+
+    // Initialize and manage MapService and sessions
+    useEffect(() => {
+        if (!currentUser?.token) return;
+        
+        // Initialize MapService if not exists
+        if (!mapServiceRef.current) {
+            console.log("🔧 Initializing MapService");
+            mapServiceRef.current = new MapService(currentUser.token);
+            
+            // Set up WebSocket event listeners
+            mapServiceRef.current.onConnect = () => {
+                console.log("✅ WebSocket connected");
+                setWsConnected(true);
+                setWsRetryCount(0);
+                if (wsReconnectTimerRef.current) {
+                    clearTimeout(wsReconnectTimerRef.current);
+                }
+            };
+
+            mapServiceRef.current.onDisconnect = () => {
+                console.log("❌ WebSocket disconnected");
+                setWsConnected(false);
+                handleReconnection();
+            };
+
+            mapServiceRef.current.onError = (error) => {
+                console.error("⚠️ WebSocket error:", error);
+                toast.error("Connection error. Attempting to reconnect...");
+                handleReconnection();
+            };
+        }
+
+        // Handle WebSocket reconnection
+        const handleReconnection = () => {
+            if (wsRetryCount >= MAX_WS_RETRIES) {
+                console.error("🚫 Max WebSocket retry attempts reached");
+                toast.error("Unable to establish connection. Please refresh the page.");
+                return;
+            }
+
+            if (wsReconnectTimerRef.current) {
+                clearTimeout(wsReconnectTimerRef.current);
+            }
+
+            wsReconnectTimerRef.current = setTimeout(() => {
+                if (currentSession?.sessionId && !wsConnected) {
+                    console.log(`🔄 Attempting reconnection (attempt ${wsRetryCount + 1})`);
+                    connectToSession(currentSession.sessionId);
+                    setWsRetryCount(prev => prev + 1);
+                }
+            }, Math.min(1000 * Math.pow(2, wsRetryCount), 10000)); // Exponential backoff, max 10s
+        };
+
+        // Handle session connection
+        const connectToSession = async (sessionId: string) => {
+            try {
+                if (!mapServiceRef.current || wsConnected) {
+                    return;
+                }
+
+                console.log(`🔄 Connecting to session: ${sessionId}`);
+                await mapServiceRef.current.connectWebSocket(sessionId);
+            } catch (error) {
+                console.error("❌ Error connecting to session:", error);
+                toast.error("Failed to connect to session");
+                handleReconnection();
+            }
+        };
+
+        // Connect to current session if exists
+        if (currentSession?.sessionId && !wsConnected) {
+            connectToSession(currentSession.sessionId);
+        }
+
+        // Cleanup function
+        return () => {
+            if (mapServiceRef.current) {
+                console.log("🧹 Cleaning up MapService connections");
+                mapServiceRef.current.disconnect();
+                mapServiceRef.current = null;
+                setWsConnected(false);
+            }
+            if (wsReconnectTimerRef.current) {
+                clearTimeout(wsReconnectTimerRef.current);
+            }
+        };
+    }, [currentUser?.token, currentSession?.sessionId]);
 
     // Default prompts
     const defaultPrompts = [
@@ -162,17 +257,47 @@ export default function ChatPageContent() {
                 message.toLowerCase().includes(keyword)
             );
 
-            // Extract locations from the message if it contains location keywords
+            // Extract and add locations from the message if it contains location keywords
             if (hasLocationKeyword && locationService.current) {
                 console.log("🔍 Extracting location from message:", message);
                 const locationResult = await locationService.current.extractLocationFromMessage(message);
-                if (locationResult.extractedLocation) {
+                
+                if (locationResult.extractedLocation && currentSession?.sessionId) {
                     console.log("📍 Found location:", locationResult.extractedLocation);
-                    const event = new CustomEvent('newLocation', { 
-                        detail: locationResult.extractedLocation 
-                    });
-                    window.dispatchEvent(event);
-                    console.log("🌍 Location event dispatched");
+                    
+                    try {
+                        // Add the location to the backend
+                        if (!mapServiceRef.current) {
+                            console.error("MapService not initialized");
+                            return;
+                        }
+
+                        if (!currentSession?.sessionId) {
+                            console.error("No active session");
+                            return;
+                        }
+
+                        const locationToAdd = {
+                            latitude: locationResult.extractedLocation.latitude,
+                            longitude: locationResult.extractedLocation.longitude,
+                            name: locationResult.extractedLocation.name,
+                            type: locationResult.extractedLocation.type,
+                            sessionId: currentSession.sessionId // This should match the session ID in storage
+                        };
+                        
+                        const addedLocation = await mapServiceRef.current.addLocation(locationToAdd);
+                        
+                        console.log("✅ Location added successfully:", addedLocation);
+                        
+                        // Dispatch event for map update
+                        const event = new CustomEvent('newLocation', { 
+                            detail: addedLocation
+                        });
+                        window.dispatchEvent(event);
+                        console.log("🌍 Location event dispatched");
+                    } catch (error) {
+                        console.error("❌ Error adding location:", error);
+                    }
                 } else if (locationResult.error) {
                     console.warn("⚠️ Location extraction error:", locationResult.error);
                 }
@@ -190,6 +315,10 @@ export default function ChatPageContent() {
     
                 sessionId = newSession.sessionId;
                 setCurrentSession(newSession);
+                // Ensure WebSocket is connected after setting new session
+                if (mapServiceRef.current && newSession.sessionId) {
+                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
+                }
             }
     
             // ✅ Ensure UI updates immediately by using functional state update

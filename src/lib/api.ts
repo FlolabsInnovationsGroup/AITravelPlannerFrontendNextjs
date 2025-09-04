@@ -48,6 +48,47 @@ const apiClient = axios.create({
 
 // Add token to all requests
 apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Add response interceptor for token refresh
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // If the error is 401 and we haven't already tried to refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        // Get a new guest token
+        const response = await axios.post(`${API_BASE_URL}/api/auth/guest-token`);
+        const newToken = response.data.token;
+        
+        // Save the new token
+        localStorage.setItem(TOKEN_KEY, newToken);
+        
+        // Update the failed request's token and retry
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        // If refresh fails, clear token and let user try again
+        localStorage.removeItem(TOKEN_KEY);
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+// Original request interceptor
+apiClient.interceptors.request.use((config) => {
   const token = getToken();
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;

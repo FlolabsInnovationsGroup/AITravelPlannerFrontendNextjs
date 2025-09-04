@@ -1,102 +1,129 @@
 import { Location, LocationType } from '@/types/map';
 
-type PlaceResult = google.maps.places.PlaceResult;
-
 interface LocationExtractionResult {
     extractedLocation?: Location;
-    suggestedPlaces?: PlaceResult[];
     error?: string;
+    suggestedPlaces?: Location[];
 }
 
 export class LocationExtractionService {
-    private readonly placesApiKey: string;
     private geocoder: google.maps.Geocoder | null = null;
-    private placesService: google.maps.places.PlacesService | null = null;
+    #initialized = false;
+    #initPromise: Promise<void> = Promise.resolve();
 
     constructor() {
-        this.placesApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-    }
-
-    private async initializeServices(): Promise<void> {
-        // Wait for window.google to be defined
-        if (typeof window === 'undefined' || !window.google?.maps) {
-            throw new Error('Google Maps not loaded');
-        }
-
-        if (!this.geocoder || !this.placesService) {
-            this.geocoder = new google.maps.Geocoder();
-            const tempDiv = document.createElement('div');
-            const map = new google.maps.Map(tempDiv, {
-                center: { lat: 0, lng: 0 },
-                zoom: 1
-            });
-            this.placesService = new google.maps.places.PlacesService(map);
+        if (typeof window !== 'undefined') {
+            this.#initPromise = this.#initialize();
         }
     }
 
-    public async extractLocationFromMessage(message: string): Promise<LocationExtractionResult> {
+    async #initialize(): Promise<void> {
+        if (this.#initialized) return;
+
         try {
-            await this.initializeServices();
-
-            // Improved regex to find potential place names with better matching
-            const placeRegex = /(?:(?:in|at|to|from|visit|near|show|find|about)\s+(?:the\s+)?|^)([A-Z][a-zA-Z\s-]+)(?=[.,]|$|\s|on\sthe\smap)/gi;
-            const matches = [...message.matchAll(placeRegex)];
-
-            if (matches.length === 0) {
-                return { error: "No location found in message" };
+            if (typeof window === 'undefined' || !window.google?.maps) {
+                throw new Error('Google Maps not loaded');
             }
 
-            if (!this.placesService) {
-                return { error: "Google Maps services not initialized" };
+            // Make sure the Geocoding library is loaded
+            if (!window.google.maps.Geocoder) {
+                throw new Error('Geocoding library not loaded');
             }
 
-            // Get the first match (most likely the main location)
-            const placeName = matches[0][1].trim();
+            this.geocoder = new google.maps.Geocoder();
+            this.#initialized = true;
+            console.log('✅ LocationExtractionService initialized');
+        } catch (error) {
+            console.error('❌ Failed to initialize LocationExtractionService:', error);
+            throw error;
+        }
+    }
+
+    #getLocationType(types: string[]): LocationType {
+        if (types.includes('lodging')) return 'hotel';
+        if (types.includes('restaurant')) return 'restaurant';
+        if (types.includes('cafe')) return 'cafe';
+        if (types.includes('transit_station')) return 'transport';
+        if (types.includes('tourist_attraction')) return 'attraction';
+        if (types.includes('natural_feature')) return 'attraction';
+        if (types.includes('point_of_interest')) return 'attraction';
+        return 'attraction';
+    }
+
+    async extractLocationFromMessage(message: string): Promise<LocationExtractionResult> {
+        try {
+            if (typeof window === 'undefined') {
+                throw new Error('Cannot extract location in server-side context');
+            }
+
+            await this.#initPromise;
+
+            // Extract location name using multiple patterns
+            const patterns = [
+                /(?:add|show|display|put)\s+(.*?)\s+(?:to|on|in)\s+(?:the\s+)?map/i,
+                /(?:where|what|find|show)\s+(?:is|are)\s+(.*?)(?:\s+(?:located|situated|found))?\??$/i,
+                /(?:find|locate|show)\s+(.*)/i,
+                /(?:in|at|to|from|visit|near|about)\s+(?:the\s+)?([A-Za-z\s-]+Tower[A-Za-z\s-]*)/i,
+                /(?:in|at|to|from|visit|near|about)\s+(?:the\s+)?([A-Za-z][A-Za-z\s-]+)(?=[.,]|$|\s|on\sthe\smap)/i,
+                /^([A-Za-z][A-Za-z\s-]+)(?=[.,]|$|\s|on\sthe\smap)/i
+            ];
+
+            let locationName = '';
+            for (const pattern of patterns) {
+                const match = message.match(pattern);
+                if (match?.[1]) {
+                    locationName = match[1].trim();
+                    break;
+                }
+            }
+
+            if (!locationName) {
+                console.warn('❌ No location found in message');
+                return { error: 'No location found in message' };
+            }
+
+            console.log('🔍 Extracting location:', locationName);
+
+            if (!this.geocoder) {
+                throw new Error('Geocoder not initialized');
+            }
+
+            let result;
+            try {
+                const response = await this.geocoder.geocode({ address: locationName });
+                result = response.results[0];
+
+                if (!result || !result.geometry?.location) {
+                    console.warn('❌ Could not find location:', locationName);
+                    return { error: 'Could not find location coordinates' };
+                }
+            } catch (geocodeError) {
+                console.error('❌ Geocoding error:', geocodeError);
+                return { error: 'Failed to geocode location. Please ensure the Google Maps API key has Geocoding enabled.' };
+            }
+
+            const location = result.geometry.location;
+            // Get session ID from storage
+            const sessionId = sessionStorage.getItem('chatSessionId');
             
-            // Search for the place using Places API
-            const searchRequest: google.maps.places.TextSearchRequest = {
-                query: placeName,
-                type: 'tourist_attraction' // Can be adjusted based on context
+            const extractedLocation: Location = {
+                latitude: location.lat(),
+                longitude: location.lng(),
+                name: result.formatted_address.split(',')[0] || locationName,
+                type: this.#getLocationType(result.types || []),
+                sessionId: sessionId || undefined
             };
 
-            return new Promise((resolve) => {
-                if (!this.placesService) {
-                    resolve({ error: "Places service not initialized" });
-                    return;
-                }
+            console.log('✅ Successfully extracted location:', extractedLocation);
+            return {
+                extractedLocation,
+                suggestedPlaces: []
+            };
 
-                this.placesService.textSearch(searchRequest, (results, status) => {
-                    if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                        const place = results[0];
-                        if (place.geometry?.location) {
-                            const extractedLocation: Location = {
-                                latitude: place.geometry.location.lat(),
-                                longitude: place.geometry.location.lng(),
-                                name: place.name || placeName,
-                                type: this.inferLocationType(place.types || [])
-                            };
-                            resolve({ 
-                                extractedLocation,
-                                suggestedPlaces: results.slice(1)
-                            });
-                        } else {
-                            resolve({ error: "Could not get location coordinates" });
-                        }
-                    } else {
-                        resolve({ error: "Place not found" });
-                    }
-                });
-            });
         } catch (error) {
-            return { error: "Error extracting location" };
+            const errorMessage = error instanceof Error ? error.message : 'Error extracting location';
+            console.error('❌ Error extracting location:', errorMessage);
+            return { error: errorMessage };
         }
-    }
-
-    private inferLocationType(placeTypes: string[]): LocationType {
-        if (placeTypes.includes('lodging')) return 'hotel';
-        if (placeTypes.includes('restaurant')) return 'restaurant';
-        if (placeTypes.includes('cafe')) return 'cafe';
-        if (placeTypes.includes('transit_station')) return 'transport';
-        return 'attraction';
     }
 }

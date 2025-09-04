@@ -6,18 +6,18 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const cities = [
-  { name: "New York", image: "/image/newnewyork.jpg" },
-  { name: "Paris", image: "/image/newparis.jpg" },
-  { name: "Tokyo", image: "/image/newtokyo.jpg" },
-  { name: "Rome", image: "/image/newrome.jpg" },
-  { name: "Sydney", image: "/image/newsydney.jpg" },
-  { name: "Dubai", image: "/image/newdubai.jpg" },
-  { name: "Mumbai", image: "/image/mumbai.jpg" },
-  { name: "Cape Town", image: "/image/cape-town.jpg" },
-  { name: "Barcelona", image: "/image/newbarcelona.jpg" },
-  { name: "Prague", image: "/image/newprague.jpg" },
-  { name: "Vienna", image: "/image/vienna.jpg" },
-  { name: "Amsterdam", image: "/image/newamsterdam.jpg" },
+  { name: "New York", image: "/image/newnewyork.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Paris", image: "/image/newparis.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Tokyo", image: "/image/newtokyo.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Rome", image: "/image/newrome.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Sydney", image: "/image/newsydney.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Dubai", image: "/image/newdubai.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Mumbai", image: "/image/mumbai.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Cape Town", image: "/image/cape-town.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Barcelona", image: "/image/newbarcelona.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Prague", image: "/image/newprague.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Vienna", image: "/image/vienna.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Amsterdam", image: "/image/newamsterdam.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
   { name: "Lisbon", image: "/image/newlisbon.jpg" },
 ];
 
@@ -65,6 +65,7 @@ export function TopCities() {
                     src={city.image}
                     alt={city.name}
                     layout="fill"
+                    sizes={city.sizes || "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"}
                     objectFit="cover"
                     className="transition-all duration-300 brightness-90 group-hover:brightness-100"
                   />
