@@ -7,6 +7,7 @@ interface SearchBoxProps {
     placeholder?: string;
     onError?: (error: string) => void;
     onLoadingChange?: (isLoading: boolean) => void;
+    map?: google.maps.Map | null;
 }
 
 const MAX_RETRIES = 3;

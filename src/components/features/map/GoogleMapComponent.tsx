@@ -44,166 +44,111 @@ const defaultCenter = {
     lng: 2.3522,
 };
 
-const GoogleMapComponentBase = React.memo<GoogleMapComponentProps>(({ 
+const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({ 
     locations, 
     onLocationAdd, 
     onLocationSelect 
 }) => {
-    const mapRef = useRef<google.maps.Map | null>(null);
+    const [map, setMap] = useState<google.maps.Map | null>(null);
+    const [isMapLoaded, setIsMapLoaded] = useState(false);
+    const [loadError, setLoadError] = useState<Error | null>(null);
     const markersRef = useRef<google.maps.Marker[]>([]);
     const clustererRef = useRef<MarkerClusterer | null>(null);
-    const [isMapReady, setIsMapReady] = useState(false);
-    const [loadError, setLoadError] = useState<Error | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
 
-    // Debug logging
-    useEffect(() => {
-        console.log('🔄 Map Component State:', {
-            isMapReady,
-            isLoading,
-            hasLoadError: !!loadError,
-            scriptLoaded: googleScriptLoaded,
-            hasMapRef: !!mapRef.current,
-            locationsCount: locations.length
-        });
-    }, [isMapReady, isLoading, loadError, googleScriptLoaded, locations]);
-
-    console.log('GoogleMapComponent render:', { isLoading, isMapReady, hasError: !!loadError });
-
-    // Clear all existing markers and clusterer
-    const clearMarkers = useCallback(() => {
+    // Cleanup function to remove markers and clusterer
+    const cleanupMarkers = useCallback(() => {
+        if (markersRef.current) {
+            markersRef.current.forEach(marker => {
+                marker.setMap(null);
+            });
+            markersRef.current = [];
+        }
         if (clustererRef.current) {
             clustererRef.current.clearMarkers();
         }
-        markersRef.current.forEach((marker) => {
-            marker.setMap(null);
-        });
-        markersRef.current = [];
     }, []);
 
-    // Add markers to the map with clustering
-    const addMarkers = useCallback(() => {
-        if (!mapRef.current) {
-            console.warn("Map reference is null. Skipping marker addition.");
-            return;
-        }
-
-        const markers: google.maps.Marker[] = [];
-        
-        locations.forEach((location) => {
-            if (location.latitude && location.longitude) {
-                const marker = new google.maps.Marker({
-                    position: { lat: location.latitude, lng: location.longitude },
-                    title: location.name || "",
-                    label: {
-                        text: location.type?.[0]?.toUpperCase() || "A",
-                        color: "#FFFFFF"
-                    },
-                    icon: {
-                        path: google.maps.SymbolPath.CIRCLE,
-                        fillColor: getMarkerColor(location.type),
-                        fillOpacity: 1,
-                        strokeWeight: 1,
-                        strokeColor: "#FFFFFF",
-                        scale: 10
-                    }
-                });
-
-                if (onLocationSelect) {
-                    marker.addListener('click', () => onLocationSelect(location));
-                }
-                markers.push(marker);
-            }
-        });
-
-        markersRef.current = markers;
-
-        // Clear existing clusterer
-        if (clustererRef.current) {
-            clustererRef.current.clearMarkers();
-        }
-
-        // Create new clusterer
-        clustererRef.current = new MarkerClusterer({
-            map: mapRef.current,
-            markers: markers
-        });
-    }, [locations, onLocationSelect]);
-
-    // Effect to handle markers when locations change
+    // Update markers when locations change
     useEffect(() => {
-        if (!isMapReady) return;
-        clearMarkers();
-        addMarkers();
-    }, [locations, isMapReady, clearMarkers, addMarkers]);
+        if (!map || !locations) return;
 
-    // Handle map load
-    const handleMapLoad = useCallback((map: google.maps.Map) => {
-        console.log("🗺️ Map loaded successfully");
-        console.log("🔧 Map instance:", map ? "Present" : "Missing");
-        mapRef.current = map;
-        setIsMapReady(true);
-        setIsLoading(false);
-    }, []);
+        cleanupMarkers();
 
-    // Handle map unmount
-    const handleMapUnmount = useCallback(() => {
-        clearMarkers();
-        mapRef.current = null;
-        setIsMapReady(false);
-    }, [clearMarkers]);
-
-    // Verify Google Maps API key
-    useEffect(() => {
-        if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-            setLoadError(new Error('Google Maps API key is missing'));
-        }
-    }, []);
-
-    const handlePlaceSelected = useCallback((place: google.maps.places.PlaceResult) => {
-        if (place.geometry?.location && onLocationAdd) {
-            const newLocation: Location = {
-                latitude: place.geometry.location.lat(),
-                longitude: place.geometry.location.lng(),
-                name: place.name || "",
-                type: place.types?.includes('lodging') ? 'hotel' :
-                      place.types?.includes('restaurant') ? 'restaurant' :
-                      place.types?.includes('cafe') ? 'cafe' :
-                      place.types?.includes('transit_station') ? 'transport' :
-                      'attraction'
+        const bounds = new google.maps.LatLngBounds();
+        const newMarkers: google.maps.Marker[] = locations.map(location => {
+            const position = {
+                lat: location.latitude,
+                lng: location.longitude
             };
-            onLocationAdd(newLocation);
+
+            bounds.extend(position);
+
+            const marker = new google.maps.Marker({
+                position,
+                map,
+                title: location.name,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    fillColor: getMarkerColor(location.type),
+                    fillOpacity: 0.9,
+                    strokeWeight: 2,
+                    strokeColor: '#FFFFFF',
+                    scale: 8,
+                }
+            });
+
+            // Add click listener to marker
+            marker.addListener('click', () => {
+                if (onLocationSelect) {
+                    onLocationSelect(location);
+                }
+            });
+
+            return marker;
+        });
+
+        markersRef.current = newMarkers;
+
+        // Create a new MarkerClusterer
+        if (clustererRef.current) {
+            clustererRef.current.clearMarkers();
         }
-    }, [onLocationAdd]);
+        clustererRef.current = new MarkerClusterer({
+            map,
+            markers: newMarkers
+        });
 
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    console.log('🔑 Google Maps API Key status:', apiKey ? 'Present' : 'Missing');
+        // Adjust bounds if there are markers
+        if (newMarkers.length > 0) {
+            map.fitBounds(bounds);
+        }
 
-    if (!apiKey) {
-        console.error("🚨 Google Maps API key is missing");
-        return (
-            <div className="flex items-center justify-center h-full bg-yellow-50">
-                <p className="text-yellow-600">Google Maps API key is missing</p>
-            </div>
-        );
-    }
+        return () => {
+            cleanupMarkers();
+        };
+    }, [map, locations, onLocationSelect, cleanupMarkers]);
+
+    const handleLoad = useCallback((map: google.maps.Map) => {
+        setMap(map);
+        setIsMapLoaded(true);
+    }, []);
+
+    const handleUnmount = useCallback(() => {
+        setMap(null);
+        cleanupMarkers();
+    }, [cleanupMarkers]);
 
     if (loadError) {
-        console.error("Google Maps load error:", loadError);
         return (
-            <div className="flex items-center justify-center h-full bg-red-50">
-                <div className="text-center p-4">
-                    <p className="text-red-600 mb-2">Failed to load Google Maps</p>
-                    <p className="text-sm text-red-500">{loadError.message}</p>
-                </div>
+            <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-600">Error loading Google Maps: {loadError.message}</p>
             </div>
         );
     }
 
     return (
         <div className="relative w-full h-full">
-            {isLoading && (
+            {!isMapLoaded && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-75 backdrop-blur-sm z-10">
                     <div className="flex flex-col items-center space-y-2">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -211,60 +156,50 @@ const GoogleMapComponentBase = React.memo<GoogleMapComponentProps>(({
                     </div>
                 </div>
             )}
+            
             <LoadScript
-                googleMapsApiKey={apiKey}
+                googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}
                 libraries={libraries}
-                loadingElement={
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                    </div>
-                }
-                onLoad={() => {
-                    console.log("🟢 LoadScript loaded successfully");
-                    console.log("📚 Libraries loaded:", libraries);
-                    setGoogleScriptLoaded(true);
-                    setIsLoading(false);
-                }}
-                onError={(error) => {
-                    console.error("🔴 LoadScript error:", error);
-                    console.error("🔑 API Key present:", !!apiKey);
-                    console.error("📚 Libraries:", libraries);
-                    setLoadError(error);
-                    setGoogleScriptLoaded(false);
-                    setIsLoading(false);
-                }}
-                onUnmount={() => {
-                    console.log("🔄 LoadScript unmounting");
-                    setGoogleScriptLoaded(false);
-                }}
+                onError={(error) => setLoadError(error)}
             >
                 <GoogleMap
                     mapContainerStyle={mapContainerStyle}
-                    center={locations.length > 0 ? { 
-                        lat: locations[0].latitude, 
-                        lng: locations[0].longitude 
-                    } : defaultCenter}
-                    zoom={locations.length > 0 ? 10 : 2}
-                    onLoad={handleMapLoad}
-                    onUnmount={handleMapUnmount}
+                    center={defaultCenter}
+                    zoom={13}
+                    onLoad={handleLoad}
+                    onUnmount={handleUnmount}
                     options={{
-                        fullscreenControl: true,
-                        streetViewControl: true,
-                        mapTypeControl: true,
-                        zoomControl: true
+                        fullscreenControl: false,
+                        mapTypeControl: false,
+                        streetViewControl: false,
+                        zoomControl: true,
+                        gestureHandling: 'cooperative',
                     }}
                 >
-                    <SearchBox onPlaceSelected={handlePlaceSelected} />
+                    <SearchBox 
+                        map={map}
+                        onPlaceSelected={(place) => {
+                            if (onLocationAdd && place) {
+                                onLocationAdd({
+                                    id: Date.now().toString(),
+                                    name: place.name || '',
+                                    latitude: place.geometry?.location?.lat() || 0,
+                                    longitude: place.geometry?.location?.lng() || 0,
+                                    type: 'attraction',
+                                    createdAt: new Date().toISOString(),
+                                    updatedAt: new Date().toISOString()
+                                });
+                            }
+                        }}
+                    />
                 </GoogleMap>
             </LoadScript>
         </div>
     );
-});
+};
 
-GoogleMapComponentBase.displayName = 'GoogleMapComponentBase';
-
-// Wrap component with error boundary
-const GoogleMapComponent: React.FC<GoogleMapComponentProps> = (props) => (
+// Wrap the component with error boundary
+const GoogleMapComponent = (props: GoogleMapComponentProps) => (
     <MapErrorBoundary>
         <GoogleMapComponentBase {...props} />
     </MapErrorBoundary>
