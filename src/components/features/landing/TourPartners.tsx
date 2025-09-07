@@ -20,7 +20,8 @@ export function TourPartners() {
                 alt={partner.name}
                 width={150}
                 height={50}
-                objectFit="contain"
+                style={{ width: 'auto', height: 'auto' }}
+                className="object-contain"
               />
             </div>
           ))}

@@ -15,7 +15,7 @@ const RETRY_DELAY = 1000;
 
 const SearchBox: React.FC<SearchBoxProps> = ({ 
     onPlaceSelected, 
-    placeholder = "Search locations...",
+    placeholder = "Search destinations, hotels, restaurants...",
     onError,
     onLoadingChange 
 }) => {
@@ -25,6 +25,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [retryCount, setRetryCount] = useState(0);
     const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
+    const [showManualReset, setShowManualReset] = useState(false);
 
     const handleError = useCallback((errorMessage: string) => {
         setError(errorMessage);
@@ -34,17 +35,48 @@ const SearchBox: React.FC<SearchBoxProps> = ({
     const handleLoadingChange = useCallback((loading: boolean) => {
         setIsLoading(loading);
         onLoadingChange?.(loading);
+        
+        if (!loading) {
+            setShowManualReset(false);
+        }
+    }, [onLoadingChange]);
+
+    // Show manual reset button after prolonged loading
+    useEffect(() => {
+        if (isLoading) {
+            const resetTimeout = setTimeout(() => {
+                setShowManualReset(true);
+            }, 8000);
+            return () => clearTimeout(resetTimeout);
+        } else {
+            setShowManualReset(false);
+        }
+    }, [isLoading]);
+
+    const handleManualReset = useCallback(() => {
+        setIsLoading(false);
+        setShowManualReset(false);
+        setError(null);
+        setRetryCount(0);
+        onLoadingChange?.(false);
+        console.log('Manual reset triggered by user');
     }, [onLoadingChange]);
 
     const initializeAutocomplete = useCallback(async (retryAttempt = 0) => {
         if (retryAttempt >= MAX_RETRIES) {
             handleError('Failed to initialize location search after multiple attempts');
+            handleLoadingChange(false); // Ensure loading stops on max retries
             return;
         }
 
         if (!window.google?.maps?.places) {
             console.error('Google Maps Places API not loaded, retrying...');
-            setTimeout(() => initializeAutocomplete(retryAttempt + 1), RETRY_DELAY * (retryAttempt + 1));
+            setRetryCount(retryAttempt + 1);
+            handleLoadingChange(false); // Reset loading state before retry
+            setTimeout(() => {
+                handleLoadingChange(true); // Set loading for retry
+                initializeAutocomplete(retryAttempt + 1);
+            }, RETRY_DELAY * (retryAttempt + 1));
             return;
         }
 
@@ -53,16 +85,27 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                 setError(null);
                 handleLoadingChange(true);
 
+                // Travel-optimized autocomplete options
                 const options: google.maps.places.AutocompleteOptions = {
-                    fields: ['name', 'geometry', 'types', 'formatted_address', 'place_id'],
+                    fields: [
+                        'name', 'geometry', 'types', 'formatted_address', 'place_id',
+                        'rating', 'user_ratings_total', 'price_level', 'opening_hours',
+                        'photos', 'formatted_phone_number', 'website', 'vicinity'
+                    ],
                     strictBounds: false,
-                    types: ['geocode', 'establishment'],
+                    types: ['geocode', 'establishment'], // Include both addresses and businesses
+                    componentRestrictions: undefined, // Allow worldwide search for travel
                 };
 
                 autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, options);
 
                 autocompleteRef.current.addListener('place_changed', () => {
-                    handleLoadingChange(true);
+                    // Set timeout to prevent stuck loading states
+                    const loadingTimeout = setTimeout(() => {
+                        console.warn('Place selection timed out, resetting loading state');
+                        handleLoadingChange(false);
+                    }, 5000); // 5 second timeout
+
                     try {
                         const place = autocompleteRef.current?.getPlace();
                         if (place?.geometry) {
@@ -74,6 +117,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                     } catch (error) {
                         handleError(error instanceof Error ? error.message : 'Failed to get place details');
                     } finally {
+                        clearTimeout(loadingTimeout);
                         handleLoadingChange(false);
                     }
                 });
@@ -83,7 +127,10 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                 const service = new google.maps.places.AutocompleteService();
 
                 const debouncedFetchPredictions = debounce((input: string) => {
-                    if (input.length < 3) return;
+                    if (input.length < 3) {
+                        setSuggestions([]);
+                        return;
+                    }
                     
                     service.getPlacePredictions({
                         input,
@@ -100,36 +147,95 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                     });
                 }, 300);
 
-                inputRef.current.addEventListener('input', (e) => {
+                const handleInput = (e: Event) => {
                     const value = (e.target as HTMLInputElement).value;
                     debouncedFetchPredictions(value);
                     // Clear error when user starts typing again
                     if (error) setError(null);
-                });
+                };
+
+                const handleKeyDown = (e: KeyboardEvent) => {
+                    // Allow escape key to reset loading state
+                    if (e.key === 'Escape' && isLoading) {
+                        handleManualReset();
+                    }
+                };
+
+                inputRef.current.addEventListener('input', handleInput);
+                inputRef.current.addEventListener('keydown', handleKeyDown);
+                
+                // Store cleanup function
+                const currentInput = inputRef.current;
+                const cleanup = () => {
+                    if (currentInput) {
+                        currentInput.removeEventListener('input', handleInput);
+                        currentInput.removeEventListener('keydown', handleKeyDown);
+                    }
+                    debouncedFetchPredictions.cancel();
+                };
 
                 handleLoadingChange(false);
                 setRetryCount(0);
+                return cleanup;
             } catch (error) {
                 console.error('Error initializing autocomplete:', error);
                 handleError('Failed to initialize location search');
-                setTimeout(() => initializeAutocomplete(retryAttempt + 1), RETRY_DELAY * (retryAttempt + 1));
+                handleLoadingChange(false); // Reset loading state on error
+                setRetryCount(retryAttempt + 1);
+                setTimeout(() => {
+                    handleLoadingChange(true); // Set loading for retry
+                    initializeAutocomplete(retryAttempt + 1);
+                }, RETRY_DELAY * (retryAttempt + 1));
             }
+        } else {
+            // If input doesn't exist or autocomplete already exists, stop loading
+            handleLoadingChange(false);
         }
-    }, [handleError, handleLoadingChange, onPlaceSelected]);
+    }, [handleError, handleLoadingChange, onPlaceSelected, error, handleManualReset]);
 
     // Initialize autocomplete on mount
     useEffect(() => {
-        initializeAutocomplete();
+        let cleanup: (() => void) | undefined;
+        let mounted = true;
+
+        const initAndSetupCleanup = async () => {
+            try {
+                cleanup = await initializeAutocomplete();
+            } catch (error) {
+                console.error('Failed to initialize autocomplete:', error);
+                if (mounted) {
+                    handleLoadingChange(false); // Ensure loading stops on error
+                    handleError('Failed to initialize location search');
+                }
+            }
+        };
+
+        // Add timeout failsafe to prevent infinite loading
+        const failsafeTimeout = setTimeout(() => {
+            if (mounted && isLoading) {
+                console.warn('SearchBox initialization timeout, resetting loading state');
+                handleLoadingChange(false);
+            }
+        }, 10000); // 10 second timeout
+
+        initAndSetupCleanup();
 
         return () => {
+            mounted = false;
+            clearTimeout(failsafeTimeout);
             if (autocompleteRef.current) {
                 google.maps.event.clearInstanceListeners(autocompleteRef.current);
             }
+            if (cleanup) {
+                cleanup();
+            }
+            // Ensure loading is stopped on cleanup
+            handleLoadingChange(false);
         };
-    }, [initializeAutocomplete]);
+    }, [initializeAutocomplete, isLoading, handleLoadingChange, handleError]);
 
     return (
-        <div className="absolute top-4 left-4 z-10 w-96 max-w-[calc(100%-2rem)]">
+        <div className="absolute top-16 left-4 z-10 w-96 max-w-[calc(100%-2rem)]">{/* Moved down to avoid overlapping chat elements */}
             <div className="relative">
                 <Input
                     ref={inputRef}
@@ -152,13 +258,23 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                 
                 {/* Loading indicator */}
                 {isLoading && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                         <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
+                        {showManualReset && (
+                            <button
+                                onClick={handleManualReset}
+                                className="text-xs text-red-600 hover:text-red-800 underline"
+                                type="button"
+                                title="Reset if stuck loading"
+                            >
+                                Reset
+                            </button>
+                        )}
                     </div>
                 )}
 
                 {/* Retry indicator when retrying */}
-                {retryCount > 0 && (
+                {retryCount > 0 && !isLoading && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center text-xs text-gray-500">
                         Retrying... ({retryCount}/{MAX_RETRIES})
                     </div>

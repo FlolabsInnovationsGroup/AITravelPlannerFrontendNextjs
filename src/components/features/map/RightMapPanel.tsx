@@ -8,6 +8,22 @@ import { toast } from 'react-hot-toast';
 import { MapService } from '@/services/MapService';
 import Image from 'next/image';
 
+// Haversine distance calculation for accurate geographic distance
+const calculateHaversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371000; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lng2 - lng1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) * 
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // Distance in meters
+};
+
 // Memoized GoogleMapComponent to prevent unnecessary re-renders
 const MemoizedGoogleMapComponent = React.memo(GoogleMapComponent);
 
@@ -23,7 +39,7 @@ interface RightMapPanelProps {
     currentUserToken: string | null;
 }
 
-export default function RightMapPanel({ currentSessionId, currentUserToken }: RightMapPanelProps) {
+function RightMapPanel({ currentSessionId, currentUserToken }: RightMapPanelProps) {
     const [locations, setLocations] = useState<Location[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -46,14 +62,14 @@ export default function RightMapPanel({ currentSessionId, currentUserToken }: Ri
                     const newLocation = event.payload as Location;
                     console.log("📍 Adding location from WebSocket:", newLocation);
                     setLocations(prev => {
-                        // Check if location already exists to prevent duplicates (using distance threshold)
+                        // Check if location already exists using proper Haversine distance calculation
                         const exists = prev.some(loc => {
-                            const distance = Math.sqrt(
-                                Math.pow(loc.latitude - newLocation.latitude, 2) + 
-                                Math.pow(loc.longitude - newLocation.longitude, 2)
+                            const distance = calculateHaversineDistance(
+                                loc.latitude, loc.longitude,
+                                newLocation.latitude, newLocation.longitude
                             );
-                            // Allow locations that are more than ~100 meters apart (0.001 degrees ≈ 111m)
-                            return distance < 0.001;
+                            // Allow locations that are more than 100 meters apart
+                            return distance < 100; // meters
                         });
                         if (exists) {
                             console.log("⚠️ Location too close to existing location, skipping");
@@ -170,14 +186,14 @@ export default function RightMapPanel({ currentSessionId, currentUserToken }: Ri
             console.log("🌍 New location event received:", customEvent.detail);
             
             setLocations(prevLocations => {
-                // Check if location already exists using distance threshold
+                // Check if location already exists using proper Haversine distance calculation
                 const exists = prevLocations.some(loc => {
-                    const distance = Math.sqrt(
-                        Math.pow(loc.latitude - customEvent.detail.latitude, 2) + 
-                        Math.pow(loc.longitude - customEvent.detail.longitude, 2)
+                    const distance = calculateHaversineDistance(
+                        loc.latitude, loc.longitude,
+                        customEvent.detail.latitude, customEvent.detail.longitude
                     );
-                    // Allow locations that are more than ~100 meters apart
-                    return distance < 0.001;
+                    // Allow locations that are more than 100 meters apart
+                    return distance < 100; // meters
                 });
 
                 if (exists) {
@@ -239,9 +255,9 @@ export default function RightMapPanel({ currentSessionId, currentUserToken }: Ri
         );
     }
 
-    // Debug logging for map display logic
-    if (locations.length > 0) {
-        console.log("🗺️ Map should be visible - locations:", locations.length);
+    // Only log in development mode
+    if (process.env.NODE_ENV === 'development' && locations.length > 0) {
+        console.log("🗺️ Map visible with", locations.length, "locations");
     }
     
     return (
@@ -275,3 +291,12 @@ export default function RightMapPanel({ currentSessionId, currentUserToken }: Ri
         </div>
     );
 }
+
+// Memoize the component to prevent re-renders when chat input changes
+export default React.memo(RightMapPanel, (prevProps, nextProps) => {
+    // Only re-render if the props that actually matter have changed
+    return (
+        prevProps.currentSessionId === nextProps.currentSessionId &&
+        prevProps.currentUserToken === nextProps.currentUserToken
+    );
+});

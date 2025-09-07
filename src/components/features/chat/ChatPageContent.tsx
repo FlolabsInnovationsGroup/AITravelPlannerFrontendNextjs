@@ -15,10 +15,12 @@ import AudioRecorder from './AudioRecorder';
 import { Components } from 'react-markdown';
 import LeftMenuBar from '@/components/features/chat/LeftMenuBar';
 import RightMapPanel from '@/components/features/map/RightMapPanel';
+import LocationSuggestions from '@/components/features/map/LocationSuggestions';
 import { LocationExtractionService } from '@/services/LocationExtractionService';
 import { LocationService } from '@/services/LocationService';
 import { MapService } from '@/services/MapService';
 import { LoadScript, LoadScriptProps } from '@react-google-maps/api';
+import { Location } from '@/types/map';
 
 // Loader Component
 const MessageLoader = () => {
@@ -64,6 +66,8 @@ export default function ChatPageContent() {
     const { currentUser } = useAuth();
     const [hasReachedMessageLimit, setHasReachedMessageLimit] = useState(false);
     const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [locationSuggestions, setLocationSuggestions] = useState<Location[]>([]);
+    const [pendingLocationSearch, setPendingLocationSearch] = useState<string | null>(null);
 
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -72,6 +76,11 @@ export default function ChatPageContent() {
     const mapServiceRef = useRef<MapService | null>(null);
     const wsReconnectTimerRef = useRef<NodeJS.Timeout>();
     const MAX_WS_RETRIES = 3;
+
+    // Memoize token to prevent unnecessary re-renders of RightMapPanel
+    const currentUserToken = React.useMemo(() => {
+        return currentUser?.token || getToken();
+    }, [currentUser?.token]);
 
     // Initialize and manage MapService and sessions
     useEffect(() => {
@@ -245,64 +254,272 @@ export default function ChatPageContent() {
         }
     }, [isGoogleMapsLoaded]);
 
+    // Helper function to add location to map
+    const addLocationToMap = async (location: Location) => {
+        try {
+            if (!mapServiceRef.current) {
+                console.error("MapService not initialized");
+                throw new Error("MapService not initialized");
+            }
+
+            if (!currentSession?.sessionId) {
+                console.error("No active session");
+                throw new Error("No active session");
+            }
+
+            const locationToAdd = {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                name: location.name,
+                type: location.type,
+                sessionId: currentSession.sessionId
+            };
+            
+            console.log("📍 Attempting to add location:", locationToAdd);
+            const addedLocation = await mapServiceRef.current.addLocation(locationToAdd);
+            
+            console.log("✅ Location added successfully:", addedLocation);
+            
+            // Dispatch event for map update
+            const event = new CustomEvent('newLocation', { 
+                detail: addedLocation
+            });
+            window.dispatchEvent(event);
+            console.log("🌍 Location event dispatched");
+            
+            return addedLocation;
+        } catch (error) {
+            console.error("❌ Error adding location:", error);
+            
+            // Check if it's a validation error
+            if (error.message && error.message.includes('invalid characters')) {
+                console.warn("⚠️ Location name contains invalid characters:", location.name);
+                throw new Error(`Location name "${location.name}" contains characters not supported by the server.`);
+            }
+            
+            throw error;
+        }
+    };
+
+    // Handler for when user selects a location from suggestions
+    const handleLocationSelect = async (location: Location) => {
+        console.log("🎯 User selected location:", location);
+        
+        try {
+            // Add the selected location to the map
+            await addLocationToMap(location);
+            console.log("✅ Location successfully added to map");
+            
+            // Clear suggestions and continue with the original message
+            setLocationSuggestions([]);
+            const originalMessage = pendingLocationSearch;
+            setPendingLocationSearch(null);
+            
+            if (originalMessage) {
+                // Add the original user message to chat (since it was never added when suggestions were shown)
+                setMessages((prev) => {
+                    // Check if message already exists
+                    if (prev.length > 0 && prev[prev.length - 1].content === originalMessage && prev[prev.length - 1].messageType === "USER") {
+                        console.warn("⚠️ User message already in chat, skipping duplicate");
+                        return prev;
+                    }
+                    console.log("✅ Adding selected user message to chat:", originalMessage);
+                    return [...prev, { id: Date.now(), messageType: 'USER', content: originalMessage }];
+                });
+                
+                console.log("📞 Continuing with enhanced message after location selection");
+                // Create enhanced message for AI context
+                const enhancedMessage = `I've added ${location.name} to the map. ${originalMessage}. Please provide detailed travel information about this place.`;
+                
+                // Continue processing with enhanced message
+                await processChatMessage(enhancedMessage);
+            } else {
+                console.warn("⚠️ No pending message to continue with");
+            }
+        } catch (error) {
+            console.error("❌ Error in handleLocationSelect:", error);
+            // Even if location adding fails, continue with chat
+            setLocationSuggestions([]);
+            const originalMessage = pendingLocationSearch;
+            setPendingLocationSearch(null);
+            
+            if (originalMessage) {
+                // Add the original user message to chat (since it was never added)
+                setMessages((prev) => {
+                    if (prev.length > 0 && prev[prev.length - 1].content === originalMessage && prev[prev.length - 1].messageType === "USER") {
+                        return prev;
+                    }
+                    return [...prev, { id: Date.now(), messageType: 'USER', content: originalMessage }];
+                });
+                
+                await processChatMessage(originalMessage);
+            }
+        }
+    };
+
+    // Handler for dismissing location suggestions
+    const handleLocationSuggestionsDismiss = async () => {
+        console.log("❌ User dismissed location suggestions");
+        setLocationSuggestions([]);
+        const originalMessage = pendingLocationSearch;
+        setPendingLocationSearch(null);
+        
+        if (originalMessage) {
+            // Add the original user message to chat (since it was never added when suggestions were shown)
+            setMessages((prev) => {
+                // Check if message already exists
+                if (prev.length > 0 && prev[prev.length - 1].content === originalMessage && prev[prev.length - 1].messageType === "USER") {
+                    console.warn("⚠️ User message already in chat, skipping duplicate");
+                    return prev;
+                }
+                console.log("✅ Adding dismissed user message to chat:", originalMessage);
+                return [...prev, { id: Date.now(), messageType: 'USER', content: originalMessage }];
+            });
+            
+            // Continue processing the original message without location extraction
+            await processChatMessage(originalMessage);
+        }
+    };
+
+    // Separate function for processing chat message (user message should already be in UI)
+    const processChatMessage = async (message: string) => {
+        try {
+            let sessionId = currentSession?.sessionId;
+    
+            if (!sessionId) {
+                console.log("Creating a new session...");
+                const newSession = await createSession('New Chat');
+    
+                if (!newSession || !newSession.sessionId) {
+                    throw new Error("Failed to create a new session.");
+                }
+    
+                sessionId = newSession.sessionId;
+                setCurrentSession(newSession);
+                if (mapServiceRef.current && newSession.sessionId) {
+                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
+                }
+            }
+    
+            // Send message to backend (user message should already be in chat UI)
+            console.log("📡 Sending message to API:", message, sessionId);
+            console.log("📡 About to call sendMessagesEntity...");
+            
+            // Add timeout to prevent hanging
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('API call timeout after 30 seconds')), 30000);
+            });
+            
+            const response = await Promise.race([
+                sendMessagesEntity(message, sessionId),
+                timeoutPromise
+            ]);
+            
+            console.log("📡 API Response received:", response);
+    
+            if (!response || typeof response.message !== "string") {
+                console.error("Invalid response format:", response);
+                throw new Error("Invalid response from API");
+            }
+    
+            setMessages((prev) => [...prev, { 
+                id: Date.now() + 1, 
+                messageType: 'ASSISTANT', 
+                content: response.message 
+            }]);
+    
+            setMessageCount(prev => prev + 1);
+            
+        } catch (error) {
+            console.error("❌ Error processing chat message:", error);
+            toast.error('Failed to send message');
+        }
+    };
+
     const handleSendMessage = async (message: string) => {
         if (!message.trim()) return;
     
         setIsLoading(true);
     
         try {
-            // Check if the message mentions locations
-            const locationKeywords = ['show', 'find', 'where', 'restaurant', 'place', 'location', 'near', 'at', 'in', 'visit'];
+            // ✅ FIRST: Add user's original message to chat UI immediately
+            setMessages((prev) => {
+                // Prevent duplicate messages
+                if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.length - 1].messageType === "USER") {
+                    console.warn("⚠️ Duplicate message detected, skipping:", message);
+                    return prev;
+                }
+                console.log("✅ User message added to chat:", message);
+                return [...prev, { id: Date.now(), messageType: 'USER', content: message }];
+            });
+
+            // Check if the message mentions locations - expanded for travel terms
+            const locationKeywords = [
+                'show', 'find', 'where', 'restaurant', 'place', 'location', 'near', 'at', 'in', 'visit',
+                'attractions', 'attraction', 'sights', 'things to do', 'destinations', 'travel', 'trip',
+                'hotel', 'hotels', 'cafe', 'cafes', 'museum', 'museums', 'park', 'parks',
+                'best', 'top', 'popular', 'famous', 'must-see', 'recommended', 'guide',
+                'paris', 'london', 'tokyo', 'new york', 'rome', 'barcelona', 'amsterdam' // common cities
+            ];
             const hasLocationKeyword = locationKeywords.some(keyword => 
                 message.toLowerCase().includes(keyword)
             );
+            
+            console.log(`🔍 Checking for location keywords in: "${message}"`);
+            console.log(`🎯 Has location keyword: ${hasLocationKeyword}`);
 
             // Extract and add locations from the message if it contains location keywords
+            let locationsAdded = false;
             if (hasLocationKeyword && locationService.current) {
                 console.log("🔍 Extracting location from message:", message);
-                const locationResult = await locationService.current.extractLocationFromMessage(message);
-                
-                if (locationResult.extractedLocation && currentSession?.sessionId) {
-                    console.log("📍 Found location:", locationResult.extractedLocation);
+                try {
+                    const locationResult = await locationService.current.extractLocationFromMessage(message);
+                    console.log("🔍 Location extraction result:", locationResult);
                     
-                    try {
-                        // Add the location to the backend
-                        if (!mapServiceRef.current) {
-                            console.error("MapService not initialized");
-                            return;
+                    if (locationResult.extractedLocation && currentSession?.sessionId) {
+                        // Check if there are multiple suggestions
+                        if (locationResult.suggestedPlaces && locationResult.suggestedPlaces.length > 0) {
+                            // Show suggestions to user - BUT DON'T add user message to chat yet
+                            // Remove the user message that was added earlier since we're waiting for selection
+                            setMessages((prev) => {
+                                if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.length - 1].messageType === "USER") {
+                                    console.log("🔄 Removing user message temporarily for location selection");
+                                    return prev.slice(0, -1); // Remove last message
+                                }
+                                return prev;
+                            });
+                            
+                            console.log("🔍 Multiple location options found, showing suggestions");
+                            setLocationSuggestions([locationResult.extractedLocation, ...locationResult.suggestedPlaces]);
+                            setPendingLocationSearch(message);
+                            setIsLoading(false); // Stop loading since we're waiting for user input
+                            return; // Don't proceed with sending the message yet
                         }
-
-                        if (!currentSession?.sessionId) {
-                            console.error("No active session");
-                            return;
-                        }
-
-                        const locationToAdd = {
-                            latitude: locationResult.extractedLocation.latitude,
-                            longitude: locationResult.extractedLocation.longitude,
-                            name: locationResult.extractedLocation.name,
-                            type: locationResult.extractedLocation.type,
-                            sessionId: currentSession.sessionId // This should match the session ID in storage
-                        };
                         
-                        const addedLocation = await mapServiceRef.current.addLocation(locationToAdd);
-                        
-                        console.log("✅ Location added successfully:", addedLocation);
-                        
-                        // Dispatch event for map update
-                        const event = new CustomEvent('newLocation', { 
-                            detail: addedLocation
-                        });
-                        window.dispatchEvent(event);
-                        console.log("🌍 Location event dispatched");
-                    } catch (error) {
-                        console.error("❌ Error adding location:", error);
+                        console.log("📍 Found location:", locationResult.extractedLocation);
+                        await addLocationToMap(locationResult.extractedLocation);
+                        locationsAdded = true;
+                    } else if (locationResult.error) {
+                        console.warn("⚠️ Location extraction error:", locationResult.error);
+                    } else {
+                        console.log("ℹ️ No specific location extracted, proceeding with normal chat");
                     }
-                } else if (locationResult.error) {
-                    console.warn("⚠️ Location extraction error:", locationResult.error);
+                } catch (error) {
+                    console.error("❌ Location extraction failed:", error);
+                    // Continue with normal chat processing even if location extraction fails
                 }
+            } else {
+                console.log("ℹ️ No location extraction needed, proceeding with normal chat");
+            }
+            
+            // If locations were added, modify the message to provide context to the AI (internal only)
+            let messageToSend = message;
+            if (locationsAdded) {
+                messageToSend = `I've added the location you mentioned to the map. ${message}. Please provide travel information about this place.`;
+                console.log("📍 Enhanced message for AI (internal):", messageToSend);
             }
 
+            console.log("💬 Proceeding to send message to chat API");
             let sessionId = currentSession?.sessionId;
     
             if (!sessionId) {
@@ -321,22 +538,19 @@ export default function ChatPageContent() {
                 }
             }
     
-            // ✅ Ensure UI updates immediately by using functional state update
-            setMessages((prev) => {
-// Allow sending duplicates but prevent spamming the exact same message instantly
-if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.length - 1].messageType === "USER") {
-    console.warn("⚠️ Duplicate message detected immediately after the last one, skipping:", message);
-    return prev;
-}
-
-    
-                console.log("✅ Message added to state:", message);
-                return [...prev, { id: Date.now(), messageType: 'USER', content: message }];
+            // ✅ Send enhanced message to backend (user message already added to UI above)
+            console.log("📡 Sending enhanced message to API:", messageToSend, sessionId);
+            console.log("📡 About to call sendMessagesEntity...");
+            
+            // Add timeout to prevent hanging
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('API call timeout after 30 seconds')), 30000);
             });
-    
-            // ✅ Send message to backend AFTER state update
-            console.log("Sending message to API:", message, sessionId);
-            const response = await sendMessagesEntity(message, sessionId);
+            
+            const response = await Promise.race([
+                sendMessagesEntity(messageToSend, sessionId),
+                timeoutPromise
+            ]);
             console.log("API Response:", response);
     
             if (!response || typeof response.message !== "string") {
@@ -500,7 +714,18 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
 
     useEffect(() => {
         if (bottomRef.current && !inputMessage) {
-            bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+            // Use a more controlled scroll that doesn't affect page layout
+            const chatContainer = bottomRef.current.closest('.overflow-y-auto');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            } else {
+                // Fallback with block: 'nearest' to prevent page layout shifts
+                bottomRef.current.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'nearest',
+                    inline: 'nearest' 
+                });
+            }
         }
     }, [messages, inputMessage]);
 
@@ -616,8 +841,8 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
             libraries={libraries}
             onLoad={() => setIsGoogleMapsLoaded(true)}
         >
-            <div className="flex h-screen bg-gray-100">
-                <div className="flex flex-1">
+            <div className="flex h-screen bg-gray-100 overflow-hidden">
+                <div className="flex flex-1 min-h-0">{/* min-h-0 prevents flex items from growing beyond container */}
                     {/* Left Menu Bar */}
                     <LeftMenuBar
                         isMobileMenuOpen={isMobileMenuOpen}
@@ -634,9 +859,9 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
                     />
     
                     {/* Middle Chat Section */}
-                    <div className="flex-[3.3] flex flex-col bg-white border-l border-r overflow-hidden">
+                    <div className="flex-[3.3] flex flex-col bg-white border-l border-r overflow-hidden min-h-0">
                         {/* Chat Section */}
-                        <div className="flex-1 flex flex-col h-full overflow-hidden">
+                        <div className="flex-1 flex flex-col h-full overflow-hidden min-h-0">{/* Prevent chat from growing beyond bounds */}
                             {displayPrompts && messages.length === 0 ? (
                                 <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
                                     {/* Wrapper for Logo */}
@@ -674,7 +899,7 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex-1 overflow-y-auto p-4 max-h-[calc(100vh-8rem)]">
+                                <div className="flex-1 overflow-y-auto p-4 min-h-0">{/* Remove viewport calc, let flex handle it */}
                                     <div className="max-w-3xl mx-auto">
                                         {messages.map((message) => (
                                             <div
@@ -720,7 +945,7 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
                         </div>
     
                         {/* Chat Input */}
-                        <div className="border-t bg-white p-4 sticky bottom-0">
+                        <div className="border-t bg-white p-4 flex-shrink-0">{/* Use flex-shrink-0 instead of sticky to prevent layout shifts */}
                             <div className="max-w-3xl mx-auto">
                                 <div className="flex items-center gap-4 bg-white rounded-xl border shadow-md p-3">
                                     <Input
@@ -762,16 +987,26 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
                     </div>
     
                     {/* Right Map Panel */}
-                    <div className="flex-[2.7] bg-white overflow-hidden p-4 h-full">
+                    <div className="flex-[2.7] bg-white overflow-hidden p-4 h-full min-h-0">{/* Ensure map area doesn't grow */}
                         {typeof window !== 'undefined' && (
                             <RightMapPanel
                                 currentSessionId={currentSession?.sessionId || null}
-                                currentUserToken={getToken()}
+                                currentUserToken={currentUserToken}
                             />
                         )}
                     </div>
                 </div>
             </div>
+            
+            {/* Location Suggestions Modal */}
+            {locationSuggestions.length > 0 && pendingLocationSearch && (
+                <LocationSuggestions
+                    suggestions={locationSuggestions}
+                    onLocationSelect={handleLocationSelect}
+                    onDismiss={handleLocationSuggestionsDismiss}
+                    searchTerm={pendingLocationSearch}
+                />
+            )}
         </LoadScript>
     );
 }

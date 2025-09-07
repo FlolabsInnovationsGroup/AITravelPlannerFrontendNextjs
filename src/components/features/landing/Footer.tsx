@@ -11,9 +11,7 @@ export default function Footer() {
           {/* Left Section - Brand & Description */}
           <div className="space-y-4">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="relative w-[50px] h-[50px]">
-                <Image src="/image/logowhite.png" alt="Flomad Travel Logo" fill className="object-contain" sizes="50px" />
-              </div>
+              <Image src="/image/logowhite.png" alt="Flomad Travel Logo" width={50} height={50} style={{ width: 'auto', height: 'auto' }} className="object-contain" />
               <span className="text-2xl font-bold tracking-wide text-white">Flomad Travel</span>
             </Link>
             <p className="text-sm text-gray-400 max-w-sm">

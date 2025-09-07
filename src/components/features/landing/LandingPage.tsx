@@ -67,21 +67,19 @@ export default function LandingPage() {
     <div className="flex flex-col min-h-screen">
       <div className="relative h-screen">
         {backgroundImages.map((img, index) => (
-          <div className="absolute inset-0">
-          <Image
-            key={img}
-            src={img}
-            alt={`Travel scene ${index + 1}`}
-            fill
-            sizes="100vw"
-            quality={85}
-            priority={index === 0}
-            className={`object-cover transition-opacity duration-1000 ${
-              index === currentImageIndex ? 'opacity-100' : 'opacity-0'
-            }`}
-          />
-        </div>
-        
+          <div key={img} className="absolute inset-0">
+            <Image
+              src={img}
+              alt={`Travel scene ${index + 1}`}
+              fill
+              sizes="100vw"
+              quality={85}
+              priority={index === 0}
+              className={`object-cover transition-opacity duration-1000 ${
+                index === currentImageIndex ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+          </div>
         ))}
         
         <div className="absolute inset-0 bg-black opacity-30" />
@@ -96,6 +94,7 @@ export default function LandingPage() {
                   alt="Flomad Travel Logo"
                   width={20}
                   height={25}
+                  style={{ width: 'auto', height: 'auto' }}
                   className="mr-2"
                 />
                 <span className="text-white text-2xl font-semibold">Flomad Travel</span>

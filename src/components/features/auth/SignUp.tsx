@@ -1,6 +1,6 @@
 "use client"
 
-import Image from "next/legacy/image"
+import Image from "next/image"
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import React, { useState } from 'react';
@@ -131,7 +131,7 @@ export function SignUp() {
 
         <div className="space-y-4">
           <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('google')}>
-            <Image src="/image/google.png" className="mr-4" alt="Google Logo" width={25} height={25} />
+            <Image src="/image/google.png" className="mr-4" alt="Google Logo" width={25} height={25} style={{ width: 'auto', height: 'auto' }} />
             Signup in with Google
           </Button>
           <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('linkedin')}>

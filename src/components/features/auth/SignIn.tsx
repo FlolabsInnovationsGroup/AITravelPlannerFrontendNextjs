@@ -1,5 +1,5 @@
 "use client"
-import Image from "next/legacy/image"
+import Image from "next/image"
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Input } from "@/components/ui/input"
@@ -128,7 +128,7 @@ function SignInContent() {
         </div>
         <div className="space-y-4">
           <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('google')}>
-            <Image src="/image/google.png" className="mr-4" alt="Google Logo" width={25} height={25} style={{ padding: 5 }} />
+            <Image src="/image/google.png" className="mr-4" alt="Google Logo" width={25} height={25} style={{ width: 'auto', height: 'auto' }} />
             Sign in with Google
           </Button>
           <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('linkedin')}>

@@ -9,9 +9,7 @@ export default function Footer() {
           {/* Left column */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <div className="relative w-6 h-6">
-                <Image src="/logo.png" alt="Flomad Travel Logo" fill className="object-contain" sizes="24px" />
-              </div>
+              <Image src="/logo.png" alt="Flomad Travel Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} className="object-contain" />
               <span className="text-xl font-bold">flomad travel</span>
             </div>
             <p className="text-sm text-gray-400 max-w-md">
@@ -35,10 +33,6 @@ export default function Footer() {
                 <Linkedin size={20} />
                 <span>LinkedIn</span>
               </a>
-              {/* <a href="#" className="flex items-center space-x-2 text-sm hover:text-gray-300">
-                <Image src="/logo.png?height=20&width=20" alt="Pinterest" width={20} height={20} />
-                <span>Pinterest</span>
-              </a> */}
             </div>
 
             {/* Recent Post */}

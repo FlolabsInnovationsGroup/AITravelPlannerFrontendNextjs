@@ -7,6 +7,34 @@ export interface Location {
     type?: LocationType;
     createdAt?: string;
     updatedAt?: string;
+    
+    // Enhanced information for rich popups (Phase 1 improvements)
+    photos?: string[];
+    rating?: number;
+    userRatingsTotal?: number;
+    priceLevel?: 1 | 2 | 3 | 4;
+    openingHours?: OpeningHours;
+    phoneNumber?: string;
+    website?: string;
+    vicinity?: string;
+    placeId?: string;
+    isOpen?: boolean;
+}
+
+export interface OpeningHours {
+    isOpen?: boolean;
+    periods?: OpeningPeriod[];
+    weekdayText?: string[];
+}
+
+export interface OpeningPeriod {
+    close?: TimeOfDay;
+    open?: TimeOfDay;
+}
+
+export interface TimeOfDay {
+    day: number;
+    time: string;
 }
 
 export type LocationType = 'attraction' | 'cafe' | 'hotel' | 'restaurant' | 'transport';

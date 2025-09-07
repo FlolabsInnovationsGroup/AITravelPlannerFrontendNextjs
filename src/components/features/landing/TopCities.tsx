@@ -59,15 +59,14 @@ export function TopCities() {
             onScroll={checkScroll}
           >
             {cities.map((city, index) => (
-              <div key={index} className="flex-none w-64">
+              <div key={city.name} className="flex-none w-64">
                 <div className="relative aspect-[3/4] group overflow-hidden rounded-lg shadow-md transition-all duration-300 hover:shadow-xl">
                   <Image
                     src={city.image}
                     alt={city.name}
-                    layout="fill"
+                    fill
                     sizes={city.sizes || "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"}
-                    objectFit="cover"
-                    className="transition-all duration-300 brightness-90 group-hover:brightness-100"
+                    className="object-cover transition-all duration-300 brightness-90 group-hover:brightness-100"
                   />
                   {/* Full-width gradient overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
