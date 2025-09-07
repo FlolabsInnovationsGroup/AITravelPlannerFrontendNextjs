@@ -499,10 +499,10 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
     );
 
     useEffect(() => {
-        if (bottomRef.current) {
+        if (bottomRef.current && !inputMessage) {
             bottomRef.current.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [messages]);
+    }, [messages, inputMessage]);
 
 
     useEffect(() => {
@@ -646,6 +646,7 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
                                             alt="AiTripPlanner Logo"
                                             width={128}
                                             height={128}
+                                            style={{ width: 'auto', height: 'auto' }}
                                             className="object-contain"
                                         />
                                     </div>
@@ -673,7 +674,7 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex-1 overflow-y-auto p-4">
+                                <div className="flex-1 overflow-y-auto p-4 max-h-[calc(100vh-8rem)]">
                                     <div className="max-w-3xl mx-auto">
                                         {messages.map((message) => (
                                             <div
@@ -707,19 +708,19 @@ if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.le
                                                 </div>
                                             </div>
                                         ))}
-                                        {/* ✅ Loader Display */}
-                                        {isLoading && <MessageLoader />}
-                                        <div ref={bottomRef} />
-                                    </div>
-                                    {suggestions.length > 0 && (
-                                        <Suggestions suggestions={suggestions} handleSendMessage={handleSendMessage} />
-                                    )}
-                                </div>
+                        {/* ✅ Loader Display */}
+                        {isLoading && <MessageLoader />}
+                        <div ref={bottomRef} />
+                    </div>
+                    {suggestions.length > 0 && (
+                        <Suggestions suggestions={suggestions} handleSendMessage={handleSendMessage} />
+                    )}
+                </div>
                             )}
                         </div>
     
                         {/* Chat Input */}
-                        <div className="border-t bg-white p-4">
+                        <div className="border-t bg-white p-4 sticky bottom-0">
                             <div className="max-w-3xl mx-auto">
                                 <div className="flex items-center gap-4 bg-white rounded-xl border shadow-md p-3">
                                     <Input

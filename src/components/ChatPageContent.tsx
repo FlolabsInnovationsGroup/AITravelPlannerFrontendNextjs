@@ -14,7 +14,7 @@ import { useAuth } from '@/components/contexts/AuthContext';
 import AudioRecorder from './AudioRecorder';
 import { Components } from 'react-markdown';
 import LeftMenuBar from '@/components/LeftMenuBar';
-import RightMapPanel from '@/components/RightMapPanel';
+import RightMapPanel from '@/components/features/map/RightMapPanel';
 
 interface CodeProps extends React.HTMLAttributes<HTMLElement> {
     inline?: boolean;
@@ -357,6 +357,7 @@ export default function ChatPageContent() {
                                 alt="AiTripPlanner Logo"
                                 width={128}
                                 height={128}
+                                style={{ width: 'auto', height: 'auto' }}
                                 className="object-contain"
                             />
                         </div>

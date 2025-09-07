@@ -91,10 +91,26 @@ export class LocationExtractionService {
             let result;
             try {
                 const response = await this.geocoder.geocode({ address: locationName });
-                result = response.results[0];
+                
+                if (!response.results || response.results.length === 0) {
+                    console.warn('❌ No results found for location:', locationName);
+                    return { error: 'Could not find location coordinates' };
+                }
+
+                // Try to find the most specific result, prefer exact matches
+                result = response.results.find(r => 
+                    r.formatted_address.toLowerCase().includes(locationName.toLowerCase()) ||
+                    r.name?.toLowerCase().includes(locationName.toLowerCase())
+                ) || response.results[0];
+
+                console.log('🎯 Selected result:', {
+                    formatted_address: result.formatted_address,
+                    types: result.types,
+                    name: result.name
+                });
 
                 if (!result || !result.geometry?.location) {
-                    console.warn('❌ Could not find location:', locationName);
+                    console.warn('❌ Could not find location geometry:', locationName);
                     return { error: 'Could not find location coordinates' };
                 }
             } catch (geocodeError) {

@@ -1,11 +1,15 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { getLocationsBySession } from '@/lib/api';
 import GoogleMapComponent from './GoogleMapComponent';
 import { Location, LocationType, WebSocketEvent } from '@/types/map';
 import { toast } from 'react-hot-toast';
 import { MapService } from '@/services/MapService';
+import Image from 'next/image';
+
+// Memoized GoogleMapComponent to prevent unnecessary re-renders
+const MemoizedGoogleMapComponent = React.memo(GoogleMapComponent);
 
 // Helper function to convert API location type to our LocationType
 const convertLocationType = (type: string | undefined): LocationType | undefined => {
@@ -23,6 +27,7 @@ export default function RightMapPanel({ currentSessionId, currentUserToken }: Ri
     const [locations, setLocations] = useState<Location[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showMap, setShowMap] = useState(false);
     const mapServiceRef = useRef<MapService | null>(null);
 
     // Initialize MapService when token is available
@@ -35,10 +40,28 @@ export default function RightMapPanel({ currentSessionId, currentUserToken }: Ri
             
         // Set up WebSocket message handler
         const messageHandler = (event: WebSocketEvent<any>) => {
+            console.log("📡 WebSocket message received:", event);
             switch (event.type) {
                 case 'LOCATION_ADDED':
                     const newLocation = event.payload as Location;
-                    setLocations(prev => [...prev, newLocation]);
+                    console.log("📍 Adding location from WebSocket:", newLocation);
+                    setLocations(prev => {
+                        // Check if location already exists to prevent duplicates (using distance threshold)
+                        const exists = prev.some(loc => {
+                            const distance = Math.sqrt(
+                                Math.pow(loc.latitude - newLocation.latitude, 2) + 
+                                Math.pow(loc.longitude - newLocation.longitude, 2)
+                            );
+                            // Allow locations that are more than ~100 meters apart (0.001 degrees ≈ 111m)
+                            return distance < 0.001;
+                        });
+                        if (exists) {
+                            console.log("⚠️ Location too close to existing location, skipping");
+                            return prev;
+                        }
+                        console.log("✅ Adding new location:", newLocation);
+                        return [...prev, newLocation];
+                    });
                     toast.success("New location added to map");
                     break;
                 case 'LOCATION_REMOVED':
@@ -133,6 +156,13 @@ export default function RightMapPanel({ currentSessionId, currentUserToken }: Ri
         fetchLocations();
     }, [fetchLocations]);
 
+    // Show map when locations exist
+    useEffect(() => {
+        const shouldShowMap = locations.length > 0;
+        console.log(`🔄 Locations changed: ${locations.length} locations - ${shouldShowMap ? 'showing map' : 'showing travel agent'}`);
+        setShowMap(shouldShowMap);
+    }, [locations]);
+
     // Listen for new location events
     useEffect(() => {
         const handleNewLocation = (event: Event) => {
@@ -140,14 +170,18 @@ export default function RightMapPanel({ currentSessionId, currentUserToken }: Ri
             console.log("🌍 New location event received:", customEvent.detail);
             
             setLocations(prevLocations => {
-                // Check if location already exists
-                const exists = prevLocations.some(loc => 
-                    loc.latitude === customEvent.detail.latitude && 
-                    loc.longitude === customEvent.detail.longitude
-                );
+                // Check if location already exists using distance threshold
+                const exists = prevLocations.some(loc => {
+                    const distance = Math.sqrt(
+                        Math.pow(loc.latitude - customEvent.detail.latitude, 2) + 
+                        Math.pow(loc.longitude - customEvent.detail.longitude, 2)
+                    );
+                    // Allow locations that are more than ~100 meters apart
+                    return distance < 0.001;
+                });
 
                 if (exists) {
-                    console.log("⚠️ Location already exists, skipping");
+                    console.log("⚠️ Location too close to existing location, skipping");
                     return prevLocations;
                 }
 
@@ -205,6 +239,11 @@ export default function RightMapPanel({ currentSessionId, currentUserToken }: Ri
         );
     }
 
+    // Debug logging for map display logic
+    if (locations.length > 0) {
+        console.log("🗺️ Map should be visible - locations:", locations.length);
+    }
+    
     return (
         <div className="h-full relative">
             {isLoading && (
@@ -212,11 +251,27 @@ export default function RightMapPanel({ currentSessionId, currentUserToken }: Ri
                     <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
                 </div>
             )}
-            <GoogleMapComponent
-                locations={locations}
-                onLocationAdd={handleLocationAdd}
-                onLocationSelect={handleLocationSelect}
-            />
+            
+            {!showMap ? (
+                // Show travel agent picture when no locations - fill container
+                <div className="h-full w-full relative">
+                    <Image
+                        src="/image/travelagentpic1.png"
+                        alt="Travel Agent"
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="object-cover"
+                        priority
+                    />
+                </div>
+            ) : (
+                // Show map when locations exist
+                <GoogleMapComponent
+                    locations={locations}
+                    onLocationAdd={handleLocationAdd}
+                    onLocationSelect={handleLocationSelect}
+                />
+            )}
         </div>
     );
 }

@@ -121,6 +121,13 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
         // Adjust bounds if there are markers
         if (newMarkers.length > 0) {
             map.fitBounds(bounds);
+            // Prevent over-zooming for single locations
+            const listener = google.maps.event.addListener(map, 'bounds_changed', () => {
+                if (newMarkers.length === 1 && map.getZoom() && map.getZoom()! > 15) {
+                    map.setZoom(15);
+                }
+                google.maps.event.removeListener(listener);
+            });
         }
 
         return () => {
@@ -157,43 +164,37 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                 </div>
             )}
             
-            <LoadScript
-                googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}
-                libraries={libraries}
-                onError={(error) => setLoadError(error)}
+            <GoogleMap
+                mapContainerStyle={mapContainerStyle}
+                center={defaultCenter}
+                zoom={13}
+                onLoad={handleLoad}
+                onUnmount={handleUnmount}
+                options={{
+                    fullscreenControl: false,
+                    mapTypeControl: false,
+                    streetViewControl: false,
+                    zoomControl: true,
+                    gestureHandling: 'cooperative',
+                }}
             >
-                <GoogleMap
-                    mapContainerStyle={mapContainerStyle}
-                    center={defaultCenter}
-                    zoom={13}
-                    onLoad={handleLoad}
-                    onUnmount={handleUnmount}
-                    options={{
-                        fullscreenControl: false,
-                        mapTypeControl: false,
-                        streetViewControl: false,
-                        zoomControl: true,
-                        gestureHandling: 'cooperative',
+                <SearchBox 
+                    map={map}
+                    onPlaceSelected={(place) => {
+                        if (onLocationAdd && place) {
+                            onLocationAdd({
+                                id: Date.now().toString(),
+                                name: place.name || '',
+                                latitude: place.geometry?.location?.lat() || 0,
+                                longitude: place.geometry?.location?.lng() || 0,
+                                type: 'attraction',
+                                createdAt: new Date().toISOString(),
+                                updatedAt: new Date().toISOString()
+                            });
+                        }
                     }}
-                >
-                    <SearchBox 
-                        map={map}
-                        onPlaceSelected={(place) => {
-                            if (onLocationAdd && place) {
-                                onLocationAdd({
-                                    id: Date.now().toString(),
-                                    name: place.name || '',
-                                    latitude: place.geometry?.location?.lat() || 0,
-                                    longitude: place.geometry?.location?.lng() || 0,
-                                    type: 'attraction',
-                                    createdAt: new Date().toISOString(),
-                                    updatedAt: new Date().toISOString()
-                                });
-                            }
-                        }}
-                    />
-                </GoogleMap>
-            </LoadScript>
+                />
+            </GoogleMap>
         </div>
     );
 };
