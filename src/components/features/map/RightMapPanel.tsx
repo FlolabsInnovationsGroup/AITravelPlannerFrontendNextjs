@@ -62,8 +62,13 @@ function RightMapPanel({ currentSessionId, currentUserToken }: RightMapPanelProp
                     const newLocation = event.payload as Location;
                     console.log("📍 Adding location from WebSocket:", newLocation);
                     setLocations(prev => {
-                        // Check if location already exists using proper Haversine distance calculation
+                        // Check if location already exists (prevent duplicates)
                         const exists = prev.some(loc => {
+                            // Check by ID first (most reliable)
+                            if (loc.id === newLocation.id) {
+                                return true;
+                            }
+                            // Then check by distance for locations without IDs
                             const distance = calculateHaversineDistance(
                                 loc.latitude, loc.longitude,
                                 newLocation.latitude, newLocation.longitude
@@ -72,7 +77,7 @@ function RightMapPanel({ currentSessionId, currentUserToken }: RightMapPanelProp
                             return distance < 100; // meters
                         });
                         if (exists) {
-                            console.log("⚠️ Location too close to existing location, skipping");
+                            console.log("⚠️ Location already exists or too close, skipping duplicate");
                             return prev;
                         }
                         console.log("✅ Adding new location:", newLocation);
