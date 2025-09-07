@@ -10,7 +10,7 @@ interface WeatherOverlayProps {
 }
 
 interface WeatherLocation extends Location {
-    weather?: WeatherData;
+    weather?: WeatherData | null;
     isLoading?: boolean;
 }
 
@@ -46,7 +46,7 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = ({
                     return { ...location, weather, isLoading: false };
                 } catch (error) {
                     console.error(`Failed to fetch weather for ${location.name}:`, error);
-                    return { ...location, weather: undefined, isLoading: false };
+                    return { ...location, weather: null, isLoading: false };
                 }
             });
 

@@ -292,7 +292,7 @@ export default function ChatPageContent() {
             console.error("❌ Error adding location:", error);
             
             // Check if it's a validation error
-            if (error.message && error.message.includes('invalid characters')) {
+            if (error instanceof Error && error.message && error.message.includes('invalid characters')) {
                 console.warn("⚠️ Location name contains invalid characters:", location.name);
                 throw new Error(`Location name "${location.name}" contains characters not supported by the server.`);
             }
@@ -417,7 +417,7 @@ export default function ChatPageContent() {
             
             console.log("📡 API Response received:", response);
     
-            if (!response || typeof response.message !== "string") {
+            if (!response || typeof (response as any)?.message !== "string") {
                 console.error("Invalid response format:", response);
                 throw new Error("Invalid response from API");
             }
@@ -425,7 +425,7 @@ export default function ChatPageContent() {
             setMessages((prev) => [...prev, { 
                 id: Date.now() + 1, 
                 messageType: 'ASSISTANT', 
-                content: response.message 
+                content: (response as any).message 
             }]);
     
             setMessageCount(prev => prev + 1);
@@ -553,7 +553,7 @@ export default function ChatPageContent() {
             ]);
             console.log("API Response:", response);
     
-            if (!response || typeof response.message !== "string") {
+            if (!response || typeof (response as any)?.message !== "string") {
                 console.error("Invalid response format:", response);
     
                 setMessages((prev) => [...prev, {
@@ -565,7 +565,7 @@ export default function ChatPageContent() {
                 setMessages((prev) => [...prev, {
                     id: Date.now() + 1,
                     messageType: 'ASSISTANT',
-                    content: response.message,
+                    content: (response as any).message,
                 }]);
 
                     // Check if the message might contain location data
@@ -602,7 +602,7 @@ export default function ChatPageContent() {
                         }
                     }, 1000); // 1 second delay to allow backend processing
                 }                // ✅ Update suggestions dynamically
-                setSuggestions(response.suggestions || generateDynamicPrompts(response.message));
+                setSuggestions((response as any).suggestions || generateDynamicPrompts((response as any).message));
             }
     
             setDisplayPrompts(false);
@@ -803,10 +803,10 @@ export default function ChatPageContent() {
                     const response = await sendMessagesEntity(decodedMessage, sessionId);
         
                     setMessages((prev) => {
-                        if (!prev.some((m) => m.content === response.message)) {
+                        if (!prev.some((m) => m.content === (response as any).message)) {
                             return [
                                 ...prev,
-                                { id: Date.now() + 1, messageType: "ASSISTANT", content: response.message || "I couldn't process your request. Please try again." }
+                                { id: Date.now() + 1, messageType: "ASSISTANT", content: (response as any).message || "I couldn't process your request. Please try again." }
                             ];
                         }
                         return prev;
