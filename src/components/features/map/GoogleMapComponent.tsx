@@ -331,7 +331,12 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                 locations={locations}
             />
             
-            <GoogleMap
+            <LoadScript
+                googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}
+                libraries={libraries}
+                onError={setLoadError}
+            >
+                <GoogleMap
                 mapContainerStyle={mapContainerStyle}
                 center={defaultCenter}
                 zoom={13}
@@ -361,11 +366,7 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                     
                     disableDefaultUI: false,
                     clickableIcons: true,
-                    keyboardShortcuts: true,
-                    
-                    restriction: {
-                        strictBounds: false
-                    }
+                    keyboardShortcuts: true
                 }}
             >
                 <SearchBox 
@@ -385,6 +386,7 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                     }}
                 />
             </GoogleMap>
+            </LoadScript>
             
             {/* Weather Overlay */}
             <WeatherOverlay 
