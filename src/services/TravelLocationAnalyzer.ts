@@ -76,11 +76,11 @@ export class TravelLocationAnalyzer {
                 return 180; // 3 hours
             case 'viewpoint':
                 return 45;  // 45 minutes
-            case 'historic_site':
+            case 'landmark':
                 return 75;  // 1.25 hours
             case 'hotel':
                 return 0;   // Stay location
-            case 'nightlife':
+            case 'entertainment':
                 return 120; // 2 hours
             default:
                 return 60;  // 1 hour default
@@ -102,7 +102,7 @@ export class TravelLocationAnalyzer {
 
         switch (dominantType) {
             case 'museum':
-            case 'historic_site':
+            case 'landmark':
                 return 'Cultural Exploration';
             case 'park':
             case 'beach':
@@ -112,7 +112,7 @@ export class TravelLocationAnalyzer {
             case 'cafe':
                 return 'Culinary Adventure';
             case 'shopping':
-            case 'nightlife':
+            case 'entertainment':
                 return 'Urban Experience';
             case 'attraction':
                 return 'Sightseeing Tour';

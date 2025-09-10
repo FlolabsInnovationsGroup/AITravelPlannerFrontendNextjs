@@ -20,19 +20,25 @@ interface ItineraryDay {
 
 const getLocationTypeIcon = (type?: LocationType) => {
     switch (type) {
-        case 'hotel': return '🏨';
+        case 'hotel':
+        case 'accommodation': return '🏨';
         case 'restaurant': return '🍽️';
         case 'cafe': return '☕';
         case 'museum': return '🏛️';
-        case 'park': return '🌳';
+        case 'park':
+        case 'nature': return '🌳';
         case 'beach': return '🏖️';
+        case 'mountain': return '⛰️';
         case 'shopping': return '🛍️';
-        case 'nightlife': return '🍸';
-        case 'historic_site': return '🏰';
+        case 'entertainment': return '�';
+        case 'landmark': return '�️';
         case 'viewpoint': return '🏔️';
         case 'airport': return '✈️';
-        case 'train_station': return '🚂';
-        case 'bus_station': return '🚌';
+        case 'station':
+        case 'transport': return '🚂';
+        case 'religious': return '⛪';
+        case 'hospital': return '🏥';
+        case 'sports': return '⚽';
         case 'attraction':
         default: return '📍';
     }

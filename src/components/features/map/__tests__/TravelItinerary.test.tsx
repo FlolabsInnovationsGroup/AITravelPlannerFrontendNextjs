@@ -42,7 +42,7 @@ jest.mock('../../../../services/TravelLocationAnalyzer', () => ({
           park: 0,
           cafe: 0,
           shopping: 0,
-          nightlife: 0,
+          entertainment: 0,
           transport: 0,
           beach: 0
         },

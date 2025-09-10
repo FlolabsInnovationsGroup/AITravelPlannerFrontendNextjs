@@ -1,38 +1,51 @@
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { Location, WebSocketEvent, LocationAddedPayload, LocationRemovedPayload, MapClearedPayload } from '@/types/map';
+import { RetryMechanism, WebSocketRetryManager } from '@/utils/RetryMechanism';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;  // Non-null assertion as this is required
 
 export class MapService {
     private stompClient: Client | null = null;
     private messageHandlers: ((event: WebSocketEvent<any>) => void)[] = [];
-    private reconnectAttempts = 0;
-    private maxReconnectAttempts = 5;
+    private wsRetryManager = new WebSocketRetryManager(5, 1000);
     private mapInstance: google.maps.Map | null = null;
     private markers: google.maps.Marker[] = [];
+    private connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
     
     // Event handlers
     onConnect: (() => void) | null = null;
     onDisconnect: (() => void) | null = null;
     onError: ((error: Error) => void) | null = null;
     onMessage: ((event: WebSocketEvent<any>) => void) | null = null;
+    onConnectionStatusChange: ((status: 'disconnected' | 'connecting' | 'connected') => void) | null = null;
 
     constructor(private userToken: string) { }
 
-    // REST API Methods
-    async getLocations(sessionId: string): Promise<Location[]> {
-        const response = await fetch(`${API_BASE_URL}/api/locations/${sessionId}`, {
-            headers: {
-                'Authorization': `Bearer ${this.userToken}`,
-            },
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch locations');
+    // Enhanced connection status management
+    private setConnectionStatus(status: 'disconnected' | 'connecting' | 'connected') {
+        if (this.connectionStatus !== status) {
+            this.connectionStatus = status;
+            this.onConnectionStatusChange?.(status);
         }
+    }
 
-        return response.json();
+    // REST API Methods with retry logic
+    async getLocations(sessionId: string): Promise<Location[]> {
+        return RetryMechanism.withRetry(async () => {
+            const response = await fetch(`${API_BASE_URL}/api/locations/${sessionId}`, {
+                headers: {
+                    'Authorization': `Bearer ${this.userToken}`,
+                },
+                signal: AbortSignal.timeout(10000), // 10 second timeout
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch locations: ${response.status} ${response.statusText}`);
+            }
+
+            return response.json();
+        }, { maxAttempts: 3 });
     }
 
     async addLocation(location: Omit<Location, 'id' | 'createdAt' | 'updatedAt'> & { sessionId: string }): Promise<Location> {
@@ -140,22 +153,23 @@ export class MapService {
             },
             onConnect: () => {
                 console.log('✅ WebSocket Connected, subscribing to session:', sessionId);
-                this.reconnectAttempts = 0;
+                this.wsRetryManager.reset();
+                this.connectionStatus = 'connected';
                 this.subscribeToSession(sessionId);
                 if (this.onConnect) this.onConnect();
             },
             onStompError: (frame) => {
                 console.error('❌ STOMP error:', frame.headers, 'Session:', sessionId);
-                this.handleConnectionError();
+                this.handleConnectionError().catch(console.error);
             },
             onWebSocketClose: () => {
                 console.log('⚠️ WebSocket closed for session:', sessionId);
-                this.handleConnectionError();
+                this.handleConnectionError().catch(console.error);
                 if (this.onDisconnect) this.onDisconnect();
             },
             onWebSocketError: (event: Event) => {
                 console.error('🚨 WebSocket error:', event);
-                this.handleConnectionError();
+                this.handleConnectionError().catch(console.error);
                 if (this.onError) this.onError(new Error('WebSocket connection error'));
             },
         });
@@ -181,17 +195,16 @@ export class MapService {
         });
     }
 
-    private handleConnectionError(): void {
-        this.reconnectAttempts++;
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            console.log(`⚡ Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+    private async handleConnectionError(): Promise<void> {
+        this.connectionStatus = 'connecting';
+        
+        if (await this.wsRetryManager.shouldRetry()) {
+            console.log(`⚡ Reconnection attempt ${this.wsRetryManager.getRetryCount()}/${5}`);
             // Force reconnection after a delay
-            setTimeout(() => {
-                if (this.stompClient) {
-                    this.stompClient.deactivate();
-                    this.stompClient.activate();
-                }
-            }, Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000)); // Exponential backoff, max 30s
+            if (this.stompClient) {
+                this.stompClient.deactivate();
+                this.stompClient.activate();
+            }
         } else {
             console.error('❌ Max reconnection attempts reached. Please refresh the page.');
             this.disconnect(); // Clean up the connection
@@ -221,7 +234,8 @@ export class MapService {
             // Ensure cleanup happens even if there's an error
             this.stompClient = null;
             this.messageHandlers = [];
-            this.reconnectAttempts = 0;
+            this.wsRetryManager.reset();
+            this.connectionStatus = 'disconnected';
             // Remove event handlers
             this.onConnect = null;
             this.onDisconnect = null;

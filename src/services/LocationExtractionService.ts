@@ -58,14 +58,14 @@ export class LocationExtractionService {
         if (types.includes('restaurant') || types.includes('food') || types.includes('meal_takeaway')) return 'restaurant';
         if (types.includes('cafe') || types.includes('bakery')) return 'cafe';
         if (types.includes('airport')) return 'airport';
-        if (types.includes('train_station')) return 'train_station';
-        if (types.includes('bus_station') || types.includes('transit_station')) return 'bus_station';
+        if (types.includes('train_station')) return 'station';
+        if (types.includes('bus_station') || types.includes('transit_station')) return 'station';
         if (types.includes('museum')) return 'museum';
         if (types.includes('park') || types.includes('natural_feature')) return 'park';
         if (types.includes('beach')) return 'beach';
         if (types.includes('shopping_mall') || types.includes('store')) return 'shopping';
-        if (types.includes('night_club') || types.includes('bar')) return 'nightlife';
-        if (types.includes('church') || types.includes('cemetery') || types.includes('historical')) return 'historic_site';
+        if (types.includes('night_club') || types.includes('bar')) return 'entertainment';
+        if (types.includes('church') || types.includes('cemetery') || types.includes('historical')) return 'landmark';
         if (types.includes('scenic_lookout') || types.includes('observation_deck')) return 'viewpoint';
         if (types.includes('tourist_attraction') || types.includes('point_of_interest')) return 'attraction';
         

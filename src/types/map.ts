@@ -43,16 +43,21 @@ export type LocationType =
     | 'hotel' 
     | 'restaurant' 
     | 'transport'
-    | 'museum'
     | 'park'
+    | 'museum'
     | 'beach'
+    | 'mountain'
+    | 'landmark'
     | 'shopping'
-    | 'nightlife'
-    | 'historic_site'
-    | 'viewpoint'
+    | 'entertainment'
+    | 'religious'
+    | 'hospital'
     | 'airport'
-    | 'train_station'
-    | 'bus_station';
+    | 'station'
+    | 'viewpoint'
+    | 'nature'
+    | 'sports'
+    | 'accommodation';
 
 export interface WebSocketEvent<T> {
     type: WebSocketEventType;

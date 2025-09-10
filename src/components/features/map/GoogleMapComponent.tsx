@@ -13,29 +13,38 @@ import MapControls from "./MapControls";
 const getMarkerColor = (type?: LocationType): string => {
     switch (type) {
         case 'hotel':
+        case 'accommodation':
             return '#4A90E2';  // Blue
         case 'restaurant':
             return '#F5A623';  // Orange
         case 'cafe':
             return '#7ED321';  // Green
         case 'airport':
-        case 'train_station':
-        case 'bus_station':
+        case 'station':
+        case 'transport':
             return '#9013FE';  // Purple
         case 'museum':
             return '#BD10E0';  // Magenta
         case 'park':
+        case 'nature':
             return '#50E3C2';  // Teal
         case 'beach':
             return '#4A90E2';  // Ocean Blue
+        case 'mountain':
+            return '#8B4513';  // Mountain Brown
         case 'shopping':
             return '#F8E71C';  // Yellow
-        case 'nightlife':
+        case 'entertainment':
             return '#8B572A';  // Brown
-        case 'historic_site':
-            return '#417505';  // Dark Green
+        case 'landmark':
         case 'viewpoint':
             return '#FF6B6B';  // Coral
+        case 'religious':
+            return '#800080';  // Purple
+        case 'hospital':
+            return '#FF0000';  // Red
+        case 'sports':
+            return '#228B22';  // Forest Green
         case 'attraction':
         default:
             return '#D0021B';  // Red
@@ -47,28 +56,38 @@ const getMarkerIcon = (type?: LocationType): string => {
     const baseUrl = 'https://maps.google.com/mapfiles/ms/icons/';
     switch (type) {
         case 'hotel':
+        case 'accommodation':
             return `${baseUrl}blue-dot.png`;
         case 'restaurant':
             return `${baseUrl}orange-dot.png`;
         case 'cafe':
             return `${baseUrl}green-dot.png`;
         case 'airport':
-        case 'train_station':
-        case 'bus_station':
+        case 'station':
+        case 'transport':
             return `${baseUrl}purple-dot.png`;
         case 'museum':
             return `${baseUrl}pink-dot.png`;
         case 'park':
+        case 'nature':
+            return `${baseUrl}ltblue-dot.png`;
         case 'beach':
             return `${baseUrl}ltblue-dot.png`;
+        case 'mountain':
+            return `${baseUrl}brown-dot.png`;
         case 'shopping':
             return `${baseUrl}yellow-dot.png`;
-        case 'nightlife':
+        case 'entertainment':
             return `${baseUrl}brown-dot.png`;
-        case 'historic_site':
-            return `${baseUrl}green-dot.png`;
+        case 'landmark':
         case 'viewpoint':
             return `${baseUrl}red-dot.png`;
+        case 'religious':
+            return `${baseUrl}purple-dot.png`;
+        case 'hospital':
+            return `${baseUrl}red-dot.png`;
+        case 'sports':
+            return `${baseUrl}green-dot.png`;
         case 'attraction':
         default:
             return `${baseUrl}red-dot.png`;
