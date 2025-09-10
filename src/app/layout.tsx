@@ -1,11 +1,8 @@
-import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from "@/components/ui/theme-provider"
 import { AuthProviderWrapper } from '@/contexts/AuthProviderWrapper'
 import Script from 'next/script';
 import '@/styles/globals.css'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({
   children,
@@ -13,7 +10,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inter.className} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
     <head>
       {/* Google Analytics */}
       <Script

@@ -45,8 +45,14 @@ class WeatherService {
 
     constructor() {
         // In production, this should be from environment variables
-        // For demo purposes, we'll use a placeholder
         this.apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY || 'demo-key';
+        
+        // Log API key status for debugging (first 8 chars only for security)
+        if (this.apiKey === 'demo-key') {
+            console.log('🌤️ Weather Service: Using demo/mock data');
+        } else {
+            console.log(`🌤️ Weather Service: Using API key ${this.apiKey.substring(0, 8)}...`);
+        }
     }
 
     /**
@@ -73,8 +79,24 @@ class WeatherService {
                 fetch(`${this.baseUrl}/forecast?lat=${lat}&lon=${lng}&appid=${this.apiKey}&units=metric`)
             ]);
 
-            if (!currentResponse.ok || !forecastResponse.ok) {
-                console.warn('Weather API request failed, using mock data');
+            if (!currentResponse.ok) {
+                const errorText = await currentResponse.text();
+                console.warn(`Weather API current request failed (${currentResponse.status}):`, errorText);
+                
+                // If it's a 401, log helpful message
+                if (currentResponse.status === 401) {
+                    console.warn('🔑 API Key issue detected. Common causes:');
+                    console.warn('- New API key needs 10+ minutes to activate');
+                    console.warn('- Account needs email verification');
+                    console.warn('- Free tier limitations');
+                    console.warn('- Check key at https://home.openweathermap.org/api_keys');
+                }
+                
+                return this.getMockWeatherData(lat, lng, locationName);
+            }
+
+            if (!forecastResponse.ok) {
+                console.warn('Weather API forecast request failed, using mock data');
                 return this.getMockWeatherData(lat, lng, locationName);
             }
 

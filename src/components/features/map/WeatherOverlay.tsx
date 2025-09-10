@@ -10,7 +10,7 @@ interface WeatherOverlayProps {
 }
 
 interface WeatherLocation extends Location {
-    weather?: WeatherData;
+    weather?: WeatherData | null;
     isLoading?: boolean;
 }
 

@@ -7,7 +7,7 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession, getLocationsBySession, getToken } from '@/lib/api';
+import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession, getLocationsBySession, getToken, AIMessageResponse } from '@/lib/api';
 import { Send, Menu, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -292,7 +292,7 @@ export default function ChatPageContent() {
             console.error("❌ Error adding location:", error);
             
             // Check if it's a validation error
-            if (error.message && error.message.includes('invalid characters')) {
+            if (error instanceof Error && error.message && error.message.includes('invalid characters')) {
                 console.warn("⚠️ Location name contains invalid characters:", location.name);
                 throw new Error(`Location name "${location.name}" contains characters not supported by the server.`);
             }
@@ -413,7 +413,7 @@ export default function ChatPageContent() {
             const response = await Promise.race([
                 sendMessagesEntity(message, sessionId),
                 timeoutPromise
-            ]);
+            ]) as AIMessageResponse;
             
             console.log("📡 API Response received:", response);
     
@@ -550,7 +550,7 @@ export default function ChatPageContent() {
             const response = await Promise.race([
                 sendMessagesEntity(messageToSend, sessionId),
                 timeoutPromise
-            ]);
+            ]) as AIMessageResponse;
             console.log("API Response:", response);
     
             if (!response || typeof response.message !== "string") {

@@ -361,11 +361,7 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                     
                     disableDefaultUI: false,
                     clickableIcons: true,
-                    keyboardShortcuts: true,
-                    
-                    restriction: {
-                        strictBounds: false
-                    }
+                    keyboardShortcuts: true
                 }}
             >
                 <SearchBox 

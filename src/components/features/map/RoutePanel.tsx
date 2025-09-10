@@ -27,7 +27,7 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
     const [isLoading, setIsLoading] = useState(false);
     const [optimizedRoute, setOptimizedRoute] = useState<OptimizedRoute | null>(null);
     const [options, setOptions] = useState<RouteOptimizationOptions>({
-        travelMode: google.maps?.TravelMode?.DRIVING || 'DRIVING' as google.maps.TravelMode,
+        travelMode: (typeof google !== 'undefined' ? google.maps?.TravelMode?.DRIVING : 'DRIVING') as google.maps.TravelMode,
         optimizeWaypoints: true,
         avoidHighways: false,
         avoidTolls: false
