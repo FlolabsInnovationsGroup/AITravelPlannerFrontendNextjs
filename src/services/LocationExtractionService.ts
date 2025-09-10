@@ -170,7 +170,7 @@ export class LocationExtractionService {
             try {
                 // Try to detect if we're in a specific city context for better results
                 const cityContext = this.#detectCityContext(message);
-                const centerLocation = cityContext ? this.#getCityCoordinates(cityContext) : undefined;
+                const centerLocation = cityContext ? this.#getCityCoordinates(cityContext) || undefined : undefined;
                 
                 placesResults = await this.#searchPlacesAPI(locationName, centerLocation);
                 console.log('🏢 Places API found:', placesResults.length, 'results');
@@ -209,14 +209,12 @@ export class LocationExtractionService {
 
                 // Try to find the most specific result, prefer exact matches
                 result = response.results.find(r => 
-                    r.formatted_address.toLowerCase().includes(locationName.toLowerCase()) ||
-                    r.name?.toLowerCase().includes(locationName.toLowerCase())
+                    r.formatted_address.toLowerCase().includes(locationName.toLowerCase())
                 ) || response.results[0];
 
                 console.log('🎯 Selected geocoder result:', {
                     formatted_address: result.formatted_address,
-                    types: result.types,
-                    name: result.name
+                    types: result.types
                 });
 
                 if (!result || !result.geometry?.location) {

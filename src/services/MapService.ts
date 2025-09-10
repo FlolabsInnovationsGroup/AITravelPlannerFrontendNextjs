@@ -188,13 +188,19 @@ export class MapService {
             // Force reconnection after a delay
             setTimeout(() => {
                 if (this.stompClient) {
-                    this.stompClient.deactivate();
-                    this.stompClient.activate();
+                    try {
+                        this.stompClient.deactivate();
+                        this.stompClient.activate();
+                    } catch (reconnectError) {
+                        console.error('❌ Error during reconnection:', reconnectError);
+                        this.disconnect(); // Clean up on reconnection failure
+                    }
                 }
             }, Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000)); // Exponential backoff, max 30s
         } else {
             console.error('❌ Max reconnection attempts reached. Please refresh the page.');
             this.disconnect(); // Clean up the connection
+            if (this.onError) this.onError(new Error('Failed to establish WebSocket connection after multiple attempts'));
         }
     }
 
@@ -341,7 +347,7 @@ export class MapService {
 
         try {
             this.mapInstance.panTo(location);
-            this.mapInstance.setZoom(14); // Set appropriate zoom level
+            // Removed setZoom(14) - let GoogleMapComponent handle zoom logic based on context
             console.log('🎯 Map centered at:', location);
         } catch (error) {
             console.error('❌ Error centering map:', error);
