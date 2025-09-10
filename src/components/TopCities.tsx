@@ -38,7 +38,7 @@
 "use client"
 
 import { useState, useRef } from 'react'
-import Image from "next/legacy/image"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -98,7 +98,7 @@ export function TopCities() {
                   <Image
                     src={city.image}
                     alt={city.name}
-                    fill
+                    fill={true}
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     className="object-cover transition-transform duration-300 group-hover:scale-110"
                   />

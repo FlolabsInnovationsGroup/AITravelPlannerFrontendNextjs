@@ -37,7 +37,22 @@ export interface TimeOfDay {
     time: string;
 }
 
-export type LocationType = 'attraction' | 'cafe' | 'hotel' | 'restaurant' | 'transport';
+export type LocationType = 
+    | 'attraction' 
+    | 'cafe' 
+    | 'hotel' 
+    | 'restaurant' 
+    | 'transport'
+    | 'museum'
+    | 'park'
+    | 'beach'
+    | 'shopping'
+    | 'nightlife'
+    | 'historic_site'
+    | 'viewpoint'
+    | 'airport'
+    | 'train_station'
+    | 'bus_station';
 
 export interface WebSocketEvent<T> {
     type: WebSocketEventType;

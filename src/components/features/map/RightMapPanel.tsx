@@ -37,9 +37,10 @@ const convertLocationType = (type: string | undefined): LocationType | undefined
 interface RightMapPanelProps {
     currentSessionId: string | null;
     currentUserToken: string | null;
+    onLocationUpdate?: (locations: Location[]) => void;
 }
 
-function RightMapPanel({ currentSessionId, currentUserToken }: RightMapPanelProps) {
+function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }: RightMapPanelProps) {
     const [locations, setLocations] = useState<Location[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -163,6 +164,8 @@ function RightMapPanel({ currentSessionId, currentUserToken }: RightMapPanelProp
             }));
             
             setLocations(convertedLocations);
+            // Notify parent component of location updates
+            onLocationUpdate?.(convertedLocations);
         } catch (error) {
             console.error("❌ Error fetching locations:", error);
             setError("Failed to load locations");
@@ -207,7 +210,10 @@ function RightMapPanel({ currentSessionId, currentUserToken }: RightMapPanelProp
                 }
 
                 console.log("✅ Adding new location to state");
-                return [...prevLocations, customEvent.detail];
+                const updatedLocations = [...prevLocations, customEvent.detail];
+                // Notify parent component of location updates
+                onLocationUpdate?.(updatedLocations);
+                return updatedLocations;
             });
         };
 
@@ -269,7 +275,7 @@ function RightMapPanel({ currentSessionId, currentUserToken }: RightMapPanelProp
         <div className="h-full relative">
             {isLoading && (
                 <div className="absolute inset-0 bg-white bg-opacity-75 z-10 flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500" data-testid="loading-spinner"></div>
                 </div>
             )}
             

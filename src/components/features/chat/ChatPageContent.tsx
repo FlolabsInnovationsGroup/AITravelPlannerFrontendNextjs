@@ -3,33 +3,31 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from "next/image";
-import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession, getLocationsBySession, getToken } from '@/lib/api';
-import { Send, Menu, X } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import AudioRecorder from './AudioRecorder';
 import { Components } from 'react-markdown';
+import { LoadScript, LoadScriptProps } from '@react-google-maps/api';
+import { Location } from '@/types/map';
+import AudioRecorder from './AudioRecorder';
 import LeftMenuBar from '@/components/features/chat/LeftMenuBar';
 import RightMapPanel from '@/components/features/map/RightMapPanel';
 import LocationSuggestions from '@/components/features/map/LocationSuggestions';
 import { LocationExtractionService } from '@/services/LocationExtractionService';
-import { LocationService } from '@/services/LocationService';
 import { MapService } from '@/services/MapService';
-import { LoadScript, LoadScriptProps } from '@react-google-maps/api';
-import { Location } from '@/types/map';
 
 // Loader Component
 const MessageLoader = () => {
     return (
         <div className="flex justify-start items-center gap-2 mt-4">
         <div className="flex space-x-1 bg-gray-200 rounded-full px-3 py-2">
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-150"></div>
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-300"></div>
+          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
+          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-150" />
+          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-300" />
         </div>
       </div>
     );
@@ -46,7 +44,31 @@ interface Message {
     content: string;
 }
 
+interface ApiResponse {
+    message: string;
+    suggestions?: string[];
+}
+
 const libraries: LoadScriptProps["libraries"] = ["places"];
+
+// Suggestions Component - moved outside to prevent re-renders
+const Suggestions = ({ suggestions, handleSendMessage }: { suggestions: string[]; handleSendMessage: (message: string) => void }) => (
+    <div className="mt-4">
+        <h3 className="text-lg font-semibold mb-2">Suggestions:</h3>
+        <div className="flex flex-wrap gap-2">
+            {suggestions.map((suggestion, index) => (
+                <button
+                    key={`suggestion-${index}`}
+                    type="button"
+                    onClick={() => handleSendMessage(suggestion)}
+                    className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+                >
+                    {suggestion}
+                </button>
+            ))}
+        </div>
+    </div>
+);
 
 export default function ChatPageContent() {
     const [messages, setMessages] = useState<Message[]>([]);
@@ -59,12 +81,10 @@ export default function ChatPageContent() {
     const [searchQuery, setSearchQuery] = useState('');
     const [isInitialized, setIsInitialized] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [messageCount, setMessageCount] = useState(0);
     const [chatHistory, setChatHistory] = useState<Array<{ sessionId: string; title: string }>>([]);
     const [wsConnected, setWsConnected] = useState(false);
     const [wsRetryCount, setWsRetryCount] = useState(0);
     const { currentUser } = useAuth();
-    const [hasReachedMessageLimit, setHasReachedMessageLimit] = useState(false);
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [locationSuggestions, setLocationSuggestions] = useState<Location[]>([]);
     const [pendingLocationSearch, setPendingLocationSearch] = useState<string | null>(null);
@@ -132,7 +152,7 @@ export default function ChatPageContent() {
                     connectToSession(currentSession.sessionId);
                     setWsRetryCount(prev => prev + 1);
                 }
-            }, Math.min(1000 * Math.pow(2, wsRetryCount), 10000)); // Exponential backoff, max 10s
+            }, Math.min(1000 * (2 ** wsRetryCount), 10000)); // Exponential backoff, max 10s
         };
 
         // Handle session connection
@@ -168,7 +188,7 @@ export default function ChatPageContent() {
                 clearTimeout(wsReconnectTimerRef.current);
             }
         };
-    }, [currentUser?.token, currentSession?.sessionId]);
+    }, [currentUser?.token, currentSession?.sessionId, wsConnected, wsRetryCount]);
 
     // Default prompts
     const defaultPrompts = [
@@ -292,7 +312,7 @@ export default function ChatPageContent() {
             console.error("❌ Error adding location:", error);
             
             // Check if it's a validation error
-            if (error.message && error.message.includes('invalid characters')) {
+            if (error instanceof Error && error.message && error.message.includes('invalid characters')) {
                 console.warn("⚠️ Location name contains invalid characters:", location.name);
                 throw new Error(`Location name "${location.name}" contains characters not supported by the server.`);
             }
@@ -411,9 +431,9 @@ export default function ChatPageContent() {
             });
             
             const response = await Promise.race([
-                sendMessagesEntity(message, sessionId),
+                sendMessagesEntity(message, sessionId) as Promise<ApiResponse>,
                 timeoutPromise
-            ]);
+            ]) as ApiResponse;
             
             console.log("📡 API Response received:", response);
     
@@ -421,14 +441,12 @@ export default function ChatPageContent() {
                 console.error("Invalid response format:", response);
                 throw new Error("Invalid response from API");
             }
-    
+
             setMessages((prev) => [...prev, { 
                 id: Date.now() + 1, 
                 messageType: 'ASSISTANT', 
                 content: response.message 
             }]);
-    
-            setMessageCount(prev => prev + 1);
             
         } catch (error) {
             console.error("❌ Error processing chat message:", error);
@@ -548,9 +566,9 @@ export default function ChatPageContent() {
             });
             
             const response = await Promise.race([
-                sendMessagesEntity(messageToSend, sessionId),
+                sendMessagesEntity(messageToSend, sessionId) as Promise<ApiResponse>,
                 timeoutPromise
-            ]);
+            ]) as ApiResponse;
             console.log("API Response:", response);
     
             if (!response || typeof response.message !== "string") {
@@ -601,7 +619,8 @@ export default function ChatPageContent() {
                             toast.error(error.message || 'Failed to load location data');
                         }
                     }, 1000); // 1 second delay to allow backend processing
-                }                // ✅ Update suggestions dynamically
+                }                
+                // ✅ Update suggestions dynamically
                 setSuggestions(response.suggestions || generateDynamicPrompts(response.message));
             }
     
@@ -674,9 +693,9 @@ export default function ChatPageContent() {
         let title = '';
         for (const word of words) {
             if ((title + word).length > 27) break;
-            title += (title ? ' ' : '') + word;
+            title += `${title ? ' ' : ''}${word}`;
         }
-        return title + '...';
+        return `${title}...`;
     };
 
     const markdownComponents: Components = {
@@ -694,23 +713,6 @@ export default function ChatPageContent() {
                 <code className="block bg-gray-100 p-4 rounded mb-4" {...props} />
             ),
     };
-
-    const Suggestions = ({ suggestions, handleSendMessage }: { suggestions: string[]; handleSendMessage: (message: string) => void }) => (
-        <div className="mt-4">
-            <h3 className="text-lg font-semibold mb-2">Suggestions:</h3>
-            <div className="flex flex-wrap gap-2">
-                {suggestions.map((suggestion, index) => (
-                    <button
-                        key={index}
-                        onClick={() => handleSendMessage(suggestion)}
-                        className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
-                    >
-                        {suggestion}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
 
     useEffect(() => {
         if (bottomRef.current && !inputMessage) {
@@ -740,7 +742,7 @@ export default function ChatPageContent() {
             if (typeof window !== 'undefined') {
                 sessionId = sessionId || sessionStorage.getItem("chatSessionId");
             }
-            let initialMessage = searchParams.get("initialMessage") || sessionStorage.getItem("initialMessage");
+            const initialMessage = searchParams.get("initialMessage") || sessionStorage.getItem("initialMessage");
         
             console.log("➡️ Checking sessionId:", sessionId);
             console.log("➡️ Checking initialMessage:", initialMessage);
@@ -886,6 +888,7 @@ export default function ChatPageContent() {
                                                 {defaultPrompts.map((prompt: string, index: number) => (
                                                     <button
                                                         key={index}
+                                                        type="button"
                                                         onClick={() => handlePromptClick(prompt)}
                                                         className="text-left p-6 rounded-lg bg-white hover:bg-gray-100
                                                                  transition-all duration-200 shadow-sm hover:shadow
@@ -964,6 +967,7 @@ export default function ChatPageContent() {
                                         aria-label="Chat input"
                                     />
                                     <Button
+                                        type="button"
                                         onClick={() => handleSendMessage(inputMessage)}
                                         disabled={isLoading || !inputMessage.trim()}
                                         className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl shadow"

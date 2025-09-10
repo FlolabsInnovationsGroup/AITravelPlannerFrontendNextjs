@@ -10,6 +10,9 @@
     "prepare": "husky install",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:map": "node test-map.js",
+    "test:map:all": "node test-map.js --all",
+    "test:map:coverage": "jest \"src/(services|components/features/map)/__tests__/\" --coverage",
     "check-env": "ts-node scripts/checkEnv.ts"
   },
   "lint-staged": {

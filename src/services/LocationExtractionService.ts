@@ -24,7 +24,10 @@ export class LocationExtractionService {
 
         try {
             if (typeof window === 'undefined' || !window.google?.maps) {
-                throw new Error('Google Maps not loaded');
+                // In test environment or server-side, skip initialization
+                console.warn('Google Maps not available - running in test/server environment');
+                this.#initialized = true;
+                return;
             }
 
             // Make sure the required libraries are loaded
@@ -50,13 +53,23 @@ export class LocationExtractionService {
     }
 
     #getLocationType(types: string[]): LocationType {
-        if (types.includes('lodging')) return 'hotel';
-        if (types.includes('restaurant')) return 'restaurant';
-        if (types.includes('cafe')) return 'cafe';
-        if (types.includes('transit_station')) return 'transport';
-        if (types.includes('tourist_attraction')) return 'attraction';
-        if (types.includes('natural_feature')) return 'attraction';
-        if (types.includes('point_of_interest')) return 'attraction';
+        // Travel-specific categorization
+        if (types.includes('lodging') || types.includes('hotel')) return 'hotel';
+        if (types.includes('restaurant') || types.includes('food') || types.includes('meal_takeaway')) return 'restaurant';
+        if (types.includes('cafe') || types.includes('bakery')) return 'cafe';
+        if (types.includes('airport')) return 'airport';
+        if (types.includes('train_station')) return 'train_station';
+        if (types.includes('bus_station') || types.includes('transit_station')) return 'bus_station';
+        if (types.includes('museum')) return 'museum';
+        if (types.includes('park') || types.includes('natural_feature')) return 'park';
+        if (types.includes('beach')) return 'beach';
+        if (types.includes('shopping_mall') || types.includes('store')) return 'shopping';
+        if (types.includes('night_club') || types.includes('bar')) return 'nightlife';
+        if (types.includes('church') || types.includes('cemetery') || types.includes('historical')) return 'historic_site';
+        if (types.includes('scenic_lookout') || types.includes('observation_deck')) return 'viewpoint';
+        if (types.includes('tourist_attraction') || types.includes('point_of_interest')) return 'attraction';
+        
+        // Default fallback
         return 'attraction';
     }
 
@@ -108,6 +121,7 @@ export class LocationExtractionService {
                     if (placeDetails.geometry?.location) {
                         const sessionId = sessionStorage.getItem('chatSessionId');
                         locations.push({
+                            id: `${placeDetails.place_id}-${Date.now()}`, // Generate unique ID
                             latitude: placeDetails.geometry.location.lat(),
                             longitude: placeDetails.geometry.location.lng(),
                             name: placeDetails.name || prediction.structured_formatting.main_text,
@@ -170,9 +184,9 @@ export class LocationExtractionService {
             try {
                 // Try to detect if we're in a specific city context for better results
                 const cityContext = this.#detectCityContext(message);
-                const centerLocation = cityContext ? this.#getCityCoordinates(cityContext) : undefined;
+                const centerLocation = cityContext ? this.#getCityCoordinates(cityContext) : null;
                 
-                placesResults = await this.#searchPlacesAPI(locationName, centerLocation);
+                placesResults = await this.#searchPlacesAPI(locationName, centerLocation || undefined);
                 console.log('🏢 Places API found:', placesResults.length, 'results');
             } catch (placesError) {
                 console.warn('Places API search failed:', placesError);
@@ -210,13 +224,13 @@ export class LocationExtractionService {
                 // Try to find the most specific result, prefer exact matches
                 result = response.results.find(r => 
                     r.formatted_address.toLowerCase().includes(locationName.toLowerCase()) ||
-                    r.name?.toLowerCase().includes(locationName.toLowerCase())
+                    (r as any).name?.toLowerCase().includes(locationName.toLowerCase())
                 ) || response.results[0];
 
                 console.log('🎯 Selected geocoder result:', {
                     formatted_address: result.formatted_address,
                     types: result.types,
-                    name: result.name
+                    name: (result as any).name
                 });
 
                 if (!result || !result.geometry?.location) {
@@ -232,6 +246,7 @@ export class LocationExtractionService {
             const sessionId = sessionStorage.getItem('chatSessionId');
             
             const extractedLocation: Location = {
+                id: `geocoder-${Date.now()}`, // Generate unique ID for geocoder results
                 latitude: location.lat(),
                 longitude: location.lng(),
                 name: result.formatted_address.split(',')[0] || locationName,

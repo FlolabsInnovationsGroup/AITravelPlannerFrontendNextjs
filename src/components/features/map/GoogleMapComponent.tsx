@@ -18,11 +18,60 @@ const getMarkerColor = (type?: LocationType): string => {
             return '#F5A623';  // Orange
         case 'cafe':
             return '#7ED321';  // Green
-        case 'transport':
+        case 'airport':
+        case 'train_station':
+        case 'bus_station':
             return '#9013FE';  // Purple
+        case 'museum':
+            return '#BD10E0';  // Magenta
+        case 'park':
+            return '#50E3C2';  // Teal
+        case 'beach':
+            return '#4A90E2';  // Ocean Blue
+        case 'shopping':
+            return '#F8E71C';  // Yellow
+        case 'nightlife':
+            return '#8B572A';  // Brown
+        case 'historic_site':
+            return '#417505';  // Dark Green
+        case 'viewpoint':
+            return '#FF6B6B';  // Coral
         case 'attraction':
         default:
             return '#D0021B';  // Red
+    }
+};
+
+// Helper function to get marker icon based on location type
+const getMarkerIcon = (type?: LocationType): string => {
+    const baseUrl = 'https://maps.google.com/mapfiles/ms/icons/';
+    switch (type) {
+        case 'hotel':
+            return `${baseUrl}blue-dot.png`;
+        case 'restaurant':
+            return `${baseUrl}orange-dot.png`;
+        case 'cafe':
+            return `${baseUrl}green-dot.png`;
+        case 'airport':
+        case 'train_station':
+        case 'bus_station':
+            return `${baseUrl}purple-dot.png`;
+        case 'museum':
+            return `${baseUrl}pink-dot.png`;
+        case 'park':
+        case 'beach':
+            return `${baseUrl}ltblue-dot.png`;
+        case 'shopping':
+            return `${baseUrl}yellow-dot.png`;
+        case 'nightlife':
+            return `${baseUrl}brown-dot.png`;
+        case 'historic_site':
+            return `${baseUrl}green-dot.png`;
+        case 'viewpoint':
+            return `${baseUrl}red-dot.png`;
+        case 'attraction':
+        default:
+            return `${baseUrl}red-dot.png`;
     }
 };
 
@@ -207,13 +256,12 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                 map,
                 title: location.name,
                 icon: {
-                    path: google.maps.SymbolPath.CIRCLE,
-                    fillColor: getMarkerColor(location.type),
-                    fillOpacity: 0.9,
-                    strokeWeight: 2,
-                    strokeColor: '#FFFFFF',
-                    scale: 8,
-                }
+                    url: getMarkerIcon(location.type),
+                    scaledSize: new google.maps.Size(32, 32),
+                    origin: new google.maps.Point(0, 0),
+                    anchor: new google.maps.Point(16, 32)
+                },
+                animation: google.maps.Animation.DROP
             });
 
             // Add click listener to marker for enhanced info window
@@ -322,13 +370,14 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                 </div>
             )}
             
-            {/* Map Controls - Organized in top-right corner */}
+            {/* Map Controls - Clean custom controls in top-right corner */}
             <MapControls 
                 isFullscreen={isFullscreen}
                 onToggleFullscreen={toggleFullscreen}
                 isWeatherVisible={isWeatherVisible}
                 onToggleWeather={() => setIsWeatherVisible(!isWeatherVisible)}
                 locations={locations}
+                map={map}
             />
             
             <GoogleMap
@@ -338,14 +387,14 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                 onLoad={handleLoad}
                 onUnmount={handleUnmount}
                 options={{
-                    // Simplified controls to avoid overlap
+                    // Clean UI with minimal built-in controls
                     fullscreenControl: false,
-                    mapTypeControl: false, // Temporarily disabled to avoid overlap
-                    streetViewControl: false, // Temporarily disabled
-                    zoomControl: true,
-                    scaleControl: false, // Disabled to reduce clutter
-                    rotateControl: false, // Disabled to reduce clutter
-                    gestureHandling: 'cooperative',
+                    mapTypeControl: false,
+                    streetViewControl: false,
+                    zoomControl: false, // Disabled to avoid duplicate controls
+                    scaleControl: false,
+                    rotateControl: false,
+                    gestureHandling: 'cooperative', // Users can still zoom with gestures
                     
                     // Travel-friendly styling
                     styles: [
@@ -361,11 +410,7 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                     
                     disableDefaultUI: false,
                     clickableIcons: true,
-                    keyboardShortcuts: true,
-                    
-                    restriction: {
-                        strictBounds: false
-                    }
+                    keyboardShortcuts: true
                 }}
             >
                 <SearchBox 

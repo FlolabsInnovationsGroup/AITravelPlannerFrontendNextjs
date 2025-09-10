@@ -43,7 +43,7 @@ const WeatherOverlay: React.FC<WeatherOverlayProps> = ({
                         location.longitude, 
                         location.name
                     );
-                    return { ...location, weather, isLoading: false };
+                    return { ...location, weather: weather || undefined, isLoading: false };
                 } catch (error) {
                     console.error(`Failed to fetch weather for ${location.name}:`, error);
                     return { ...location, weather: undefined, isLoading: false };
