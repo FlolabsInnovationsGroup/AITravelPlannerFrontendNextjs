@@ -33,7 +33,7 @@ export function SignUp() {
         window.location.href = `https://api.flomadtravel.com/oauth2/authorization/facebook`;
         }
     }
-  
+
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -41,9 +41,9 @@ export function SignUp() {
       toast.error("Passwords don't match");
       return;
     }
-    
-    
-    
+
+
+
     setIsLoading(true);
     try {
       const response = await signUp(username, email, password);
@@ -61,7 +61,7 @@ export function SignUp() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-96 relative">
-        <button 
+        <button
           onClick={handleCancel}
           className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
           aria-label="Close"
@@ -70,56 +70,56 @@ export function SignUp() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        
+
         <div className="flex items-center mb-6">
           <Image src="/logo.png" alt="Flomad Travel Logo" width={24} height={24} />
           <span className="ml-2 text-xl font-semibold">flomad travel</span>
         </div>
-        
+
         <h2 className="text-2xl font-bold mb-2">Sign up for free!</h2>
         <p className="text-gray-600 mb-6">
           Have an account? <Link href="/auth/signin" className="text-blue-600 hover:underline">Login</Link>
         </p>
-        
+
         <form onSubmit={handleSignUp}>
-          <Input 
-            type="text" 
-            placeholder="Username" 
-            className="mb-4" 
+          <Input
+            type="text"
+            placeholder="Username"
+            className="mb-4"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
           />
-          <Input 
-            type="email" 
-            placeholder="Email" 
-            className="mb-4" 
+          <Input
+            type="email"
+            placeholder="Email"
+            className="mb-4"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          <Input 
-            type="password" 
-            placeholder="Password" 
+          <Input
+            type="password"
+            placeholder="Password"
             className="mb-4"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <Input 
-            type="password" 
-            placeholder="Confirm Password" 
+          <Input
+            type="password"
+            placeholder="Confirm Password"
             className="mb-6"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
           />
-          
+
           <Button type="submit" className="w-full bg-black text-white hover:bg-gray-800 mb-4" disabled={isLoading}>
             {isLoading ? 'Signing up...' : 'Sign up'}
           </Button>
         </form>
-        
+
         <div className="relative mb-4">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300"></div>
@@ -128,19 +128,25 @@ export function SignUp() {
             <span className="px-2 bg-white text-gray-500">or</span>
           </div>
         </div>
-        
+
         <div className="space-y-4">
         <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('google')}>
-          <Image src="/image/google.png" className="mr-4" alt="Google Logo" width={25} height={25}/>
-          Signup in with Google
+          <span className="flex items-center gap-x-4 w-full justify-center">
+            <Image src="/image/google.png" alt="Google Logo" width={25} height={25} style={{padding: 5}} />
+            Sign in with Google
+          </span>
         </Button>
         <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('linkedin')}>
-          <LinkedInLogoIcon className="mr-4" style={{ width: 25, height: 25,color: '#0077B5' }}/>
-          Signup in with LinkedIn
+          <span className="flex items-center gap-x-4 w-full justify-center">
+            <Image src="/image/linkedin.png" alt="LinkedIn Logo" width={25} height={25} style={{padding: 5}} />
+            Sign in with LinkedIn
+          </span>
         </Button>
-        <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('facebook')}>
-          <Facebook size={25} className="mr-4" style={{ color: '#FFFFFF', background: '#1877F2', borderRadius: 3 }}/>
-          Signup in with Facebook
+        <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('linkedin')}>
+          <span className="flex items-center gap-x-4 w-full justify-center">
+            <Image src="/image/facebook.png" alt="LinkedIn Logo" width={25} height={25} style={{padding: 5}} />
+            Sign in with Facebook
+          </span>
         </Button>
         </div>
       </div>
