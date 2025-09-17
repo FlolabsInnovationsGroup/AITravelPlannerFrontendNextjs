@@ -12,6 +12,7 @@ export class MapService {
     private mapInstance: google.maps.Map | null = null;
     private markers: google.maps.Marker[] = [];
     private connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
+    private pendingSessionId: string | null = null; // Store session ID for subscription after connection
     
     // Event handlers
     onConnect: (() => void) | null = null;
@@ -21,6 +22,11 @@ export class MapService {
     onConnectionStatusChange: ((status: 'disconnected' | 'connecting' | 'connected') => void) | null = null;
 
     constructor(private userToken: string) { }
+
+    // Get current connection status
+    getConnectionStatus(): 'disconnected' | 'connecting' | 'connected' {
+        return this.connectionStatus;
+    }
 
     // Enhanced connection status management
     private setConnectionStatus(status: 'disconnected' | 'connecting' | 'connected') {
@@ -119,11 +125,18 @@ export class MapService {
     // WebSocket Methods
     connectWebSocket(sessionId: string): void {
         if (this.stompClient?.connected) {
-            console.log('WebSocket already connected, session:', sessionId);
+            console.log('WebSocket already connected, subscribing to session:', sessionId);
+            // If already connected, just subscribe to the new session
+            this.subscribeToSessionWithRetry(sessionId).catch(error => {
+                console.error('Failed to subscribe to session:', error);
+                if (this.onError) this.onError(error);
+            });
             return;
         }
         
         console.log('Initializing WebSocket connection for session:', sessionId);
+        this.setConnectionStatus('connecting');
+        this.pendingSessionId = sessionId; // Store for later subscription
 
         // Convert API_BASE_URL to URL object to parse it properly
         const apiUrl = new URL(API_BASE_URL);
@@ -152,23 +165,44 @@ export class MapService {
                 console.debug('🔄 STOMP:', str);
             },
             onConnect: () => {
-                console.log('✅ WebSocket Connected, subscribing to session:', sessionId);
+                console.log('✅ WebSocket Connected successfully');
                 this.wsRetryManager.reset();
-                this.connectionStatus = 'connected';
-                this.subscribeToSession(sessionId);
+                this.setConnectionStatus('connected');
+                
+                // Subscribe to pending session if available
+                if (this.pendingSessionId) {
+                    const sessionToSubscribe = this.pendingSessionId;
+                    this.pendingSessionId = null; // Clear pending session
+                    
+                    console.log('🔗 Subscribing to pending session:', sessionToSubscribe);
+                    // Use a more reliable approach - subscribe directly since we're in onConnect
+                    try {
+                        this.subscribeToSession(sessionToSubscribe);
+                    } catch (error) {
+                        console.error('❌ Direct subscription failed, trying with retry:', error);
+                        this.subscribeToSessionWithRetry(sessionToSubscribe).catch(retryError => {
+                            console.error('❌ Retry subscription also failed:', retryError);
+                            if (this.onError) this.onError(retryError);
+                        });
+                    }
+                }
+                
                 if (this.onConnect) this.onConnect();
             },
             onStompError: (frame) => {
                 console.error('❌ STOMP error:', frame.headers, 'Session:', sessionId);
+                this.setConnectionStatus('disconnected');
                 this.handleConnectionError().catch(console.error);
             },
             onWebSocketClose: () => {
                 console.log('⚠️ WebSocket closed for session:', sessionId);
+                this.setConnectionStatus('disconnected');
                 this.handleConnectionError().catch(console.error);
                 if (this.onDisconnect) this.onDisconnect();
             },
             onWebSocketError: (event: Event) => {
                 console.error('🚨 WebSocket error:', event);
+                this.setConnectionStatus('disconnected');
                 this.handleConnectionError().catch(console.error);
                 if (this.onError) this.onError(new Error('WebSocket connection error'));
             },
@@ -178,25 +212,78 @@ export class MapService {
     }
 
     private subscribeToSession(sessionId: string): void {
-        if (!this.stompClient?.connected) {
-            console.error('Cannot subscribe: WebSocket not connected');
-            return;
+        if (!this.stompClient) {
+            throw new Error('STOMP client is not initialized');
         }
 
-        this.stompClient.subscribe(`/topic/locations/${sessionId}`, (message) => {
-            try {
-                console.log('📥 Received WebSocket message:', message.body);
-                const event: WebSocketEvent<LocationAddedPayload | LocationRemovedPayload | MapClearedPayload> = JSON.parse(message.body);
-                this.messageHandlers.forEach(handler => handler(event));
-                console.log('✅ Processed WebSocket event:', event.type);
-            } catch (error) {
-                console.error('❌ Error parsing WebSocket message:', error, 'Message body:', message.body);
+        if (!this.stompClient.connected) {
+            throw new Error(`Cannot subscribe: WebSocket not connected (state: ${this.stompClient.state})`);
+        }
+
+        try {
+            console.log(`🔗 Attempting to subscribe to /topic/locations/${sessionId}`);
+            
+            const subscription = this.stompClient.subscribe(`/topic/locations/${sessionId}`, (message) => {
+                try {
+                    console.log('📥 Received WebSocket message:', message.body);
+                    const event: WebSocketEvent<LocationAddedPayload | LocationRemovedPayload | MapClearedPayload> = JSON.parse(message.body);
+                    this.messageHandlers.forEach(handler => handler(event));
+                    console.log('✅ Processed WebSocket event:', event.type);
+                } catch (error) {
+                    console.error('❌ Error parsing WebSocket message:', error, 'Message body:', message.body);
+                }
+            });
+
+            // Verify subscription was successful
+            if (subscription) {
+                console.log('✅ Successfully subscribed to session:', sessionId);
+            } else {
+                throw new Error('Subscription returned null/undefined');
             }
-        });
+        } catch (error) {
+            console.error('❌ Error subscribing to session:', error);
+            throw error;
+        }
+    }
+
+    private async subscribeToSessionWithRetry(sessionId: string, maxRetries: number = 5, delayMs: number = 300): Promise<void> {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                // More comprehensive check for STOMP client readiness
+                if (this.stompClient && 
+                    this.stompClient.connected && 
+                    this.stompClient.state === 1) { // CONNECTED state
+                    
+                    console.log(`✅ STOMP client ready for subscription, attempt ${attempt}`);
+                    this.subscribeToSession(sessionId);
+                    return; // Success, exit the retry loop
+                } else {
+                    console.warn(`⚠️ WebSocket not ready for subscription, attempt ${attempt}/${maxRetries}`, {
+                        connected: this.stompClient?.connected,
+                        state: this.stompClient?.state,
+                        active: this.stompClient?.active,
+                        exists: !!this.stompClient
+                    });
+                    
+                    if (attempt < maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, delayMs * attempt)); // Exponential backoff
+                    }
+                }
+            } catch (error) {
+                console.error(`❌ Subscription attempt ${attempt}/${maxRetries} failed:`, error);
+                if (attempt === maxRetries) {
+                    console.error('❌ All subscription attempts failed');
+                    throw error;
+                }
+                // Wait before next attempt with exponential backoff
+                await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
+            }
+        }
+        throw new Error(`Failed to subscribe to session ${sessionId} after ${maxRetries} attempts`);
     }
 
     private async handleConnectionError(): Promise<void> {
-        this.connectionStatus = 'connecting';
+        this.setConnectionStatus('connecting');
         
         if (await this.wsRetryManager.shouldRetry()) {
             console.log(`⚡ Reconnection attempt ${this.wsRetryManager.getRetryCount()}/${5}`);
@@ -207,6 +294,7 @@ export class MapService {
             }
         } else {
             console.error('❌ Max reconnection attempts reached. Please refresh the page.');
+            this.setConnectionStatus('disconnected');
             this.disconnect(); // Clean up the connection
         }
     }
@@ -235,7 +323,8 @@ export class MapService {
             this.stompClient = null;
             this.messageHandlers = [];
             this.wsRetryManager.reset();
-            this.connectionStatus = 'disconnected';
+            this.pendingSessionId = null; // Clear pending session
+            this.setConnectionStatus('disconnected');
             // Remove event handlers
             this.onConnect = null;
             this.onDisconnect = null;
