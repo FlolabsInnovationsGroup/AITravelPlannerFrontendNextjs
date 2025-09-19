@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession, getLocationsBySession, getToken } from '@/lib/api';
-import { Send } from 'lucide-react';
+import { Send, Menu, Map, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Components } from 'react-markdown';
@@ -84,6 +84,7 @@ export default function ChatPageContent() {
     const [chatHistory, setChatHistory] = useState<Array<{ sessionId: string; title: string }>>([]);
     const [wsConnected, setWsConnected] = useState(false);
     const [wsRetryCount, setWsRetryCount] = useState(0);
+    const [showMap, setShowMap] = useState(false);
     const { currentUser } = useAuth();
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [locationSuggestions, setLocationSuggestions] = useState<Location[]>([]);
@@ -843,164 +844,308 @@ export default function ChatPageContent() {
             libraries={libraries}
             onLoad={() => setIsGoogleMapsLoaded(true)}
         >
-            <div className="flex h-screen bg-gray-100 overflow-hidden">
-                <div className="flex flex-1 min-h-0">{/* min-h-0 prevents flex items from growing beyond container */}
-                    {/* Left Menu Bar */}
-                    <LeftMenuBar
-                        isMobileMenuOpen={isMobileMenuOpen}
-                        showChatHistory={showChatHistory}
-                        toggleChatHistory={toggleChatHistory}
-                        toggleMobileMenu={toggleMobileMenu}
-                        signOut={signOut}
-                        handleNewChat={handleNewChat}
-                        chatHistory={chatHistory}
-                        currentSessionId={currentSession?.sessionId || null}
-                        handleSessionClick={handleSessionClick}
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
+        <div className="flex h-screen bg-gray-100">
+            {/* Mobile slide-out menu */}
+            {isMobileMenuOpen && (
+                <div className="fixed inset-0 z-50 md:hidden">
+                    {/* backdrop */}
+                    <div
+                        className="absolute inset-0 bg-black/40"
+                        onClick={toggleMobileMenu}
+                        aria-hidden="true"
                     />
-    
-                    {/* Middle Chat Section */}
-                    <div className="flex-[3.3] flex flex-col bg-white border-l border-r overflow-hidden min-h-0">
-                        {/* Chat Section */}
-                        <div className="flex-1 flex flex-col h-full overflow-hidden min-h-0">{/* Prevent chat from growing beyond bounds */}
-                            {displayPrompts && messages.length === 0 ? (
-                                <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
-                                    {/* Wrapper for Logo */}
-                                    <div className="flex justify-center mt-6 mb-8">
-                                        <Image
-                                            src="/logo.png"
-                                            alt="AiTripPlanner Logo"
-                                            width={128}
-                                            height={128}
-                                            style={{ width: 'auto', height: 'auto' }}
-                                            className="object-contain"
-                                        />
-                                    </div>
-                                
-                                    {/* Wrapper for Prompts */}
-                                    <div className="flex-1 flex flex-col items-center justify-center px-6">
-                                        <div className="max-w-3xl w-full text-center">
-                                            <h2 className="text-2xl font-semibold mb-6">
-                                                How can I help you plan your trip today?
-                                            </h2>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {defaultPrompts.map((prompt: string, index: number) => (
-                                                    <button
-                                                        key={index}
-                                                        type="button"
-                                                        onClick={() => handlePromptClick(prompt)}
-                                                        className="text-left p-6 rounded-lg bg-white hover:bg-gray-100
-                                                                 transition-all duration-200 shadow-sm hover:shadow
-                                                                 border border-gray-200 hover:border-gray-300"
-                                                    >
-                                                        <p className="text-lg text-gray-800">{prompt}</p>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex-1 overflow-y-auto p-4 min-h-0">{/* Remove viewport calc, let flex handle it */}
-                                    <div className="max-w-3xl mx-auto">
-                                        {messages.map((message) => (
-                                            <div
-                                                key={message.id}
-                                                className={`mb-8 ${message.messageType === 'USER' ? 'ml-auto' : 'mr-auto'}`}
-                                            >
-                                                <div className="flex items-start gap-4">
-                                                    {message.messageType === 'ASSISTANT' && (
-                                                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                                                            AI
-                                                        </div>
-                                                    )}
-                                                    <div
-                                                        className={`max-w-[80%] p-4 rounded-lg ${
-                                                            message.messageType === 'USER'
-                                                                ? 'bg-blue-500 text-white ml-auto'
-                                                                : 'bg-white border border-gray-200'
-                                                        }`}
-                                                    >
-                                                        <div className="prose max-w-none">
-                                                            <ReactMarkdown components={markdownComponents}>
-                                                                {message.content}
-                                                            </ReactMarkdown>
-                                                        </div>
-                                                    </div>
-                                                    {message.messageType === 'USER' && (
-                                                        <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
-                                                            You
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                        {/* ✅ Loader Display */}
-                        {isLoading && <MessageLoader />}
-                        <div ref={bottomRef} />
-                    </div>
-                    {suggestions.length > 0 && (
-                        <Suggestions suggestions={suggestions} handleSendMessage={handleSendMessage} />
-                    )}
-                </div>
-                            )}
+                    {/* drawer panel */}
+                    <div className="absolute left-0 top-0 h-full w-72 max-w-[85%] bg-white shadow-2xl flex flex-col">
+                        <div className="flex items-center justify-between px-3 py-3 border-b">
+                            <span className="font-semibold">Menu</span>
+                            <button
+                                className="p-2 rounded hover:bg-gray-100"
+                                onClick={toggleMobileMenu}
+                                aria-label="Close menu"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
-    
-                        {/* Chat Input */}
-                        <div className="border-t bg-white p-4 flex-shrink-0">{/* Use flex-shrink-0 instead of sticky to prevent layout shifts */}
-                            <div className="max-w-3xl mx-auto">
-                                <div className="flex items-center gap-4 bg-white rounded-xl border shadow-md p-3">
-                                    <Input
-                                        type="text"
-                                        placeholder="Type your message..."
-                                        value={inputMessage}
-                                        onChange={(e) => setInputMessage(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                handleSendMessage(inputMessage);
-                                            }
-                                        }}
-                                        className="flex-1 border-none shadow-none focus:ring-0 py-4 px-4 rounded-xl bg-gray-100"
-                                        disabled={isLoading}
-                                        aria-label="Chat input"
-                                    />
-                                    <Button
-                                        type="button"
-                                        onClick={() => handleSendMessage(inputMessage)}
-                                        disabled={isLoading || !inputMessage.trim()}
-                                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl shadow"
-                                        aria-label="Send message"
-                                    >
-                                        {isLoading ? (
-                                            <div
-                                                className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"
-                                                aria-hidden="true"
-                                            />
-                                        ) : (
-                                            <Send className="h-5 w-5" />
-                                        )}
-                                    </Button>
-                                    {currentSession?.sessionId && (
-                                        <AudioRecorder sessionId={currentSession.sessionId} onTranscription={handleTranscription} />
-                                    )}
+
+                        {/* reuse your existing component inside the drawer */}
+                        <div className="flex-1 overflow-y-auto">
+                            <LeftMenuBar
+                                isMobileMenuOpen={isMobileMenuOpen}
+                                showChatHistory={showChatHistory}
+                                toggleChatHistory={toggleChatHistory}
+                                toggleMobileMenu={toggleMobileMenu}
+                                signOut={signOut}
+                                handleNewChat={handleNewChat}
+                                chatHistory={chatHistory}
+                                currentSessionId={currentSession?.sessionId || null}
+                                handleSessionClick={handleSessionClick}
+                                searchQuery={searchQuery}
+                                setSearchQuery={setSearchQuery}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Left Menu Bar (desktop / tablet) */}
+            <div className="hidden md:block">
+                <LeftMenuBar
+                    isMobileMenuOpen={isMobileMenuOpen}
+                    showChatHistory={showChatHistory}
+                    toggleChatHistory={toggleChatHistory}
+                    toggleMobileMenu={toggleMobileMenu}
+                    signOut={signOut}
+                    handleNewChat={handleNewChat}
+                    chatHistory={chatHistory}
+                    currentSessionId={currentSession?.sessionId || null}
+                    handleSessionClick={handleSessionClick}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                />
+            </div>
+            {/* Middle Chat Section */}
+            <div className="flex-[3.3] flex flex-col bg-white border-l border-r overflow-auto">
+
+                {/* Mobile +Tablet header: menu + title + map button */}
+                <div className="lg:hidden flex items-center justify-between px-3 py-3 border-b">
+                    {/* Left: Menu + Chat title */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            className="p-2 rounded hover:bg-gray-100 md:hidden"
+                            aria-label="Open menu"
+                            onClick={toggleMobileMenu}
+                        >
+                            <Menu className="w-5 h-5" />
+                        </button>
+                        <div className="font-semibold">Chat</div>
+                    </div>
+
+                    {/* Right: Map button */}
+                    <button
+                        onClick={() => { setShowMap(true); setIsMobileMenuOpen(false); }}
+                        aria-label="Open map"
+                        className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded-lg shadow-md"
+                    >
+                        <Map className="w-5 h-5" />
+                        <span className="text-sm">Map</span>
+                    </button>
+                </div>
+
+                <div className="flex-1 flex flex-col min-h-0 overflow-auto">
+                    {displayPrompts && messages.length === 0 ? (
+
+                        <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
+                            {/* Wrapper for Logo */}
+                            <div className="flex justify-center mt-6 mb-8">
+                                <Image
+                                    src="/logo.png"
+                                    alt="AiTripPlanner Logo"
+                                    width={128}
+                                    height={128}
+                                    className="object-contain"
+                                />
+                            </div>
+
+                            {/* Wrapper for Prompts */}
+                            <div className="flex-1 flex flex-col items-center justify-center px-6">
+                                <div className="max-w-3xl w-full text-center">
+                                    <h2 className="text-2xl font-semibold mb-6">
+                                        How can I help you plan your trip today?
+                                    </h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {defaultPrompts.map((prompt: string, index: number) => (
+                                            <button
+                                                key={index}
+                                                onClick={() => handlePromptClick(prompt)}
+                                                className="text-left p-6 rounded-lg bg-white hover:bg-gray-100
+                                                         transition-all duration-200 shadow-sm hover:shadow
+                                                         border border-gray-200 hover:border-gray-300"
+                                            >
+                                                <p className="text-lg text-gray-800">{prompt}</p>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-    
-                    {/* Right Map Panel */}
-                    <div className="flex-[2.7] bg-white overflow-hidden p-4 h-full min-h-0">{/* Ensure map area doesn't grow */}
-                        {typeof window !== 'undefined' && (
-                            <RightMapPanel
-                                currentSessionId={currentSession?.sessionId || null}
-                                currentUserToken={currentUserToken}
+
+                    ) : (
+                        <div className="flex-1 overflow-y-auto p-4">
+                            <div className="max-w-3xl mx-auto">
+                                {messages.map((message) => (
+                                    <div
+                                        key={message.id}
+                                        className={`mb-8 ${message.messageType === 'USER' ? 'ml-auto' : 'mr-auto'}`}
+                                    >
+                                        <div className="flex items-start gap-4">
+                                            {message.messageType === 'ASSISTANT' && (
+                                                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                                                    AI
+                                                </div>
+                                            )}
+                                            <div
+                                                className={`max-w-[80%] p-4 rounded-lg ${message.messageType === 'USER'
+                                                    ? 'bg-blue-500 text-white ml-auto'
+                                                    : 'bg-white border border-gray-200'
+                                                    }`}
+                                            >
+                                                <div className="prose max-w-none">
+                                                    <ReactMarkdown components={markdownComponents}>
+                                                        {message.content}
+                                                    </ReactMarkdown>
+                                                </div>
+                                            </div>
+                                            {message.messageType === 'USER' && (
+                                                <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
+                                                    You
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                                {/* ✅ Loader Display */}
+                                {isLoading && <MessageLoader />}
+                                <div ref={bottomRef} />
+                                <div ref={bottomRef} />
+                            </div>
+                            {suggestions.length > 0 && (
+                                <Suggestions suggestions={suggestions} handleSendMessage={handleSendMessage} />
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Chat Input */}
+                <div className="border-t bg-white p-4">
+                    <div className="max-w-3xl mx-auto">
+                        <div className="flex items-center gap-4 bg-white rounded-xl border shadow-md p-3">
+                            <Input
+                                type="text"
+                                placeholder="Type your message..."
+                                value={inputMessage}
+                                onChange={(e) => setInputMessage(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSendMessage(inputMessage);
+                                    }
+                                }}
+                                className="flex-1 border-none shadow-none focus:ring-0 py-4 px-4 rounded-xl bg-gray-100"
+                                disabled={isLoading}
+                                aria-label="Chat input"
                             />
-                        )}
+                            <Button
+                                onClick={() => handleSendMessage(inputMessage)}
+                                disabled={isLoading || !inputMessage.trim()}
+                                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl shadow"
+                                aria-label="Send message"
+                            >
+                                {isLoading ? (
+                                    <div
+                                        className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"
+                                        aria-hidden="true"
+                                    />
+                                ) : (
+                                    <Send className="h-5 w-5" />
+                                )}
+                            </Button>
+                            {currentSession?.sessionId && (
+                                <AudioRecorder sessionId={currentSession.sessionId} onTranscription={handleTranscription} />
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
+
+            {/* Right Map Panel (Desktop only)*/}
+            <div className="hidden lg:block flex-[2.7] bg-white overflow-hidden p-4 h-full">
+                <RightMapPanel
+                    currentSessionId={currentSession?.sessionId || ""}
+                    currentUserToken={currentUser?.token || ""}
+                />
+
+            </div>
+
+            {/* Mobile Map Overlay */}
+            {showMap && (
+                <div className="fixed inset-0 z-50 lg:hidden flex">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-black/40"
+                        onClick={() => setShowMap(false)}
+                        aria-hidden="true"
+                    />
+
+                    {/* Panel: full-screen map (or you can use width like w-full md:w-80 if you prefer) */}
+                    <div className="relative flex-1 bg-white">
+                        {/* Header with close button */}
+                        <div className="flex items-center justify-between px-3 py-2 border-b">
+                            <div className="font-semibold">Map</div>
+                            <button
+                                onClick={() => setShowMap(false)}
+                                aria-label="Close map"
+                                className="p-2 rounded hover:bg-gray-100"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Map content */}
+                        <div className="h-full overflow-auto">
+                            <RightMapPanel
+                                currentSessionId={currentSession?.sessionId || ""}
+                                currentUserToken={currentUser?.token || ""}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+        </div>
+
+        {/* Mobile Menu Overlay */}
+        {isMobileMenuOpen && (
+            <div className="fixed inset-0 z-40 md:hidden">
+                {/* Backdrop */}
+                <div
+                    className="absolute inset-0 bg-black/50"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    aria-hidden="true"
+                />
+
+                {/* Sidebar */}
+                <div className="relative w-64 h-full bg-white shadow-xl">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b">
+                        <div className="font-semibold">Menu</div>
+                        <button
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            aria-label="Close menu"
+                            className="p-2 rounded hover:bg-gray-100"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-0">
+                        <LeftMenuBar
+                            isMobileMenuOpen={isMobileMenuOpen}
+                            showChatHistory={showChatHistory}
+                            toggleChatHistory={toggleChatHistory}
+                            toggleMobileMenu={toggleMobileMenu}
+                            signOut={signOut}
+                            handleNewChat={handleNewChat}
+                            chatHistory={chatHistory}
+                            currentSessionId={currentSession?.sessionId || null}
+                            handleSessionClick={handleSessionClick}
+                            searchQuery={searchQuery}
+                            setSearchQuery={setSearchQuery}
+                        />
+                    </div>
+                </div>
+            </div>
+        )}
             
             {/* Location Suggestions Modal */}
             {locationSuggestions.length > 0 && pendingLocationSearch && (
@@ -1008,7 +1153,7 @@ export default function ChatPageContent() {
                     suggestions={locationSuggestions}
                     onLocationSelect={handleLocationSelect}
                     onDismiss={handleLocationSuggestionsDismiss}
-                    searchTerm={pendingLocationSearch}
+                    searchTerm={pendingLocationSearch!}
                 />
             )}
         </LoadScript>
