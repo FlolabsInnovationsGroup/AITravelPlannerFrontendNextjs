@@ -14,7 +14,9 @@ import { useAuth } from '@/components/contexts/AuthContext';
 import AudioRecorder from './AudioRecorder';
 import { Components } from 'react-markdown';
 import LeftMenuBar from '@/components/LeftMenuBar';
-import RightMapPanel from '@/components/RightMapPanel';
+import RightMapPanel from '@/components/features/map/RightMapPanel';
+import TravelItinerary from '@/components/features/map/TravelItinerary';
+import { Location } from '@/types/map';
 
 interface CodeProps extends React.HTMLAttributes<HTMLElement> {
     inline?: boolean;
@@ -41,6 +43,8 @@ export default function ChatPageContent() {
     const { currentUser } = useAuth();
     const [hasReachedMessageLimit, setHasReachedMessageLimit] = useState(false);
     const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [showItinerary, setShowItinerary] = useState(false);
+    const [itineraryLocations, setItineraryLocations] = useState<Location[]>([]);
 
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -357,6 +361,7 @@ export default function ChatPageContent() {
                                 alt="AiTripPlanner Logo"
                                 width={128}
                                 height={128}
+                                style={{ width: 'auto', height: 'auto' }}
                                 className="object-contain"
                             />
                         </div>
@@ -472,10 +477,54 @@ export default function ChatPageContent() {
     
 {/* Right Map Panel */}
 <div className="flex-[2.7] bg-white overflow-hidden p-4 h-full">
-    <RightMapPanel
-        currentSessionId={currentSession?.sessionId || null}
-        currentUserToken={currentUser?.token || null}
-    />
+    <div className="flex flex-col h-full">
+        {/* Map Panel Controls */}
+        <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Travel Map & Itinerary</h2>
+            <div className="flex space-x-2">
+                <Button
+                    onClick={() => setShowItinerary(!showItinerary)}
+                    variant={showItinerary ? "default" : "outline"}
+                    size="sm"
+                    className="text-sm"
+                >
+                    {showItinerary ? 'Show Map' : 'Show Itinerary'}
+                </Button>
+            </div>
+        </div>
+        
+        {showItinerary ? (
+            <div className="flex-1 overflow-auto">
+                <TravelItinerary 
+                    locations={itineraryLocations}
+                    onLocationSelect={(location) => {
+                        // Switch back to map view and center on location
+                        setShowItinerary(false);
+                        // You could add map centering logic here
+                    }}
+                    onLocationRemove={(locationId) => {
+                        setItineraryLocations(prev => 
+                            prev.filter(loc => loc.id !== locationId)
+                        );
+                    }}
+                    onOptimizeRoute={() => {
+                        // Implement route optimization
+                        toast.success("Route optimization coming soon!");
+                    }}
+                />
+            </div>
+        ) : (
+            <div className="flex-1">
+                <RightMapPanel
+                    currentSessionId={currentSession?.sessionId || null}
+                    currentUserToken={currentUser?.token || null}
+                    onLocationUpdate={(locations: Location[]) => {
+                        setItineraryLocations(locations);
+                    }}
+                />
+            </div>
+        )}
+    </div>
 </div>
 </div>
 

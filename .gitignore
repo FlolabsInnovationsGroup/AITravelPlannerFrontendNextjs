@@ -17,6 +17,8 @@
 # Misc
 .DS_Store
 *.pem
+*.new.tsx
+*.fixed.tsx
 
 # Debug
 npm-debug.log*

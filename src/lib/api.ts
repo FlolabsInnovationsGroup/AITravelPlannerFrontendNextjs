@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Constants
-const API_BASE_URL = 'https://api.flomadtravel.com';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;
 const TOKEN_KEY = 'token';
 
 // Types
@@ -48,6 +48,47 @@ const apiClient = axios.create({
 
 // Add token to all requests
 apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Add response interceptor for token refresh
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // If the error is 401 and we haven't already tried to refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        // Get a new guest token
+        const response = await axios.post(`${API_BASE_URL}/api/auth/guest-token`);
+        const newToken = response.data.token;
+        
+        // Save the new token
+        localStorage.setItem(TOKEN_KEY, newToken);
+        
+        // Update the failed request's token and retry
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        // If refresh fails, clear token and let user try again
+        localStorage.removeItem(TOKEN_KEY);
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+// Original request interceptor
+apiClient.interceptors.request.use((config) => {
   const token = getToken();
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
@@ -73,7 +114,10 @@ export const setToken = (token: string) => {
 };
 
 export const getToken = () => {
-  return localStorage.getItem(TOKEN_KEY);
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem(TOKEN_KEY);
+  }
+  return null;
 };
 
 export const clearToken = () => {
@@ -112,7 +156,7 @@ export const getCurrentUser = async (): Promise<{ id: string }> => {
 export const createSession = async (title: string): Promise<SessionDTO> => {
   try {
     const user = await getCurrentUser();
-    
+
     const payload = {
       title,
       userId: user.id
@@ -188,7 +232,9 @@ export const sendMessagesEntity = async (
       "/api/chat/call/entity",
       formData,
       {
-        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        headers: {
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+        },
         withCredentials: true,
       }
     );
@@ -283,11 +329,37 @@ export const getSessionMessages = async (sessionId: string) => {
 // Get locations by session ID
 export const getLocationsBySession = async (sessionId: string): Promise<Location[]> => {
   try {
-    const response = await apiClient.get(`/api/locations/${sessionId}`);
-    return response.data;
-  } catch (error) {
-    console.error('Error getting locations by session:', error);
-    throw error;
+    console.log('🔍 Fetching locations for session:', sessionId);
+    // First try to get any existing locations
+    const response = await apiClient.get(`/api/locations/${sessionId}`, {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.data) {
+      console.warn('⚠️ No location data received from server');
+      return [];
+    }
+
+    // Ensure we're getting an array
+    let locations = Array.isArray(response.data) ? response.data : [];
+    
+    // Log when no locations are found
+    if (locations.length === 0) {
+      console.log('� No locations found for this session yet');
+    }
+
+    console.log(`✅ Retrieved ${locations.length} locations:`, locations);
+    return locations;
+  } catch (error: any) {
+    console.error('❌ Error getting locations by session:', {
+      error,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    throw new Error(error.response?.data?.message || 'Failed to fetch locations');
   }
 };
 

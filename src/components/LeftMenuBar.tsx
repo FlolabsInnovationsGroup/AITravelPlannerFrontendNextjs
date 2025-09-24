@@ -36,7 +36,7 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
         <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} md:block bg-white border-r transition-all duration-300 ${showChatHistory ? 'w-full md:w-64' : 'w-16'} md:h-screen flex flex-col`}>
             <div className="p-4 flex items-center justify-center">
                 <Link href="/">
-                    <Image src="/logo.png" alt="AiTripPlanner Logo" width={24} height={24} />
+                    <Image src="/logo.png" alt="AiTripPlanner Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} />
                 </Link>
             </div>
 

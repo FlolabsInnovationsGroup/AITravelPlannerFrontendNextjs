@@ -13,8 +13,9 @@ export default function AboutPage() {
       <Image
         src="/logo.png"
         alt="Flomad Travel Logo"
-        width={20}
+        width={25}
         height={25}
+        style={{ width: 'auto', height: 'auto' }}
         className="mr-2"
       />
       <span className="text-white text-2xl font-semibold">Flomad Travel</span>

@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL ='https://api.flomadtravel.com';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -16,7 +16,7 @@ apiClient.interceptors.request.use(
       const token = localStorage.getItem('token');
       if (token) {
         if (
-          !config.url?.includes('/auth/signup') && 
+          !config.url?.includes('/auth/signup') &&
           !config.url?.includes('/auth/login') &&
           !config.url?.includes('/learn-more')
         ) {

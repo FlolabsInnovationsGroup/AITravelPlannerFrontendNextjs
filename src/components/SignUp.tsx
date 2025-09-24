@@ -1,7 +1,7 @@
 //src/components/SignUp.tsx
 "use client"
 
-import Image from "next/legacy/image"
+import Image from "next/image"
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import React, { useState } from 'react';
@@ -64,7 +64,7 @@ export function SignUp() {
         </button>
         
         <div className="flex items-center mb-6">
-          <Image src="/logo.png" alt="Flomad Travel Logo" width={24} height={24} />
+          <Image src="/logo.png" alt="Flomad Travel Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} />
           <span className="ml-2 text-xl font-semibold">flomad travel</span>
         </div>
         
@@ -122,7 +122,7 @@ export function SignUp() {
         </div>
         
         <Button variant="outline" className="w-full" onClick={handleOAuthLogin}>
-          <Image src="/image/google.png" alt="Google Logo" width={20} height={20} className="mr-2" />
+          <Image src="/image/google.png" alt="Google Logo" width={20} height={20} style={{ width: 'auto', height: 'auto' }} className="mr-2" />
           Sign up with Google
         </Button>
       </div>

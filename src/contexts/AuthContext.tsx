@@ -29,22 +29,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // Ensure we have a token (guest or authenticated)
-        if (!getToken()) {
-          const guestToken = await createGuestToken(); // Explicitly get the guest token
-          setToken(guestToken); // Save guest token for API requests
+        let token = getToken();
+        
+        // Always create a new guest token if we don't have one
+        if (!token) {
+          token = await createGuestToken();
+          setToken(token);
         }
 
-        // Get current user info
+        // Get current user info using the token we just ensured exists
         const user = await getCurrentUser();
         if (user) {
-          setCurrentUser({ ...user, token: getToken() || '' }); // Include token in currentUser
+          setCurrentUser({ ...user, token }); // Use the token we just verified/created
+          setIsAuthenticated(true);
+        } else {
+          // If no user but we have a token, create a basic guest user
+          setCurrentUser({ id: 'guest', token });
           setIsAuthenticated(true);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
+        // On error, clear everything and try to create a new guest session
         clearToken();
-        setIsAuthenticated(false);
+        try {
+          const newToken = await createGuestToken();
+          setToken(newToken);
+          setCurrentUser({ id: 'guest', token: newToken });
+          setIsAuthenticated(true);
+        } catch (retryError) {
+          console.error('Failed to create guest session:', retryError);
+          setIsAuthenticated(false);
+        }
       }
     };
 

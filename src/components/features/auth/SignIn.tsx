@@ -1,5 +1,5 @@
 "use client"
-import Image from "next/legacy/image"
+import Image from "next/image"
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Input } from "@/components/ui/input"
@@ -36,13 +36,13 @@ function SignInContent() {
   const handleOAuthLogin = (loginProvider: string) => {
 
     if (loginProvider === 'google') {
-      window.location.href = `https://api.flomadtravel.com/oauth2/authorization/google`;
-    }else if (loginProvider === 'linkedin') {
-      window.location.href = `https://api.flomadtravel.com/oauth2/authorization/linkedin`;
-      }else {
-        window.location.href = `https://api.flomadtravel.com/oauth2/authorization/facebook`;
-        }
+      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/google`;
+    } else if (loginProvider === 'linkedin') {
+      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/linkedin`;
+    } else {
+      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/facebook`;
     }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +68,7 @@ function SignInContent() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-96 relative">
-        <button 
+        <button
           onClick={handleCancel}
           className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
           aria-label="Close"
@@ -77,12 +77,12 @@ function SignInContent() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        
+
         <div className="flex items-center mb-6">
-          <Image src="/logo.png" alt="Flomad Travel Logo" width={24} height={24} />
+          <Image src="/logo.png" alt="Flomad Travel Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} />
           <span className="ml-2 text-xl font-semibold">flomad travel</span>
         </div>
-        
+
         <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
         <p className="text-gray-600 mb-6">
           New member? <Link href="/auth/signup" className="text-blue-600 hover:underline">Sign up</Link>
@@ -106,8 +106,8 @@ function SignInContent() {
             required
             disabled={isLoading}
           />
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             className="w-full bg-black text-white hover:bg-gray-800 mb-4"
             disabled={isLoading}
           >
@@ -117,7 +117,7 @@ function SignInContent() {
         <Link href="/forgot-password" className="block text-center text-blue-600 hover:underline mb-4">
           Forgot password?
         </Link>
-        
+
         <div className="relative mb-4">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300"></div>
@@ -127,18 +127,18 @@ function SignInContent() {
           </div>
         </div>
         <div className="space-y-4">
-        <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('google')}>
-          <Image src="/image/google.png" className="mr-4" alt="Google Logo" width={25} height={25}  style={{padding: 5}} />
-          Sign in with Google
-        </Button>
-        <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('linkedin')}>
-          <LinkedInLogoIcon className="mr-4" style={{ width: 25, height: 25,color: '#0077B5' }}/>
-          Sign in with LinkedIn
-        </Button>
-        <Button variant="outline" className="w-full" onClick={()=>handleOAuthLogin('facebook')}>
-          <Facebook size={25} className="mr-4" style={{ color: '#FFFFFF', background: '#1877F2', borderRadius: 3 }}/>
-          Sign in with Facebook
-        </Button>
+          <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('google')}>
+            <Image src="/image/google.png" className="mr-4" alt="Google Logo" width={25} height={25} style={{ width: 'auto', height: 'auto' }} />
+            Sign in with Google
+          </Button>
+          <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('linkedin')}>
+            <LinkedInLogoIcon className="mr-4" style={{ width: 25, height: 25, color: '#0077B5' }} />
+            Sign in with LinkedIn
+          </Button>
+          <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('facebook')}>
+            <Facebook size={25} className="mr-4" style={{ color: '#FFFFFF', background: '#1877F2', borderRadius: 3 }} />
+            Sign in with Facebook
+          </Button>
         </div>
       </div>
     </div>

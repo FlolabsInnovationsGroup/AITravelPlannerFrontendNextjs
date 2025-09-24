@@ -35,6 +35,7 @@ export function Testimonials() {
                   alt={testimonial.name}
                   width={60}
                   height={60}
+                  style={{ width: 'auto', height: 'auto' }}
                   className="rounded-full mr-4"
                 />
                 <div>

@@ -41,7 +41,13 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
       {/* Logo Section */}
       <div className="p-4 flex items-center justify-center">
   <Link href="/" className="flex items-center">
-    <Image src="/logo.png" alt="AiTripPlanner Logo" width={24} height={24} />
+          <Image 
+            src="/logo.png" 
+            alt="AiTripPlanner Logo"
+            width={24}
+            height={24}
+            style={{ width: 'auto', height: 'auto' }}
+          />
     <span
       className="ml-2 px-2 py-1 bg-gradient-to-r from-blue-500 to-blue-700 text-white text-[10px] font-medium rounded-full shadow-md border border-white"
       style={{

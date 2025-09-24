@@ -21,6 +21,7 @@ export function FeaturedTourPlaces() {
                 layout="fill"
                 objectFit="cover"
                 className="rounded-lg"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
               />
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4">
                 <h3 className="text-white font-semibold">{place.name}</h3>
