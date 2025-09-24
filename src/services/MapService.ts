@@ -140,14 +140,14 @@ export class MapService {
 
         // Convert API_BASE_URL to URL object to parse it properly
         const apiUrl = new URL(API_BASE_URL);
-        // Use HTTP for local development, HTTPS for production
-        apiUrl.protocol = process.env.NODE_ENV === 'production' ? 'https:' : 'http:';
         // Set the WebSocket path
         apiUrl.pathname = '/ws';
         const socketUrl = apiUrl.toString();
         
-        // For local development, replace any localhost HTTPS with HTTP
-        const finalSocketUrl = socketUrl.replace('https://localhost', 'http://localhost');
+        // For local development only, ensure HTTP for localhost
+        const finalSocketUrl = socketUrl.includes('localhost') && process.env.NODE_ENV !== 'production' 
+            ? socketUrl.replace('https://localhost', 'http://localhost')
+            : socketUrl;
 
         console.log('Connecting to WebSocket at:', finalSocketUrl);
         this.stompClient = new Client({
