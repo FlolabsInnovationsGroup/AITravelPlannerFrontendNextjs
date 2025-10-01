@@ -5,6 +5,13 @@ const nextConfig = {
     // Remove ignoreDuringBuilds to enable linting
     dirs: ['src', 'components', 'lib', 'services', 'types'],
   },
+  // Environment-specific configuration
+  env: {
+    // Ensure HTTPS API URL in production
+    NEXT_PUBLIC_API_URL: process.env.NODE_ENV === 'production' 
+      ? process.env.NEXT_PUBLIC_API_URL || 'https://api.flomadtravel.com'
+      : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+  },
   // Remove standalone output to fix Windows symlink issues
   // output: 'standalone', // Commented out due to Windows EPERM symlink errors
   // outputFileTracingRoot: process.cwd(),
