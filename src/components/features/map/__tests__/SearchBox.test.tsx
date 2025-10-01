@@ -51,21 +51,19 @@ const setupGoogleMapsMock = () => {
     maps: {
       places: {
         Autocomplete: jest.fn(() => mockAutocompleteInstance),
-        AutocompleteService: jest.fn(() => ({
-          getPlacePredictions: jest.fn((request, callback) => {
-            // Simulate successful predictions
-            callback([
+        AutocompleteSuggestion: {
+          fetchAutocompleteSuggestions: jest.fn().mockResolvedValue({
+            suggestions: [
               {
-                place_id: 'test_place_1',
-                description: 'Test Place 1',
-                structured_formatting: {
-                  main_text: 'Test Place 1',
-                  secondary_text: 'Test Location'
+                placePrediction: {
+                  placeId: 'test_place_1',
+                  text: { text: 'Test Place 1, Test Location' },
+                  types: ['establishment']
                 }
               }
-            ], 'OK');
+            ]
           })
-        })),
+        },
         AutocompleteSessionToken: jest.fn(() => ({
           // Mock session token properties
         })),

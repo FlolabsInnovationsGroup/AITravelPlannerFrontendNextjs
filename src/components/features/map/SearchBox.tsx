@@ -122,29 +122,47 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                     }
                 });
 
-                // Add prediction_changed listener for suggestions
-                const sessionToken = new google.maps.places.AutocompleteSessionToken();
-                const service = new google.maps.places.AutocompleteService();
-
-                const debouncedFetchPredictions = debounce((input: string) => {
+                // Add prediction_changed listener for suggestions using new AutocompleteSuggestion API
+                const debouncedFetchPredictions = debounce(async (input: string) => {
                     if (input.length < 3) {
                         setSuggestions([]);
                         return;
                     }
                     
-                    service.getPlacePredictions({
-                        input,
-                        sessionToken,
-                    }, (predictions, status) => {
-                        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-                            setSuggestions(predictions);
+                    try {
+                        const { suggestions: predictions } = await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+                            input,
+                            sessionToken: new google.maps.places.AutocompleteSessionToken(),
+                        });
+                        
+                        if (predictions && predictions.length > 0) {
+                            // Convert AutocompleteSuggestion format to match existing prediction format
+                            const formattedPredictions = predictions.map((suggestion) => ({
+                                description: suggestion.placePrediction?.text?.text || '',
+                                place_id: suggestion.placePrediction?.placeId || '',
+                                structured_formatting: {
+                                    main_text: suggestion.placePrediction?.text?.text?.split(',')[0] || '',
+                                    secondary_text: suggestion.placePrediction?.text?.text?.split(',').slice(1).join(',').trim() || '',
+                                    main_text_matched_substrings: []
+                                },
+                                matched_substrings: [],
+                                terms: [],
+                                types: suggestion.placePrediction?.types || []
+                            }) as google.maps.places.AutocompletePrediction);
+                            setSuggestions(formattedPredictions);
                         } else {
                             setSuggestions([]);
-                            if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS && input.length > 2) {
+                            if (input.length > 2) {
                                 handleError('No matching locations found');
                             }
                         }
-                    });
+                    } catch (error) {
+                        console.error('Error fetching autocomplete suggestions:', error);
+                        setSuggestions([]);
+                        if (input.length > 2) {
+                            handleError('Error searching for locations');
+                        }
+                    }
                 }, 300);
 
                 const handleInput = (e: Event) => {

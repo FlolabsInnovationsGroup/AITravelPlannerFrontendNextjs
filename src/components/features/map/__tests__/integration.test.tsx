@@ -7,26 +7,28 @@ const mockGoogleMaps = {
   maps: {
     LatLng: jest.fn().mockImplementation((lat, lng) => ({ lat: () => lat, lng: () => lng })),
     places: {
-      AutocompleteService: jest.fn().mockImplementation(() => ({
-        getPlacePredictions: jest.fn((request, callback) => {
+      AutocompleteSuggestion: {
+        fetchAutocompleteSuggestions: jest.fn().mockImplementation(async (request) => {
           // Mock different responses based on the query
           const query = request.input.toLowerCase();
           
           if (query.includes('not a location') || query === 'this is not a location query') {
             // Return no results for non-location queries
-            callback([], 'ZERO_RESULTS');
+            return { suggestions: [] };
           } else {
             // Return mock location for valid queries
-            callback([
-              {
-                place_id: 'test_place_id',
-                description: 'Eiffel Tower, Paris, France',
-                types: ['tourist_attraction', 'point_of_interest']
-              }
-            ], 'OK');
+            return {
+              suggestions: [{
+                placePrediction: {
+                  placeId: 'test_place_id',
+                  text: { text: 'Eiffel Tower, Paris, France' },
+                  types: ['tourist_attraction', 'point_of_interest']
+                }
+              }]
+            };
           }
         })
-      })),
+      },
       PlacesService: jest.fn().mockImplementation(() => ({
         getDetails: jest.fn((request, callback) => {
           callback({

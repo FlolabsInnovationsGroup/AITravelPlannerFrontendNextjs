@@ -9,7 +9,6 @@ interface LocationExtractionResult {
 export class LocationExtractionService {
     private geocoder: google.maps.Geocoder | null = null;
     private placesService: google.maps.places.PlacesService | null = null;
-    private autocompleteService: google.maps.places.AutocompleteService | null = null;
     #initialized = false;
     #initPromise: Promise<void> = Promise.resolve();
 
@@ -42,7 +41,6 @@ export class LocationExtractionService {
             // Create a dummy div for PlacesService (required by Google Maps API)
             const dummyDiv = document.createElement('div');
             this.placesService = new google.maps.places.PlacesService(dummyDiv);
-            this.autocompleteService = new google.maps.places.AutocompleteService();
             
             this.#initialized = true;
             console.log('✅ LocationExtractionService initialized with Places API');
@@ -75,28 +73,35 @@ export class LocationExtractionService {
 
     // Enhanced method to search for places using Google Places API
     async #searchPlacesAPI(locationName: string, centerLocation?: { lat: number; lng: number }): Promise<Location[]> {
-        if (!this.placesService || !this.autocompleteService) {
+        if (!this.placesService) {
             throw new Error('Places service not initialized');
         }
 
         try {
-            // First, try AutocompleteService for better place matching
-            const autocompleteResults = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
-                this.autocompleteService!.getPlacePredictions({
-                    input: locationName,
-                    location: centerLocation ? new google.maps.LatLng(centerLocation.lat, centerLocation.lng) : undefined,
-                    radius: centerLocation ? 50000 : undefined, // 50km radius
-                    types: ['establishment', 'geocode'], // Focus on businesses and locations
-                }, (predictions, status) => {
-                    if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-                        resolve(predictions);
-                    } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-                        resolve([]);
-                    } else {
-                        reject(new Error(`Places autocomplete failed: ${status}`));
-                    }
-                });
+            // Use new AutocompleteSuggestion API for better place matching
+            const { suggestions } = await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+                input: locationName,
+                sessionToken: new google.maps.places.AutocompleteSessionToken(),
+                locationBias: centerLocation ? {
+                    radius: 50000,
+                    center: new google.maps.LatLng(centerLocation.lat, centerLocation.lng)
+                } : undefined,
             });
+
+            const autocompleteResults = suggestions
+                .filter(suggestion => suggestion.placePrediction)
+                .map(suggestion => ({
+                    description: suggestion.placePrediction!.text!.text,
+                    place_id: suggestion.placePrediction!.placeId,
+                    structured_formatting: {
+                        main_text: suggestion.placePrediction!.text!.text.split(',')[0],
+                        secondary_text: suggestion.placePrediction!.text!.text.split(',').slice(1).join(',').trim(),
+                        main_text_matched_substrings: []
+                    },
+                    matched_substrings: [],
+                    terms: [],
+                    types: suggestion.placePrediction!.types || []
+                }));
 
             console.log('🔍 Autocomplete results:', autocompleteResults.length);
 
