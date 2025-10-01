@@ -127,15 +127,26 @@ export const clearToken = () => {
 // Guest token creation
 export const createGuestToken = async (): Promise<string> => {
   try {
+    console.log('Creating guest token with API URL:', API_BASE_URL);
     const response = await apiClient.post<GuestTokenResponse>('/api/auth/guest-token');
     if (response.data.token) {
+      console.log('Guest token created successfully');
       setToken(response.data.token); // Save token to local storage
       return response.data.token;   // Return the token
     } else {
       throw new Error('Guest token missing in response');
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating guest token:', error);
+    console.error('API Base URL:', API_BASE_URL);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    } else if (error.request) {
+      console.error('Network error - no response received:', error.request);
+    } else {
+      console.error('Request setup error:', error.message);
+    }
     throw error;
   }
 };
@@ -144,10 +155,23 @@ export const createGuestToken = async (): Promise<string> => {
 // User management
 export const getCurrentUser = async (): Promise<{ id: string }> => {
   try {
+    console.log('Getting current user with API URL:', API_BASE_URL);
+    const token = getToken();
+    console.log('Current token exists:', !!token);
     const response = await apiClient.get<{ id: string }>('/users/current');
+    console.log('getCurrentUser successful:', response.status);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error getting current user:', error);
+    console.error('API Base URL:', API_BASE_URL);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    } else if (error.request) {
+      console.error('Network error - no response received:', error.request);
+    } else {
+      console.error('Request setup error:', error.message);
+    }
     throw error;
   }
 };

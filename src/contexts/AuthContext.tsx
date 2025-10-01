@@ -34,16 +34,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Always create a new guest token if we don't have one
         if (!token) {
           token = await createGuestToken();
+          // Token is already saved in createGuestToken(), but ensure it's set
           setToken(token);
         }
 
+        // Add a small delay to ensure token is properly set in localStorage
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         // Get current user info using the token we just ensured exists
-        const user = await getCurrentUser();
-        if (user) {
-          setCurrentUser({ ...user, token }); // Use the token we just verified/created
-          setIsAuthenticated(true);
-        } else {
-          // If no user but we have a token, create a basic guest user
+        try {
+          const user = await getCurrentUser();
+          if (user) {
+            setCurrentUser({ ...user, token }); // Use the token we just verified/created
+            setIsAuthenticated(true);
+          } else {
+            // If no user but we have a token, create a basic guest user
+            setCurrentUser({ id: 'guest', token });
+            setIsAuthenticated(true);
+          }
+        } catch (userError) {
+          console.warn('Could not get current user, using guest session:', userError);
+          // If getCurrentUser fails but we have a token, still set up guest session
           setCurrentUser({ id: 'guest', token });
           setIsAuthenticated(true);
         }
