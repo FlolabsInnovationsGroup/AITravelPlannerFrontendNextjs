@@ -96,6 +96,7 @@ export default function ChatPageContent() {
     const { signOut: authSignOut } = useAuth();
     const mapServiceRef = useRef<MapService | null>(null);
     const wsReconnectTimerRef = useRef<NodeJS.Timeout>();
+    const initializationRef = useRef<boolean>(false);
     const MAX_WS_RETRIES = 3;
 
     // Memoize token to prevent unnecessary re-renders of RightMapPanel
@@ -103,7 +104,7 @@ export default function ChatPageContent() {
         return currentUser?.token || getToken();
     }, [currentUser?.token]);
 
-    // Initialize and manage MapService and sessions
+    // Initialize MapService only once when user token is available
     useEffect(() => {
         if (!currentUser?.token) return;
         
@@ -135,31 +136,36 @@ export default function ChatPageContent() {
             };
         }
 
-        // Handle WebSocket reconnection
+        // Handle WebSocket reconnection (moved outside to avoid closure issues)
         const handleReconnection = () => {
-            if (wsRetryCount >= MAX_WS_RETRIES) {
-                console.error("🚫 Max WebSocket retry attempts reached");
-                toast.error("Unable to establish connection. Please refresh the page.");
-                return;
-            }
-
-            if (wsReconnectTimerRef.current) {
-                clearTimeout(wsReconnectTimerRef.current);
-            }
-
-            wsReconnectTimerRef.current = setTimeout(() => {
-                if (currentSession?.sessionId && !wsConnected) {
-                    console.log(`🔄 Attempting reconnection (attempt ${wsRetryCount + 1})`);
-                    connectToSession(currentSession.sessionId);
-                    setWsRetryCount(prev => prev + 1);
+            setWsRetryCount(prev => {
+                const newRetryCount = prev + 1;
+                
+                if (newRetryCount > MAX_WS_RETRIES) {
+                    console.error("🚫 Max WebSocket retry attempts reached");
+                    toast.error("Unable to establish connection. Please refresh the page.");
+                    return prev;
                 }
-            }, Math.min(1000 * (2 ** wsRetryCount), 10000)); // Exponential backoff, max 10s
+
+                if (wsReconnectTimerRef.current) {
+                    clearTimeout(wsReconnectTimerRef.current);
+                }
+
+                wsReconnectTimerRef.current = setTimeout(() => {
+                    if (currentSession?.sessionId) {
+                        console.log(`🔄 Attempting reconnection (attempt ${newRetryCount})`);
+                        connectToSession(currentSession.sessionId);
+                    }
+                }, Math.min(1000 * (2 ** prev), 10000)); // Exponential backoff, max 10s
+                
+                return newRetryCount;
+            });
         };
 
         // Handle session connection
         const connectToSession = async (sessionId: string) => {
             try {
-                if (!mapServiceRef.current || wsConnected) {
+                if (!mapServiceRef.current) {
                     return;
                 }
 
@@ -171,11 +177,6 @@ export default function ChatPageContent() {
                 handleReconnection();
             }
         };
-
-        // Connect to current session if exists
-        if (currentSession?.sessionId && !wsConnected) {
-            connectToSession(currentSession.sessionId);
-        }
 
         // Cleanup function
         return () => {
@@ -189,7 +190,26 @@ export default function ChatPageContent() {
                 clearTimeout(wsReconnectTimerRef.current);
             }
         };
-    }, [currentUser?.token, currentSession?.sessionId, wsConnected, wsRetryCount]);
+    }, [currentUser?.token]);
+
+    // Separate effect for handling session connections
+    useEffect(() => {
+        if (!mapServiceRef.current || !currentSession?.sessionId || wsConnected) {
+            return;
+        }
+
+        const connectToSession = async (sessionId: string) => {
+            try {
+                console.log(`🔄 Connecting to session: ${sessionId}`);
+                await mapServiceRef.current!.connectWebSocket(sessionId);
+            } catch (error) {
+                console.error("❌ Error connecting to session:", error);
+                toast.error("Failed to connect to session");
+            }
+        };
+
+        connectToSession(currentSession.sessionId);
+    }, [currentSession?.sessionId, wsConnected]);
 
     // Default prompts
     const defaultPrompts = [
@@ -231,9 +251,20 @@ export default function ChatPageContent() {
     
     const handleNewChat = async () => {
         try {
+            // Reset initialization state
+            initializationRef.current = false;
+            setIsInitialized(false);
             setCurrentSession(null);
             setMessages([]);
             setDisplayPrompts(true);
+            setWsConnected(false);
+            setWsRetryCount(0);
+            
+            // Clear session storage
+            sessionStorage.removeItem("chatSessionId");
+            sessionStorage.removeItem("sentMessage");
+            sessionStorage.removeItem("initialMessage");
+            
             router.push('/chat');
             setIsMobileMenuOpen(false);
             await fetchChatHistory();
@@ -735,8 +766,12 @@ export default function ChatPageContent() {
 
     useEffect(() => {
         const initializeChat = async () => {
-            if (isInitialized || !currentUser || typeof window === 'undefined') return;
-        
+            // Prevent duplicate initialization 
+            if (initializationRef.current || !currentUser || typeof window === 'undefined') {
+                return;
+            }
+            
+            initializationRef.current = true;
             console.log("Initializing chat...");
         
             let sessionId = searchParams.get("sessionId");
@@ -750,15 +785,22 @@ export default function ChatPageContent() {
         
             if (!sessionId) {
                 console.log("⚠️ No session found, creating a new session...");
-                const newSession = await createSession("New Chat");
+                try {
+                    const newSession = await createSession("New Chat");
         
-                if (newSession?.sessionId) {
-                    sessionId = newSession.sessionId;
-                    sessionStorage.setItem("chatSessionId", sessionId);
-                    setCurrentSession({ sessionId, title: "New Chat" });
-                    console.log("✅ New session created:", sessionId);
-                } else {
-                    console.error("❌ Failed to create a session.");
+                    if (newSession?.sessionId) {
+                        sessionId = newSession.sessionId;
+                        sessionStorage.setItem("chatSessionId", sessionId);
+                        setCurrentSession({ sessionId, title: "New Chat" });
+                        console.log("✅ New session created:", sessionId);
+                    } else {
+                        console.error("❌ Failed to create a session.");
+                        initializationRef.current = false; // Reset on failure
+                        return;
+                    }
+                } catch (error) {
+                    console.error("❌ Error creating session:", error);
+                    initializationRef.current = false; // Reset on failure
                     return;
                 }
             } else {
@@ -772,14 +814,13 @@ export default function ChatPageContent() {
                 try {
                     const decodedMessage = decodeURIComponent(initialMessage);
         
-
-            // ✅ Prevent duplicate processing but allow future messages
-            if (sessionStorage.getItem("sentMessage") === decodedMessage) {
-            console.log("⚠️ Message already sent, skipping duplicate.");
-            sessionStorage.removeItem("sentMessage"); // Clear it after sending once
-            return;
-            }
-
+                    // ✅ Prevent duplicate processing but allow future messages
+                    if (sessionStorage.getItem("sentMessage") === decodedMessage) {
+                        console.log("⚠️ Message already sent, skipping duplicate.");
+                        sessionStorage.removeItem("sentMessage"); // Clear it after sending once
+                        setIsInitialized(true);
+                        return;
+                    }
         
                     // ✅ Add to state (avoid duplicate messages)
                     setMessages((prev) => {
@@ -799,11 +840,11 @@ export default function ChatPageContent() {
                     // ✅ Update session title if user is logged in
                     if (currentUser?.id) {
                         const newTitle = generateSessionTitle(decodedMessage);
-                        await updateSession(sessionId, newTitle, currentUser.id);
+                        await updateSession(sessionId!, newTitle, currentUser.id);
                     }
         
                     // ✅ Send message to backend only if not already sent
-                    const response = await sendMessagesEntity(decodedMessage, sessionId);
+                    const response = await sendMessagesEntity(decodedMessage, sessionId!);
         
                     setMessages((prev) => {
                         if (!prev.some((m) => m.content === response.message)) {
@@ -827,7 +868,7 @@ export default function ChatPageContent() {
         };
         
         initializeChat();
-        }, [searchParams, isInitialized]);
+    }, [searchParams, currentUser]);
         
         
     

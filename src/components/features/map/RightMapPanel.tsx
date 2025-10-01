@@ -279,7 +279,21 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                 </div>
             )}
             
-            {!showMap ? (
+            {error ? (
+                // Show error state with retry option
+                <div className="h-full w-full flex flex-col items-center justify-center bg-gray-50 p-8">
+                    <div className="text-center">
+                        <div className="text-red-500 text-lg mb-4">Failed to load locations</div>
+                        <button
+                            onClick={fetchLocations}
+                            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                            aria-label="Retry loading locations"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                </div>
+            ) : !showMap ? (
                 // Show travel agent picture when no locations - fill container
                 <div className="h-full w-full relative">
                     <Image

@@ -39,6 +39,7 @@ export class LocationExtractionService {
 
             this.geocoder = new google.maps.Geocoder();
             // Create a dummy div for PlacesService (required by Google Maps API)
+            // TODO: Migrate to google.maps.places.Place API when ready - PlacesService is deprecated as of March 2025
             const dummyDiv = document.createElement('div');
             this.placesService = new google.maps.places.PlacesService(dummyDiv);
             

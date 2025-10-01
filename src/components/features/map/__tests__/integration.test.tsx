@@ -49,27 +49,29 @@ const mockGoogleMaps = {
       }
     },
     Geocoder: jest.fn().mockImplementation(() => ({
-      geocode: jest.fn((request, callback) => {
+      geocode: jest.fn((request) => {
         const query = request.address.toLowerCase();
         
         if (query.includes('not a location') || query === 'this is not a location query') {
           // Return no results for non-location queries
-          callback([], 'ZERO_RESULTS');
+          return Promise.resolve({ results: [] });
         } else {
           // Return mock geocode result
-          callback([
-            {
-              place_id: 'test_place_id',
-              formatted_address: 'Eiffel Tower, Paris, France',
-              geometry: {
-                location: {
-                  lat: () => 48.8584,
-                  lng: () => 2.2945
-                }
-              },
-              types: ['tourist_attraction']
+          return Promise.resolve({
+            results: [
+              {
+                place_id: 'test_place_id',
+                formatted_address: 'Eiffel Tower, Paris, France',
+                geometry: {
+                  location: {
+                    lat: () => 48.8584,
+                    lng: () => 2.2945
+                  }
+                },
+                types: ['tourist_attraction']
             }
-          ], 'OK');
+            ]
+          });
         }
       })
     })),

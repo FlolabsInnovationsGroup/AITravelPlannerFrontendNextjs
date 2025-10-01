@@ -35,7 +35,9 @@ export interface Location {
 }
 
 interface GuestTokenResponse {
+  verified: boolean;
   token: string;
+  message: string;
 }
 
 // API client setup
@@ -68,14 +70,20 @@ apiClient.interceptors.response.use(
       try {
         // Get a new guest token
         const response = await axios.post(`${API_BASE_URL}/api/auth/guest-token`);
-        const newToken = response.data.token;
         
-        // Save the new token
-        localStorage.setItem(TOKEN_KEY, newToken);
-        
-        // Update the failed request's token and retry
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        return apiClient(originalRequest);
+        // Check if we got a valid token in the response
+        if (response.status === 200 && response.data.token) {
+          const newToken = response.data.token;
+          
+          // Save the new token
+          localStorage.setItem(TOKEN_KEY, newToken);
+          
+          // Update the failed request's token and retry
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return apiClient(originalRequest);
+        } else {
+          throw new Error('No valid token received in refresh response');
+        }
       } catch (refreshError) {
         // If refresh fails, clear token and let user try again
         localStorage.removeItem(TOKEN_KEY);
@@ -129,25 +137,46 @@ export const createGuestToken = async (): Promise<string> => {
   try {
     console.log('Creating guest token with API URL:', API_BASE_URL);
     const response = await apiClient.post<GuestTokenResponse>('/api/auth/guest-token');
-    if (response.data.token) {
+    
+    // Check for successful response
+    if (response.status === 200 && response.data.token) {
       console.log('Guest token created successfully');
       setToken(response.data.token); // Save token to local storage
       return response.data.token;   // Return the token
     } else {
-      throw new Error('Guest token missing in response');
+      throw new Error(`Guest token missing in response: ${response.data.message || 'Unknown error'}`);
     }
   } catch (error: any) {
     console.error('Error creating guest token:', error);
     console.error('API Base URL:', API_BASE_URL);
+    
+    // Handle specific error cases
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
+      
+      // If user is already authenticated (400 status), handle gracefully
+      if (error.response.status === 400 && error.response.data?.message?.includes('already authenticated')) {
+        // User is already authenticated, check if they have a current token
+        const existingToken = getToken();
+        if (existingToken) {
+          console.log('User already authenticated with existing token');
+          return existingToken;
+        } else {
+          throw new Error('User authenticated but no token found');
+        }
+      }
+      
+      // For other errors, provide more context
+      const errorMessage = error.response.data?.message || 'Unknown server error';
+      throw new Error(`Server error (${error.response.status}): ${errorMessage}`);
     } else if (error.request) {
       console.error('Network error - no response received:', error.request);
+      throw new Error('Network error: Unable to reach the server');
     } else {
       console.error('Request setup error:', error.message);
+      throw new Error(`Request setup error: ${error.message}`);
     }
-    throw error;
   }
 };
 
