@@ -2,7 +2,9 @@
 
 ## 🌍 Environment Configuration Strategy
 
-This project uses a multi-environment configuration strategy to support both local development and production deployment:
+This project uses a multi-environment configuration strategy to support both local development and production deployment.
+
+> **Note**: This guide includes all necessary diagnostic tools and configurations for successful deployment.
 
 ### Environment Files
 
