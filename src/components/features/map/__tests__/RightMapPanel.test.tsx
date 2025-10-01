@@ -553,6 +553,9 @@ describe('RightMapPanel', () => {
     });
 
     it('handles add location errors gracefully', async () => {
+      // Mock console.error to prevent test failure for expected error
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
       mockMapService.addLocation.mockRejectedValue(new Error('Add location failed'));
       
       render(<RightMapPanel {...mockProps} />);
@@ -565,9 +568,11 @@ describe('RightMapPanel', () => {
       
       await waitFor(() => {
         expect(mockMapService.addLocation).toHaveBeenCalled();
+        expect(consoleSpy).toHaveBeenCalledWith('❌ Error adding location:', expect.any(Error));
       });
       
       // Should handle error gracefully without crashing
+      consoleSpy.mockRestore();
     });
 
     it('prevents location addition without session ID', async () => {
@@ -620,6 +625,9 @@ describe('RightMapPanel', () => {
 
   describe('Error Handling', () => {
     it('displays error state with retry option', async () => {
+      // Mock console.error to prevent test failure for expected error
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
       getLocationsBySession.mockRejectedValue(new Error('API Error'));
       
       render(<RightMapPanel {...mockProps} />);
@@ -627,10 +635,16 @@ describe('RightMapPanel', () => {
       await waitFor(() => {
         expect(screen.getByText('Failed to load locations')).toBeInTheDocument();
         expect(screen.getByText('Retry')).toBeInTheDocument();
+        expect(consoleSpy).toHaveBeenCalledWith('❌ Error fetching locations:', expect.any(Error));
       });
+      
+      consoleSpy.mockRestore();
     });
 
     it('recovers from error state on successful retry', async () => {
+      // Mock console.error to prevent test failure for expected error
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
       getLocationsBySession.mockRejectedValueOnce(new Error('API Error'));
       getLocationsBySession.mockResolvedValueOnce(sampleLocations);
       
@@ -645,6 +659,8 @@ describe('RightMapPanel', () => {
       await waitFor(() => {
         expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
       });
+      
+      consoleSpy.mockRestore();
     });
 
     it('handles WebSocket errors without crashing', async () => {
@@ -676,6 +692,9 @@ describe('RightMapPanel', () => {
     });
 
     it('provides accessible retry button', async () => {
+      // Mock console.error to prevent test failure for expected error
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
       getLocationsBySession.mockRejectedValue(new Error('API Error'));
       
       render(<RightMapPanel {...mockProps} />);
@@ -684,6 +703,8 @@ describe('RightMapPanel', () => {
         const retryButton = screen.getByRole('button', { name: /retry/i });
         expect(retryButton).toBeInTheDocument();
       });
+      
+      consoleSpy.mockRestore();
     });
   });
 });
