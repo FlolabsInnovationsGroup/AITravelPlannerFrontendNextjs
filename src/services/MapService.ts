@@ -28,10 +28,20 @@ export class MapService {
         return this.connectionStatus;
     }
 
-    // Enhanced connection status management
+    // Enhanced connection status management with metrics
     private setConnectionStatus(status: 'disconnected' | 'connecting' | 'connected') {
         if (this.connectionStatus !== status) {
+            const previousStatus = this.connectionStatus;
             this.connectionStatus = status;
+            
+            // Log connection transitions for debugging
+            console.log(`🔄 MapService connection: ${previousStatus} → ${status}`);
+            
+            // Reset retry manager on successful connection
+            if (status === 'connected') {
+                this.wsRetryManager.reset();
+            }
+            
             this.onConnectionStatusChange?.(status);
         }
     }
