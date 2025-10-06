@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Components } from 'react-markdown';
 import { LoadScript, LoadScriptProps } from '@react-google-maps/api';
 import { Location } from '@/types/map';
+import SmartSuggestionsComponent from './SmartSuggestionsComponent';
 import AudioRecorder from './AudioRecorder';
 import LeftMenuBar from '@/components/features/chat/LeftMenuBar';
 import RightMapPanel from '@/components/features/map/RightMapPanel';
@@ -89,6 +90,14 @@ export default function ChatPageContent() {
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [locationSuggestions, setLocationSuggestions] = useState<Location[]>([]);
     const [pendingLocationSearch, setPendingLocationSearch] = useState<string | null>(null);
+    
+    // Context menu state
+    const [contextMenu, setContextMenu] = useState<{
+        visible: boolean;
+        x: number;
+        y: number;
+        message: Message | null;
+    }>({ visible: false, x: 0, y: 0, message: null });
 
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -106,12 +115,16 @@ export default function ChatPageContent() {
 
     // Initialize MapService only once when user token is available
     useEffect(() => {
-        if (!currentUser?.token) return;
+        const token = currentUser?.token || getToken();
+        if (!token) {
+            console.warn("⚠️ No authentication token available for MapService");
+            return;
+        }
         
         // Initialize MapService if not exists
         if (!mapServiceRef.current) {
-            console.log("🔧 Initializing MapService");
-            mapServiceRef.current = new MapService(currentUser.token);
+            console.log("🔧 Initializing MapService with token:", token ? 'Token available' : 'No token');
+            mapServiceRef.current = new MapService(token);
             
             // Set up WebSocket event listeners
             mapServiceRef.current.onConnect = () => {
@@ -211,15 +224,46 @@ export default function ChatPageContent() {
         connectToSession(currentSession.sessionId);
     }, [currentSession?.sessionId, wsConnected]);
 
-    // Default prompts
+    // Dynamic persona-based prompts inspired by competitor analysis
     const defaultPrompts = [
-        "What are the best attractions in Paris for first-time visitors?",
-        "Can you help me plan a family trip to Tokyo?",
-        "What are the top beaches to visit in Bali?",
-        "Which European city is best for a weekend getaway?",
-        "How can I travel to Europe on a budget?",
-        "What are the must-try dishes in Italy?"
+        "✨ Plan my dream romantic getaway to Paris with hidden local gems",
+        "🏝️ I need a family adventure in Tokyo - make it unforgettable!",
+        "🌊 Show me Bali's most Instagram-worthy beaches and secret spots",
+        "🍷 Which European city gives me the best weekend culture immersion?",
+        "💰 Help me travel Europe like a local on a tight budget",
+        "🍝 Create a foodie's paradise itinerary through Italy",
+        "🎒 I want an off-the-beaten-path Southeast Asia adventure",
+        "🏖️ Plan the perfect beach-hopping Caribbean escape"
     ];
+
+    // Advanced persona-driven prompt categories (like Layla AI)
+    const personaPrompts = {
+        luxury: [
+            "Plan my luxury escape to the Maldives with private experiences",
+            "Design a high-end wine tour through Tuscany's finest vineyards",
+            "Create an exclusive cultural journey through Japan's premium experiences"
+        ],
+        adventure: [
+            "Plan my epic hiking adventure through Patagonia",
+            "Design an adrenaline-packed New Zealand road trip",
+            "Create a wild safari adventure across East Africa"
+        ],
+        romantic: [
+            "Plan the most romantic proposal trip to Santorini",
+            "Design a dreamy honeymoon in the French Riviera",
+            "Create an intimate couples' retreat in Bali"
+        ],
+        family: [
+            "Plan an educational family adventure through ancient Rome",
+            "Design a fun-packed Disney World alternative in Europe",
+            "Create a multi-generational family trip to Costa Rica"
+        ],
+        budget: [
+            "Show me how to backpack Southeast Asia on $30/day",
+            "Plan a budget-friendly European rail adventure",
+            "Design a cost-effective Central America exploration"
+        ]
+    };
 
     // Generate dynamic prompts based on context
     const generateDynamicPrompts = (context: string | undefined) => {
@@ -319,15 +363,32 @@ export default function ChatPageContent() {
                 throw new Error("No active session");
             }
 
+            // Validate location data before sending
+            if (!location.latitude || !location.longitude) {
+                console.error("❌ Invalid location coordinates:", location);
+                throw new Error("Location must have valid latitude and longitude coordinates");
+            }
+
+            if (!location.name || location.name.trim() === '') {
+                console.error("❌ Invalid location name:", location);
+                throw new Error("Location must have a valid name");
+            }
+
             const locationToAdd = {
-                latitude: location.latitude,
-                longitude: location.longitude,
-                name: location.name,
-                type: location.type,
+                latitude: Number(location.latitude),
+                longitude: Number(location.longitude),
+                name: location.name.trim(),
+                type: location.type || 'attraction',
                 sessionId: currentSession.sessionId
             };
             
             console.log("📍 Attempting to add location:", locationToAdd);
+            console.log("🔑 Current user:", currentUser ? 'User available' : 'No user');
+            console.log("📋 Session details:", {
+                sessionId: currentSession.sessionId,
+                title: currentSession.title
+            });
+            
             const addedLocation = await mapServiceRef.current.addLocation(locationToAdd);
             
             console.log("✅ Location added successfully:", addedLocation);
@@ -342,6 +403,9 @@ export default function ChatPageContent() {
             return addedLocation;
         } catch (error) {
             console.error("❌ Error adding location:", error);
+            console.error("❌ Location data:", location);
+            console.error("❌ Current session:", currentSession);
+            console.error("❌ Current user:", currentUser ? 'Available' : 'Not available');
             
             // Check if it's a validation error
             if (error instanceof Error && error.message && error.message.includes('invalid characters')) {
@@ -565,7 +629,7 @@ export default function ChatPageContent() {
             // If locations were added, modify the message to provide context to the AI (internal only)
             let messageToSend = message;
             if (locationsAdded) {
-                messageToSend = `I've added the location you mentioned to the map. ${message}. Please provide travel information about this place.`;
+                messageToSend = `${message}. Please provide detailed travel information about this place without adding it to the map again.`;
                 console.log("📍 Enhanced message for AI (internal):", messageToSend);
             }
 
@@ -612,11 +676,72 @@ export default function ChatPageContent() {
                     content: "Something went wrong. Please try again.",
                 }]);
             } else {
+                // ✅ Handle case where backend returns JSON string instead of parsed object
+                let messageContent = response.message;
+                let responseSuggestions = response.suggestions;
+                
+                // Check if the message is actually a JSON string that needs parsing
+                if (response.message.trim().startsWith('{') && response.message.trim().endsWith('}')) {
+                    try {
+                        const parsedResponse = JSON.parse(response.message);
+                        if (parsedResponse.message && typeof parsedResponse.message === 'string') {
+                            console.log("📝 Parsing JSON response from backend:", parsedResponse);
+                            messageContent = parsedResponse.message;
+                            responseSuggestions = parsedResponse.suggestions || responseSuggestions;
+                        }
+                    } catch (parseError) {
+                        console.warn("⚠️ Failed to parse JSON response, using raw message:", parseError);
+                        // Keep original message if parsing fails
+                    }
+                }
+                
                 setMessages((prev) => [...prev, {
                     id: Date.now() + 1,
                     messageType: 'ASSISTANT',
-                    content: response.message,
+                    content: messageContent,
                 }]);
+
+                // ✅ Update session title if this is the first conversation (check for first user message)
+                console.log(`🔍 Checking session title update conditions:`, {
+                    messagesLength: messages.length,
+                    hasCurrentUser: !!currentUser,
+                    userId: currentUser?.id,
+                    hasSessionId: !!sessionId,
+                    sessionId: sessionId,
+                    originalMessage: message,
+                    currentSessionTitle: currentSession?.title
+                });
+                
+                // Check if this is the first message conversation AND the session still has "New Chat" title
+                // Since we add user message first, then AI response, check for length === 2 (user + AI)
+                if (messages.length === 2 && currentUser?.id && sessionId && currentSession?.title === 'New Chat') {
+                    const newTitle = generateSessionTitle(message);
+                    console.log(`🎯 First message detected! Updating session title from "${currentSession?.title}" to: "${newTitle}"`);
+                    
+                    try {
+                        console.log(`🔄 Calling updateSession API...`);
+                        await updateSession(sessionId, newTitle, currentUser.id);
+                        
+                        console.log(`📝 Updating local session state...`);
+                        setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
+                        
+                        console.log(`🔄 Refreshing chat history...`);
+                        await fetchChatHistory();
+                        
+                        console.log(`✅ Session title updated successfully to: "${newTitle}"`);
+                    } catch (error) {
+                        console.error('❌ Failed to update session title:', error);
+                        // Still update local state even if API call fails
+                        setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
+                    }
+                } else {
+                    console.log(`ℹ️ Skipping session title update:`, {
+                        reason: messages.length !== 2 ? `Not first message (length: ${messages.length})` : 
+                               !currentUser?.id ? 'No user ID' :
+                               !sessionId ? 'No session ID' :
+                               currentSession?.title !== 'New Chat' ? 'Title already updated' : 'Unknown'
+                    });
+                }
 
                     // Check if the message might contain location data
                 const locationKeywords = ['show', 'find', 'where', 'restaurant', 'place', 'location', 'near', 'at', 'in'];
@@ -652,8 +777,8 @@ export default function ChatPageContent() {
                         }
                     }, 1000); // 1 second delay to allow backend processing
                 }                
-                // ✅ Update suggestions dynamically
-                setSuggestions(response.suggestions || generateDynamicPrompts(response.message));
+                // ✅ Update suggestions dynamically using parsed suggestions
+                setSuggestions(responseSuggestions || generateDynamicPrompts(messageContent));
             }
     
             setDisplayPrompts(false);
@@ -674,14 +799,193 @@ export default function ChatPageContent() {
     
     
     const handlePromptClick = async (prompt: string) => {
-        console.log("Saving initial message:", prompt);
-    
-        // ✅ Store the message in sessionStorage before navigating
-        sessionStorage.setItem("initialMessage", prompt);
-    
-        // ✅ Navigate to the chat page with the message as a query parameter
-        router.push(`/chat?initialMessage=${encodeURIComponent(prompt)}`);
+        console.log("🚀 Prompt button clicked:", prompt);
+        
+        // Instead of navigating, directly send the message
+        setInputMessage(prompt);
+        await handleSendMessage(prompt);
     };
+
+    // Handle suggestion clicks - convert suggestions to proper questions
+    const handleSuggestionClick = async (suggestion: string) => {
+        console.log("💡 Suggestion clicked:", suggestion);
+        
+        // Convert suggestion into a proper question
+        let question = suggestion;
+        
+        // Transform common suggestion patterns into questions
+        if (suggestion.toLowerCase().startsWith('ask about')) {
+            question = suggestion.replace(/ask about/i, 'What can you tell me about') + '?';
+        } else if (suggestion.toLowerCase().startsWith('inquire about')) {
+            question = suggestion.replace(/inquire about/i, 'Can you provide information about') + '?';
+        } else if (suggestion.toLowerCase().startsWith('request tips')) {
+            question = suggestion.replace(/request tips/i, 'What tips do you have') + '?';
+        } else if (suggestion.toLowerCase().startsWith('seek advice')) {
+            question = suggestion.replace(/seek advice/i, 'What advice do you have') + '?';
+        } else if (suggestion.toLowerCase().startsWith('explore')) {
+            question = suggestion.replace(/explore/i, 'Tell me about') + '?';
+        } else if (suggestion.toLowerCase().includes('suggestions')) {
+            question = suggestion.replace(/suggestions/i, 'options') + '?';
+        } else if (!suggestion.endsWith('?') && !suggestion.endsWith('.')) {
+            // If it doesn't end with punctuation, make it a question
+            question = suggestion + '?';
+        }
+
+        console.log("❓ Converted to question:", question);
+        
+        // Send the question directly without location extraction
+        await handleSuggestionMessage(question);
+    };
+
+    // Simplified message handler for suggestions that bypasses location extraction
+    const handleSuggestionMessage = async (question: string) => {
+        if (!question.trim()) return;
+    
+        setIsLoading(true);
+    
+        try {
+            // Add user's question to chat UI immediately
+            setMessages((prev) => {
+                // Prevent duplicate messages
+                if (prev.length > 0 && prev[prev.length - 1].content === question && prev[prev.length - 1].messageType === "USER") {
+                    console.warn("⚠️ Duplicate suggestion message detected, skipping:", question);
+                    return prev;
+                }
+                console.log("✅ Suggestion question added to chat:", question);
+                return [...prev, { id: Date.now(), messageType: 'USER', content: question }];
+            });
+
+            console.log("💬 Sending suggestion question to chat API (no location extraction)");
+            let sessionId = currentSession?.sessionId;
+    
+            if (!sessionId) {
+                console.log("Creating a new session...");
+                const newSession = await createSession('New Chat');
+    
+                if (!newSession || !newSession.sessionId) {
+                    throw new Error("Failed to create a new session.");
+                }
+    
+                sessionId = newSession.sessionId;
+                setCurrentSession(newSession);
+                // Ensure WebSocket is connected after setting new session
+                if (mapServiceRef.current && newSession.sessionId) {
+                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
+                }
+            }
+    
+            // Send question directly to backend without location enhancement
+            console.log("📡 Sending suggestion question to API:", question, sessionId);
+            
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('API call timeout after 30 seconds')), 30000);
+            });
+            
+            const response = await Promise.race([
+                sendMessagesEntity(question, sessionId) as Promise<ApiResponse>,
+                timeoutPromise
+            ]) as ApiResponse;
+            console.log("API Response for suggestion:", response);
+    
+            if (!response || typeof response.message !== "string") {
+                console.error("Invalid response format:", response);
+    
+                setMessages((prev) => [...prev, {
+                    id: Date.now() + 1,
+                    messageType: 'ASSISTANT',
+                    content: "Something went wrong. Please try again.",
+                }]);
+            } else {
+                setMessages((prev) => [...prev, {
+                    id: Date.now() + 1,
+                    messageType: 'ASSISTANT',
+                    content: response.message,
+                }]);
+
+                // Set suggestions if available
+                if (response.suggestions && Array.isArray(response.suggestions)) {
+                    setSuggestions(response.suggestions);
+                }
+            }
+        } catch (error) {
+            console.error("❌ Error processing suggestion message:", error);
+            
+            setMessages((prev) => [...prev, {
+                id: Date.now() + 1,
+                messageType: 'ASSISTANT',
+                content: "I apologize, but I encountered an error processing your question. Please try again.",
+            }]);
+            
+            toast.error('Failed to send message');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    // Handle message click functionality
+    const handleMessageClick = (message: Message) => {
+        console.log("🖱️ Message clicked:", message);
+        if (message.messageType === 'USER') {
+            // For user messages, copy to input field for editing/re-sending
+            console.log("📝 Copying user message to input field");
+            setInputMessage(message.content);
+            toast.success("Message copied to input field");
+        } else {
+            // For assistant messages, offer to continue the conversation
+            console.log("🤖 Creating continuation prompt for assistant message");
+            const continuePrompt = `Continue from: "${message.content.substring(0, 100)}${message.content.length > 100 ? '...' : ''}"`;
+            setInputMessage(continuePrompt);
+            toast.success("Click send to continue this conversation");
+        }
+    };
+
+    // Handle right-click context menu
+    const handleContextMenu = (e: React.MouseEvent, message: Message) => {
+        console.log("🖱️ Right-click context menu:", message);
+        e.preventDefault();
+        setContextMenu({
+            visible: true,
+            x: e.clientX,
+            y: e.clientY,
+            message
+        });
+    };
+
+    // Context menu actions
+    const handleCopyMessage = () => {
+        if (contextMenu.message) {
+            navigator.clipboard.writeText(contextMenu.message.content);
+            toast.success("Message copied to clipboard");
+        }
+        setContextMenu({ visible: false, x: 0, y: 0, message: null });
+    };
+
+    const handleContinueConversation = () => {
+        if (contextMenu.message) {
+            handleMessageClick(contextMenu.message);
+        }
+        setContextMenu({ visible: false, x: 0, y: 0, message: null });
+    };
+
+    const handleEditMessage = () => {
+        if (contextMenu.message) {
+            setInputMessage(contextMenu.message.content);
+            toast.success("Message loaded for editing");
+        }
+        setContextMenu({ visible: false, x: 0, y: 0, message: null });
+    };
+
+    // Hide context menu on outside click
+    useEffect(() => {
+        const handleClickOutside = () => {
+            setContextMenu({ visible: false, x: 0, y: 0, message: null });
+        };
+        
+        if (contextMenu.visible) {
+            document.addEventListener('click', handleClickOutside);
+            return () => document.removeEventListener('click', handleClickOutside);
+        }
+    }, [contextMenu.visible]);
     
     
     const handleTranscription = (transcribedText: string) => {
@@ -715,19 +1019,47 @@ export default function ChatPageContent() {
     
 
     const generateSessionTitle = (message: string) => {
+        // Clean the message and remove emojis for better processing
         const cleanMessage = message.replace(/[^\w\s]/gi, ' ').replace(/\s+/g, ' ').trim();
+        
+        // Travel-specific keywords to prioritize in titles
+        const travelKeywords = [
+            'Tokyo', 'Paris', 'London', 'New York', 'Rome', 'Barcelona', 'Amsterdam', 'Berlin',
+            'Bangkok', 'Singapore', 'Sydney', 'Dubai', 'Istanbul', 'Prague', 'Vienna',
+            'trip', 'travel', 'vacation', 'holiday', 'adventure', 'getaway', 'journey',
+            'itinerary', 'plan', 'visit', 'explore', 'discover', 'weekend', 'honeymoon',
+            'family', 'solo', 'budget', 'luxury', 'backpack', 'romantic', 'cultural'
+        ];
 
+        const words = cleanMessage.split(' ');
+        const importantWords: string[] = [];
+        const regularWords: string[] = [];
+
+        // Separate travel-related keywords from regular words
+        words.forEach(word => {
+            const lowerWord = word.toLowerCase();
+            if (travelKeywords.some(keyword => keyword.toLowerCase() === lowerWord)) {
+                importantWords.push(word);
+            } else {
+                regularWords.push(word);
+            }
+        });
+
+        // Build title prioritizing travel keywords
+        const prioritizedWords = [...importantWords, ...regularWords];
+        
+        let title = '';
+        for (const word of prioritizedWords) {
+            if ((title + word).length > 27) break;
+            title += `${title ? ' ' : ''}${word}`;
+        }
+
+        // If the original message is short enough, use it as-is
         if (cleanMessage.length <= 30) {
             return cleanMessage;
         }
 
-        const words = cleanMessage.split(' ');
-        let title = '';
-        for (const word of words) {
-            if ((title + word).length > 27) break;
-            title += `${title ? ' ' : ''}${word}`;
-        }
-        return `${title}...`;
+        return title ? `${title}...` : 'Travel Chat';
     };
 
     const markdownComponents: Components = {
@@ -837,10 +1169,47 @@ export default function ChatPageContent() {
                     // 🛑 Store in sessionStorage to avoid duplicates
                     sessionStorage.setItem("sentMessage", decodedMessage);
         
-                    // ✅ Update session title if user is logged in
-                    if (currentUser?.id) {
+                    // ✅ Update session title for all users (including guests)
+                    console.log('🔍 Checking title update conditions:', {
+                        hasCurrentUser: !!currentUser,
+                        userId: currentUser?.id,
+                        hasSessionId: !!sessionId,
+                        sessionId: sessionId,
+                        message: decodedMessage
+                    });
+                    
+                    if (currentUser?.id && sessionId) {
                         const newTitle = generateSessionTitle(decodedMessage);
-                        await updateSession(sessionId!, newTitle, currentUser.id);
+                        console.log(`🎯 Generated title: "${newTitle}" from message: "${decodedMessage}"`);
+                        
+                        try {
+                            console.log(`🔄 Calling updateSession API with:`, { sessionId, newTitle, userId: currentUser.id });
+                            await updateSession(sessionId, newTitle, currentUser.id);
+                            
+                            // Update the current session title in local state immediately
+                            setCurrentSession(prev => {
+                                console.log('📝 Updating current session title from:', prev?.title, 'to:', newTitle);
+                                return prev ? { ...prev, title: newTitle } : null;
+                            });
+                            
+                            // Refresh chat history to update the sidebar
+                            console.log('🔄 Refreshing chat history...');
+                            await fetchChatHistory();
+                            console.log(`✅ Session title updated successfully to: "${newTitle}"`);
+                        } catch (error) {
+                            console.error('❌ Failed to update session title:', error);
+                            // Still update local state even if API call fails
+                            setCurrentSession(prev => {
+                                console.log('📝 Updating local session title (fallback) to:', newTitle);
+                                return prev ? { ...prev, title: newTitle } : null;
+                            });
+                        }
+                    } else {
+                        console.warn('⚠️ Cannot update session title - missing requirements:', {
+                            hasCurrentUser: !!currentUser,
+                            hasUserId: !!currentUser?.id,
+                            hasSessionId: !!sessionId
+                        });
                     }
         
                     // ✅ Send message to backend only if not already sent
@@ -1011,8 +1380,10 @@ export default function ChatPageContent() {
                         </div>
 
                     ) : (
-                        <div className="flex-1 overflow-y-auto p-4">
-                            <div className="max-w-3xl mx-auto">
+                        <div className="flex-1 overflow-y-auto p-4 flex flex-col min-h-0">
+                            <div className="max-w-3xl mx-auto flex-1 flex flex-col min-h-full">
+                                {/* Spacer to push messages to bottom */}
+                                <div className="flex-1 min-h-[200px]"></div>
                                 {messages.map((message) => (
                                     <div
                                         key={message.id}
@@ -1025,10 +1396,13 @@ export default function ChatPageContent() {
                                                 </div>
                                             )}
                                             <div
-                                                className={`max-w-[80%] p-4 rounded-lg ${message.messageType === 'USER'
-                                                    ? 'bg-blue-500 text-white ml-auto'
-                                                    : 'bg-white border border-gray-200'
+                                                onClick={() => handleMessageClick(message)}
+                                                onContextMenu={(e) => handleContextMenu(e, message)}
+                                                className={`max-w-[80%] p-4 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] ${message.messageType === 'USER'
+                                                    ? 'bg-blue-500 text-white ml-auto hover:bg-blue-600'
+                                                    : 'bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50'
                                                     }`}
+                                                title={message.messageType === 'USER' ? 'Left-click to edit • Right-click for options' : 'Left-click to continue • Right-click for options'}
                                             >
                                                 <div className="prose max-w-none">
                                                     <ReactMarkdown components={markdownComponents}>
@@ -1047,19 +1421,30 @@ export default function ChatPageContent() {
                                 {/* ✅ Loader Display */}
                                 {isLoading && <MessageLoader />}
                                 <div ref={bottomRef} />
-                                <div ref={bottomRef} />
                             </div>
-                            {suggestions.length > 0 && (
-                                <Suggestions suggestions={suggestions} handleSendMessage={handleSendMessage} />
-                            )}
                         </div>
                     )}
                 </div>
 
-                {/* Chat Input */}
-                <div className="border-t bg-white p-4">
+                {/* Smart Suggestions - Fixed above input */}
+                {messages.length > 0 && (
+                    <div className="border-t border-gray-200 bg-white px-3 sm:px-4 py-2">
+                        <div className="max-w-3xl mx-auto">
+                            <SmartSuggestionsComponent 
+                                suggestions={suggestions} 
+                                handleSendMessage={handleSuggestionClick}
+                                chatHistory={messages}
+                                currentLocation={locationSuggestions.length > 0 ? locationSuggestions[locationSuggestions.length - 1]?.name : undefined}
+                                travelPhase="planning"
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Chat Input - Fixed at bottom */}
+                <div className="border-t bg-white p-3 sm:p-4 mt-auto">
                     <div className="max-w-3xl mx-auto">
-                        <div className="flex items-center gap-4 bg-white rounded-xl border shadow-md p-3">
+                        <div className="flex items-center gap-2 sm:gap-4 bg-white rounded-xl border shadow-md p-2 sm:p-3">
                             <Input
                                 type="text"
                                 placeholder="Type your message..."
@@ -1071,14 +1456,14 @@ export default function ChatPageContent() {
                                         handleSendMessage(inputMessage);
                                     }
                                 }}
-                                className="flex-1 border-none shadow-none focus:ring-0 py-4 px-4 rounded-xl bg-gray-100"
+                                className="flex-1 border-none shadow-none focus:ring-0 py-3 sm:py-4 px-3 sm:px-4 rounded-xl bg-gray-100 text-base sm:text-sm h-12 sm:h-auto"
                                 disabled={isLoading}
                                 aria-label="Chat input"
                             />
                             <Button
                                 onClick={() => handleSendMessage(inputMessage)}
                                 disabled={isLoading || !inputMessage.trim()}
-                                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl shadow"
+                                className="h-12 w-12 sm:h-auto sm:w-auto sm:px-4 sm:py-2 p-0 bg-blue-500 hover:bg-blue-600 text-white rounded-xl shadow min-w-[48px]"
                                 aria-label="Send message"
                             >
                                 {isLoading ? (
@@ -1087,7 +1472,7 @@ export default function ChatPageContent() {
                                         aria-hidden="true"
                                     />
                                 ) : (
-                                    <Send className="h-5 w-5" />
+                                    <Send className="h-6 w-6 sm:h-5 sm:w-5" />
                                 )}
                             </Button>
                             {currentSession?.sessionId && (
@@ -1196,6 +1581,39 @@ export default function ChatPageContent() {
                     onDismiss={handleLocationSuggestionsDismiss}
                     searchTerm={pendingLocationSearch!}
                 />
+            )}
+
+            {/* Context Menu */}
+            {contextMenu.visible && (
+                <div
+                    className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50 min-w-48"
+                    style={{
+                        left: `${contextMenu.x}px`,
+                        top: `${contextMenu.y}px`,
+                    }}
+                >
+                    <button
+                        onClick={handleCopyMessage}
+                        className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2"
+                    >
+                        📋 Copy Message
+                    </button>
+                    {contextMenu.message?.messageType === 'USER' ? (
+                        <button
+                            onClick={handleEditMessage}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2"
+                        >
+                            ✏️ Edit & Resend
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleContinueConversation}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2"
+                        >
+                            ➡️ Continue Conversation
+                        </button>
+                    )}
+                </div>
             )}
         </LoadScript>
     );
