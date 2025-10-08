@@ -11,7 +11,7 @@ export const MobileMapControls: React.FC<{
     isFullscreen: boolean;
 }> = ({ onFullscreen, onLocationMode, isFullscreen }) => {
     return (
-        <div className="md:hidden fixed bottom-4 right-4 z-20 flex flex-col gap-2">
+        <div className="md:hidden fixed bottom-4 right-4 z-20 flex flex-col gap-3">
             {/* Mobile-optimized control buttons */}
             <button
                 onClick={onFullscreen}

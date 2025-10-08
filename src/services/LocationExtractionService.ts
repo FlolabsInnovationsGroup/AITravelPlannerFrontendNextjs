@@ -159,22 +159,67 @@ export class LocationExtractionService {
 
             await this.#initPromise;
 
+            // Blacklist of common phrases that should not be treated as locations
+            const phraseBlacklist = [
+                'make it', 'make it unforgettable', 'make it perfect', 'make it special', 'make it amazing',
+                'take it', 'take it easy', 'keep it', 'keep it simple', 'get it', 'put it',
+                'love it', 'need it', 'want it', 'see it', 'do it', 'try it', 'use it',
+                'like it', 'have it', 'give it', 'find it', 'show it', 'tell it',
+                'book it', 'plan it', 'enjoy it', 'experience it', 'discover it',
+                'the best', 'the most', 'the perfect', 'the amazing', 'the wonderful',
+                'very good', 'very nice', 'so good', 'so nice', 'really good', 'really nice',
+                'family adventure', 'family fun', 'family time', 'family trip',
+                'adventure time', 'adventure trip', 'adventure tour',
+                'unforgettable', 'incredible', 'amazing', 'wonderful', 'perfect', 'special'
+            ];
+
             // Extract location name using multiple patterns
             const patterns = [
+                // Explicit map-related commands
                 /(?:add|show|display|put)\s+(.*?)\s+(?:to|on|in)\s+(?:the\s+)?map/i,
+                
+                // Questions about locations
                 /(?:where|what|find|show)\s+(?:is|are)\s+(.*?)(?:\s+(?:located|situated|found))?\??$/i,
-                /(?:find|locate|show)\s+(.*)/i,
-                /(?:in|at|to|from|visit|near|about)\s+(?:the\s+)?([A-Za-z\s-]+Tower[A-Za-z\s-]*)/i,
-                /(?:in|at|to|from|visit|near|about)\s+(?:the\s+)?([A-Za-z][A-Za-z\s-]+)(?=[.,]|$|\s|on\sthe\smap)/i,
-                /^([A-Za-z][A-Za-z\s-]+)(?=[.,]|$|\s|on\sthe\smap)/i
+                
+                // High-priority known major cities (HIGHEST PRIORITY - prevents false matches)
+                /(?:in|at|to|from|visit|near|about)\s+(?:the\s+)?(Tokyo|Paris|London|Berlin|Rome|Madrid|Amsterdam|Sydney|Vienna|Prague|Budapest|Brussels|Dublin|Edinburgh|Stockholm|Copenhagen|Oslo|Helsinki|Warsaw|Lisbon|Athens|Istanbul|Moscow|Barcelona)(?:\s*,?\s*(?:Japan|France|UK|USA|Germany|Italy|Spain|Netherlands|Australia|Austria|Hungary|Belgium|Ireland|Scotland|Sweden|Denmark|Norway|Finland|Poland|Portugal|Greece|Turkey|Russia))?/i,
+                
+                // More specific location patterns (removed the overly broad "find" pattern)
+                /(?:located|situated)\s+(?:in|at|near)\s+([A-Za-z][A-Za-z\s-]+)/i,
+                
+                // Specific landmark patterns (towers, monuments, etc.)
+                /(?:in|at|to|from|visit|near|about)\s+(?:the\s+)?([A-Za-z\s-]+(?:Tower|Monument|Palace|Castle|Temple|Church|Cathedral|Museum|Park|Square|Bridge|Station)[A-Za-z\s-]*)/i,
+                
+                // City/country patterns with prepositions
+                /(?:in|at|to|from|visit|near|about)\s+(?:the\s+)?([A-Z][A-Za-z\s-]+(?:,\s*)?(?:Japan|France|UK|USA|Germany|Italy|Spain|Netherlands|Australia|Canada|China|India|Brazil))/i,
+                
+                // Direct city/country mentions
+                /(?:in|at|to|from|visit|near|about)\s+(?:the\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s*,?\s*(?:Japan|France|UK|USA|Germany|Italy|Spain|Netherlands|Australia|Canada|China|India|Brazil)?)/i,
+                
+                // Beginning of message location (more restrictive)
+                /^([A-Z][A-Za-z\s-]+(?:,\s*(?:Japan|France|UK|USA|Germany|Italy|Spain|Netherlands|Australia|Canada|China|India|Brazil))?)(?=[.,!]|$|\s+(?:is|has|offers|provides))/i
             ];
 
             let locationName = '';
             for (const pattern of patterns) {
                 const match = message.match(pattern);
                 if (match?.[1]) {
-                    locationName = match[1].trim();
-                    break;
+                    const candidate = match[1].trim();
+                    
+                    // Check against blacklist
+                    const candidateLower = candidate.toLowerCase();
+                    const isBlacklisted = phraseBlacklist.some(phrase => 
+                        candidateLower === phrase || 
+                        candidateLower.includes(phrase) || 
+                        phrase.includes(candidateLower)
+                    );
+                    
+                    if (!isBlacklisted && this.#isValidLocationName(candidate)) {
+                        locationName = candidate;
+                        break;
+                    } else {
+                        console.log(`🚫 Rejected candidate location: "${candidate}" (${isBlacklisted ? 'blacklisted' : 'invalid format'})`);
+                    }
                 }
             }
 
@@ -330,5 +375,51 @@ export class LocationExtractionService {
         };
 
         return cityCoords[city] || null;
+    }
+
+    // Validate if a candidate string could be a valid location name
+    #isValidLocationName(candidate: string): boolean {
+        // Basic length check
+        if (candidate.length < 2 || candidate.length > 100) {
+            return false;
+        }
+
+        // Should start with a letter
+        if (!/^[A-Za-z]/.test(candidate)) {
+            return false;
+        }
+
+        // Should not be all lowercase common words
+        const commonWords = ['make', 'take', 'get', 'put', 'see', 'do', 'go', 'come', 'have', 'be', 'will', 'can', 'should', 'would', 'could', 'may', 'might'];
+        if (commonWords.includes(candidate.toLowerCase())) {
+            return false;
+        }
+
+        // Should not contain only pronouns/articles
+        const pronounsArticles = ['it', 'the', 'a', 'an', 'this', 'that', 'these', 'those', 'my', 'your', 'his', 'her', 'our', 'their'];
+        if (pronounsArticles.includes(candidate.toLowerCase())) {
+            return false;
+        }
+
+        // Should not be action words that commonly appear in travel requests
+        const actionWords = ['unforgettable', 'amazing', 'incredible', 'wonderful', 'perfect', 'special', 'great', 'awesome', 'fantastic'];
+        if (actionWords.includes(candidate.toLowerCase())) {
+            return false;
+        }
+
+        // Should not contain obvious non-location patterns
+        if (/\b(make|take|get|put|see|do|go|come|have|be|will|can|should|would|could|may|might)\s+(it|that|this)\b/i.test(candidate)) {
+            return false;
+        }
+
+        // Valid location names typically have:
+        // - Capital letters (proper nouns)
+        // - May contain spaces, hyphens, apostrophes
+        // - May contain numbers (for addresses)
+        if (!/^[A-Za-z][A-Za-z0-9\s\-'.,()]+$/.test(candidate)) {
+            return false;
+        }
+
+        return true;
     }
 }

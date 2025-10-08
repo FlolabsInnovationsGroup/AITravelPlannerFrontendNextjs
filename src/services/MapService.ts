@@ -23,6 +23,12 @@ export class MapService {
 
     constructor(private userToken: string) { }
 
+    // Update user token (useful for token refresh)
+    updateToken(newToken: string): void {
+        console.log('🔄 Updating MapService token');
+        this.userToken = newToken;
+    }
+
     // Get current connection status
     getConnectionStatus(): 'disconnected' | 'connecting' | 'connected' {
         return this.connectionStatus;
@@ -37,9 +43,14 @@ export class MapService {
             // Log connection transitions for debugging
             console.log(`🔄 MapService connection: ${previousStatus} → ${status}`);
             
-            // Reset retry manager on successful connection
+            // Reset retry manager and clear pending session on successful connection
             if (status === 'connected') {
                 this.wsRetryManager.reset();
+                // If we had a pending session, subscribe to it now
+                if (this.pendingSessionId && this.stompClient?.connected) {
+                    this.subscribeToSession(this.pendingSessionId);
+                    this.pendingSessionId = null;
+                }
             }
             
             this.onConnectionStatusChange?.(status);
@@ -69,17 +80,29 @@ export class MapService {
             throw new Error('Session ID is required to add a location');
         }
         
+        // Validate required location data
+        if (!location.latitude || !location.longitude) {
+            throw new Error('Latitude and longitude are required to add a location');
+        }
+        
         try {
+            // Validate token format (should be JWT with 3 parts)
+            if (!this.userToken || this.userToken.split('.').length !== 3) {
+                throw new Error('Invalid or missing authentication token. Please refresh the page and try again.');
+            }
+
             // Prepare the request payload according to the backend's expectations
             const locationRequest = {
-                latitude: location.latitude,
-                longitude: location.longitude,
+                latitude: Number(location.latitude),
+                longitude: Number(location.longitude),
                 name: location.name || '',
                 type: location.type || 'attraction',
                 sessionId: location.sessionId
             };
 
             console.log('🚀 Sending location request:', locationRequest);
+            console.log('🔑 Using token:', this.userToken ? `Token present (${this.userToken.substring(0, 20)}...)` : 'No token');
+            console.log('🌐 API URL:', `${API_BASE_URL}/api/locations/add`);
 
             const response = await fetch(`${API_BASE_URL}/api/locations/add`, {
                 method: 'POST',
@@ -90,11 +113,33 @@ export class MapService {
                 body: JSON.stringify(locationRequest),
             });
 
+            console.log('📊 Response status:', response.status, response.statusText);
+            console.log('📋 Response headers:', Object.fromEntries(response.headers.entries()));
+
             // First, check if the response is ok
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('❌ Server error response:', errorText);
-                throw new Error(`Failed to add location: ${response.statusText}`);
+                let errorDetails = 'Unknown error';
+                try {
+                    // Try to parse as JSON first
+                    const errorData = await response.json();
+                    errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
+                    console.error('❌ Server error (JSON):', errorData);
+                } catch (jsonError) {
+                    // If JSON parsing fails, get as text
+                    const errorText = await response.text();
+                    errorDetails = errorText;
+                    console.error('❌ Server error (Text):', errorText);
+                }
+                
+                console.error('❌ Full server error response:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    details: errorDetails,
+                    url: `${API_BASE_URL}/api/locations/add`,
+                    request: locationRequest
+                });
+                
+                throw new Error(`Failed to add location (${response.status}): ${errorDetails}`);
             }
 
             const data = await response.json();
@@ -102,6 +147,16 @@ export class MapService {
             return data;
         } catch (error) {
             console.error('❌ Error adding location:', error);
+            
+            // Provide more context for common errors
+            if (error instanceof TypeError && error.message.includes('fetch')) {
+                throw new Error('Network error: Unable to connect to the server. Please check your internet connection.');
+            }
+            
+            if (error instanceof Error && error.message.includes('JSON')) {
+                throw new Error('Server response error: The server returned an invalid response.');
+            }
+            
             throw error;
         }
     }
@@ -134,6 +189,11 @@ export class MapService {
 
     // WebSocket Methods
     connectWebSocket(sessionId: string): void {
+        if (!sessionId) {
+            console.error('❌ Cannot connect WebSocket: Session ID is required');
+            return;
+        }
+
         if (this.stompClient?.connected) {
             console.log('WebSocket already connected, subscribing to session:', sessionId);
             // If already connected, just subscribe to the new session
@@ -141,6 +201,13 @@ export class MapService {
                 console.error('Failed to subscribe to session:', error);
                 if (this.onError) this.onError(error);
             });
+            return;
+        }
+
+        // Prevent multiple connection attempts
+        if (this.connectionStatus === 'connecting') {
+            console.log('🔄 Connection already in progress, storing session for pending subscription:', sessionId);
+            this.pendingSessionId = sessionId;
             return;
         }
         
@@ -222,12 +289,22 @@ export class MapService {
     }
 
     private subscribeToSession(sessionId: string): void {
+        if (!sessionId) {
+            throw new Error('Session ID is required for subscription');
+        }
+
         if (!this.stompClient) {
-            throw new Error('STOMP client is not initialized');
+            throw new Error('STOMP client is not initialized. Please ensure WebSocket connection is established.');
         }
 
         if (!this.stompClient.connected) {
-            throw new Error(`Cannot subscribe: WebSocket not connected (state: ${this.stompClient.state})`);
+            const stateMap = {
+                0: 'CONNECTING',
+                1: 'OPEN', 
+                2: 'CLOSING',
+                3: 'CLOSED'
+            };
+            throw new Error(`Cannot subscribe: WebSocket not connected (state: ${this.stompClient.state} - ${stateMap[this.stompClient.state] || 'UNKNOWN'})`);
         }
 
         try {
@@ -248,7 +325,7 @@ export class MapService {
             if (subscription) {
                 console.log('✅ Successfully subscribed to session:', sessionId);
             } else {
-                throw new Error('Subscription returned null/undefined');
+                throw new Error('Subscription returned null/undefined - server may have rejected the subscription');
             }
         } catch (error) {
             console.error('❌ Error subscribing to session:', error);
@@ -265,8 +342,19 @@ export class MapService {
                     this.stompClient.state === 1) { // CONNECTED state
                     
                     console.log(`✅ STOMP client ready for subscription, attempt ${attempt}`);
-                    this.subscribeToSession(sessionId);
-                    return; // Success, exit the retry loop
+                    
+                    // Try to subscribe - catch any errors from subscribeToSession
+                    try {
+                        this.subscribeToSession(sessionId);
+                        console.log(`✅ Successfully subscribed to session ${sessionId} on attempt ${attempt}`);
+                        return; // Success, exit the retry loop
+                    } catch (subscribeError) {
+                        console.warn(`⚠️ Subscription failed on attempt ${attempt}:`, subscribeError);
+                        if (attempt === maxRetries) {
+                            throw subscribeError;
+                        }
+                        // Continue to next attempt
+                    }
                 } else {
                     console.warn(`⚠️ WebSocket not ready for subscription, attempt ${attempt}/${maxRetries}`, {
                         connected: this.stompClient?.connected,
@@ -275,14 +363,22 @@ export class MapService {
                         exists: !!this.stompClient
                     });
                     
-                    if (attempt < maxRetries) {
-                        await new Promise(resolve => setTimeout(resolve, delayMs * attempt)); // Exponential backoff
+                    // If no STOMP client exists, try to reinitialize connection
+                    if (!this.stompClient && attempt === 1) {
+                        console.log('🔄 No STOMP client found, reinitializing connection...');
+                        this.connectWebSocket(sessionId);
+                        await new Promise(resolve => setTimeout(resolve, delayMs * 2)); // Give more time for connection
+                        continue;
                     }
+                }
+                
+                if (attempt < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, delayMs * attempt)); // Exponential backoff
                 }
             } catch (error) {
                 console.error(`❌ Subscription attempt ${attempt}/${maxRetries} failed:`, error);
                 if (attempt === maxRetries) {
-                    console.error('❌ All subscription attempts failed');
+                    console.error(`❌ All subscription attempts failed for session ${sessionId}`);
                     throw error;
                 }
                 // Wait before next attempt with exponential backoff
