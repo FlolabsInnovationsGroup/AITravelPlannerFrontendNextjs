@@ -1,6 +1,6 @@
 import React from 'react';
 import { Location } from '@/types/map';
-import { Star, Clock, Phone, Globe, MapPin, DollarSign } from 'lucide-react';
+import { Star, Clock, Phone, Globe, MapPin, DollarSign, X, ExternalLink, Users, Navigation } from 'lucide-react';
 
 interface LocationInfoWindowProps {
     location: Location;
@@ -50,119 +50,151 @@ const LocationInfoWindow: React.FC<LocationInfoWindowProps> = ({
     };
 
     return (
-        <div className="bg-white rounded-lg shadow-lg max-w-sm w-80 overflow-hidden">
-            {/* Header with photo */}
+        <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-80 overflow-hidden border-0 backdrop-blur-sm">
+            {/* Header with photo and gradient overlay */}
             {location.photos && location.photos.length > 0 && (
-                <div className="relative h-32 bg-gray-200">
+                <div className="relative h-40 bg-gradient-to-br from-blue-400 to-purple-600">
                     <img 
                         src={location.photos[0]} 
                         alt={location.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                            // Hide image if it fails to load
+                            // Show gradient background if image fails to load
                             (e.target as HTMLElement).style.display = 'none';
                         }}
                     />
+                    {/* Gradient overlay for better text readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
+                    
+                    {/* Close button on image */}
+                    {onClose && (
+                        <button 
+                            onClick={onClose}
+                            className="absolute top-3 right-3 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center text-gray-700 hover:text-gray-900 transition-all"
+                            aria-label="Close"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
             )}
             
             {/* Content */}
-            <div className="p-4">
-                {/* Title and Rating */}
-                <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-lg text-gray-900 flex-1 pr-2">
+            <div className="p-5">
+                {/* Title and Close (if no photo) */}
+                <div className="flex justify-between items-start mb-3">
+                    <h3 className="font-bold text-xl text-gray-900 flex-1 pr-2 leading-tight">
                         {location.name || 'Unknown Location'}
                     </h3>
-                    {onClose && (
+                    {onClose && (!location.photos || location.photos.length === 0) && (
                         <button 
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                            className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 transition-all"
                             aria-label="Close"
                         >
-                            ×
+                            <X className="w-4 h-4" />
                         </button>
                     )}
                 </div>
                 
-                {/* Rating and Price */}
-                <div className="flex items-center justify-between mb-3">
-                    {formatRating(location.rating, location.userRatingsTotal)}
-                    {location.priceLevel && (
-                        <div className={`flex items-center gap-1 ${getPriceLevelColor(location.priceLevel)}`}>
-                            <DollarSign className="w-4 h-4" />
-                            <span className="font-medium">{getPriceLevelText(location.priceLevel)}</span>
+                {/* Rating and Price in modern card style */}
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        {formatRating(location.rating, location.userRatingsTotal)}
+                        {location.priceLevel && (
+                            <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${getPriceLevelColor(location.priceLevel)} bg-gray-50`}>
+                                <DollarSign className="w-3 h-3" />
+                                <span>{getPriceLevelText(location.priceLevel)}</span>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Opening status badge */}
+                    {location.isOpen !== undefined && (
+                        <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
+                            location.isOpen ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                            <Clock className="w-3 h-3" />
+                            {getStatusText(location.isOpen)}
                         </div>
                     )}
                 </div>
                 
                 {/* Address */}
                 {location.vicinity && (
-                    <div className="flex items-start gap-2 mb-3 text-gray-600">
-                        <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <span className="text-sm">{location.vicinity}</span>
+                    <div className="flex items-start gap-3 mb-4 p-3 bg-gray-50 rounded-lg">
+                        <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-gray-500" />
+                        <span className="text-sm text-gray-700 leading-relaxed">{location.vicinity}</span>
                     </div>
                 )}
                 
-                {/* Opening Hours */}
-                {location.isOpen !== undefined && (
-                    <div className="flex items-center gap-2 mb-3">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                        <span className={`text-sm font-medium ${getStatusColor(location.isOpen)}`}>
-                            {getStatusText(location.isOpen)}
-                        </span>
+                {/* Contact Info in modern card design */}
+                {(location.phoneNumber || location.website) && (
+                    <div className="space-y-2 mb-5">
+                        {location.phoneNumber && (
+                            <div className="flex items-center gap-3 p-2 hover:bg-blue-50 rounded-lg transition-colors">
+                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <Phone className="w-4 h-4 text-blue-600" />
+                                </div>
+                                <a 
+                                    href={`tel:${location.phoneNumber}`}
+                                    className="text-sm text-gray-700 hover:text-blue-600 transition-colors font-medium"
+                                >
+                                    {location.phoneNumber}
+                                </a>
+                            </div>
+                        )}
+                        
+                        {location.website && (
+                            <div className="flex items-center gap-3 p-2 hover:bg-blue-50 rounded-lg transition-colors">
+                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <Globe className="w-4 h-4 text-blue-600" />
+                                </div>
+                                <a 
+                                    href={location.website}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-gray-700 hover:text-blue-600 transition-colors font-medium flex items-center gap-1"
+                                >
+                                    Visit website
+                                    <ExternalLink className="w-3 h-3" />
+                                </a>
+                            </div>
+                        )}
                     </div>
                 )}
                 
-                {/* Contact Info */}
-                <div className="space-y-2 mb-4">
-                    {location.phoneNumber && (
-                        <div className="flex items-center gap-2">
-                            <Phone className="w-4 h-4 text-gray-500" />
-                            <a 
-                                href={`tel:${location.phoneNumber}`}
-                                className="text-sm text-blue-600 hover:underline"
-                            >
-                                {location.phoneNumber}
-                            </a>
-                        </div>
-                    )}
-                    
-                    {location.website && (
-                        <div className="flex items-center gap-2">
-                            <Globe className="w-4 h-4 text-gray-500" />
-                            <a 
-                                href={location.website}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-blue-600 hover:underline"
-                            >
-                                Visit website
-                            </a>
-                        </div>
-                    )}
-                </div>
-                
-                {/* Action Buttons */}
-                <div className="flex gap-2">
+                {/* Action Buttons - Mindtrip style */}
+                <div className="flex flex-col gap-2">
                     {onGetDirections && (
                         <button
                             onClick={() => onGetDirections(location)}
-                            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                            className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                         >
+                            <Navigation className="w-4 h-4" />
                             Get Directions
                         </button>
                     )}
                     
-                    {location.placeId && (
-                        <a
-                            href={`https://www.google.com/maps/place/?q=place_id:${location.placeId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
-                        >
-                            View on Google Maps
-                        </a>
-                    )}
+                    <div className="flex gap-2">
+                        {location.placeId && (
+                            <a
+                                href={`https://www.google.com/maps/place/?q=place_id:${location.placeId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-2 flex-1 px-4 py-2 bg-white border-2 border-gray-200 text-gray-700 rounded-lg font-medium hover:border-gray-300 hover:bg-gray-50 transition-all"
+                            >
+                                <ExternalLink className="w-4 h-4" />
+                                Google Maps
+                            </a>
+                        )}
+                        
+                        {/* Additional action button for future features */}
+                        <button className="flex items-center justify-center gap-2 flex-1 px-4 py-2 bg-white border-2 border-gray-200 text-gray-700 rounded-lg font-medium hover:border-gray-300 hover:bg-gray-50 transition-all">
+                            <Users className="w-4 h-4" />
+                            Share
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

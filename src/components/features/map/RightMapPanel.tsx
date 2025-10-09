@@ -69,6 +69,11 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                             if (loc.id === newLocation.id) {
                                 return true;
                             }
+                            // Check by name (for same cities with slightly different coordinates)
+                            if (loc.name === newLocation.name) {
+                                console.log(`⚠️ Location with name "${newLocation.name}" already exists, skipping duplicate`);
+                                return true;
+                            }
                             // Then check by distance for locations without IDs
                             const distance = calculateHaversineDistance(
                                 loc.latitude, loc.longitude,
@@ -131,12 +136,26 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
     useEffect(() => {
         const service = mapServiceRef.current;
         if (currentSessionId && service) {
+            // Clear existing locations when switching sessions to prevent cross-session pollution
+            console.log("🧹 Clearing previous session locations before connecting to:", currentSessionId);
+            setLocations([]);
+            // Safely clear markers (won't throw error if map not initialized)
+            service.clearAllMarkers();
+            
             console.log("🔄 Connecting WebSocket for session:", currentSessionId);
             try {
                 service.connectWebSocket(currentSessionId);
             } catch (error) {
                 console.error("❌ WebSocket connection error:", error);
                 toast.error("Failed to establish real-time connection");
+            }
+        } else if (!currentSessionId) {
+            // Clear locations when no session is active (e.g., during new chat creation)
+            console.log("🧹 No session ID - clearing all locations");
+            setLocations([]);
+            if (service) {
+                // Safely clear markers (won't throw error if map not initialized)
+                service.clearAllMarkers();
             }
         }
     }, [currentSessionId]);
@@ -196,6 +215,12 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
             setLocations(prevLocations => {
                 // Check if location already exists using proper Haversine distance calculation
                 const exists = prevLocations.some(loc => {
+                    // Check by name first (for same cities with slightly different coordinates)
+                    if (loc.name === customEvent.detail.name) {
+                        console.log(`⚠️ Location with name "${customEvent.detail.name}" already exists, skipping duplicate`);
+                        return true;
+                    }
+                    // Then check by distance
                     const distance = calculateHaversineDistance(
                         loc.latitude, loc.longitude,
                         customEvent.detail.latitude, customEvent.detail.longitude
@@ -205,7 +230,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                 });
 
                 if (exists) {
-                    console.log("⚠️ Location too close to existing location, skipping");
+                    console.log("⚠️ Location already exists or too close to existing location, skipping");
                     return prevLocations;
                 }
 

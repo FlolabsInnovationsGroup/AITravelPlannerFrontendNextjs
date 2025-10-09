@@ -50,7 +50,7 @@ const apiClient = axios.create({
 
 // Add token to all requests
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -63,20 +63,24 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
-    // If the error is 401 and we haven't already tried to refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // If the error is 401 and we haven't already tried to refresh, and it's not the guest-token endpoint
+    if (error.response?.status === 401 && 
+        !originalRequest._retry && 
+        !originalRequest.url?.includes('/api/auth/guest-token')) {
       originalRequest._retry = true;
       
       try {
-        // Get a new guest token
+        console.log('Attempting token refresh due to 401 error');
+        // Get a new guest token directly via axios (no interceptors)
         const response = await axios.post(`${API_BASE_URL}/api/auth/guest-token`);
         
         // Check if we got a valid token in the response
         if (response.status === 200 && response.data.token) {
           const newToken = response.data.token;
+          console.log('Token refresh successful');
           
           // Save the new token
-          localStorage.setItem(TOKEN_KEY, newToken);
+          setToken(newToken);
           
           // Update the failed request's token and retry
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -85,8 +89,9 @@ apiClient.interceptors.response.use(
           throw new Error('No valid token received in refresh response');
         }
       } catch (refreshError) {
-        // If refresh fails, clear token and let user try again
-        localStorage.removeItem(TOKEN_KEY);
+        console.error('Token refresh failed:', refreshError);
+        // If refresh fails, clear token but don't reload to avoid infinite loops
+        clearToken();
         return Promise.reject(refreshError);
       }
     }
@@ -95,26 +100,17 @@ apiClient.interceptors.response.use(
   }
 );
 
-// Original request interceptor
-apiClient.interceptors.request.use((config) => {
-  const token = getToken();
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`;
+// Token validation helper
+const isTokenExpired = (token: string): boolean => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const currentTime = Math.floor(Date.now() / 1000);
+    return payload.exp < currentTime;
+  } catch (error) {
+    console.error('Error parsing token:', error);
+    return true; // Treat invalid tokens as expired
   }
-  return config;
-});
-
-// Handle unauthorized responses
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      clearToken();
-      window.location.href = '/auth/signin';
-    }
-    return Promise.reject(error);
-  }
-);
+};
 
 // Token management
 export const setToken = (token: string) => {
@@ -123,7 +119,14 @@ export const setToken = (token: string) => {
 
 export const getToken = () => {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem(TOKEN_KEY);
+    const token = localStorage.getItem(TOKEN_KEY);
+    // Check if token exists and is not expired
+    if (token && isTokenExpired(token)) {
+      console.log('Token expired, clearing from storage');
+      clearToken();
+      return null;
+    }
+    return token;
   }
   return null;
 };
@@ -132,11 +135,35 @@ export const clearToken = () => {
   localStorage.removeItem(TOKEN_KEY);
 };
 
-// Guest token creation
+// Force clear all authentication data and create fresh session
+export const initializeFreshSession = async (): Promise<string> => {
+  console.log('Initializing fresh session - clearing all tokens');
+  
+  // Clear all possible token storage
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem('sessionId');
+  localStorage.removeItem('user');
+  
+  // Clear any cached authentication data
+  localStorage.clear();
+  
+  try {
+    // Create new guest token
+    const newToken = await createGuestToken();
+    console.log('Fresh session initialized successfully');
+    return newToken;
+  } catch (error) {
+    console.error('Failed to initialize fresh session:', error);
+    throw error;
+  }
+};
+
+// Guest token creation - use direct axios without interceptors to avoid circular calls
 export const createGuestToken = async (): Promise<string> => {
   try {
     console.log('Creating guest token with API URL:', API_BASE_URL);
-    const response = await apiClient.post<GuestTokenResponse>('/api/auth/guest-token');
+    // Use direct axios without interceptors to prevent circular dependencies
+    const response = await axios.post<GuestTokenResponse>(`${API_BASE_URL}/api/auth/guest-token`);
     
     // Check for successful response
     if (response.status === 200 && response.data.token) {

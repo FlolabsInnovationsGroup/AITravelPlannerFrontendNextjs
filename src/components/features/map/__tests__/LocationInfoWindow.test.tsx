@@ -87,7 +87,7 @@ describe('LocationInfoWindow', () => {
     render(<LocationInfoWindow {...defaultProps} />);
 
     expect(screen.getByText('Open now')).toBeInTheDocument();
-    expect(screen.getByText('Open now')).toHaveClass('text-green-600');
+    expect(screen.getByText('Open now')).toHaveClass('text-green-700');
   });
 
   it('displays closed status when location is closed', () => {
@@ -95,7 +95,7 @@ describe('LocationInfoWindow', () => {
     render(<LocationInfoWindow location={closedLocation} onGetDirections={jest.fn()} />);
 
     expect(screen.getByText('Closed')).toBeInTheDocument();
-    expect(screen.getByText('Closed')).toHaveClass('text-red-600');
+    expect(screen.getByText('Closed')).toHaveClass('text-red-700');
   });
 
   it('does not display opening hours when not available', () => {
@@ -217,7 +217,7 @@ describe('LocationInfoWindow', () => {
     render(<LocationInfoWindow {...defaultProps} />);
 
     const container = screen.getByText('Test Restaurant').closest('.bg-white');
-    expect(container).toHaveClass('bg-white', 'rounded-lg', 'shadow-lg', 'max-w-sm', 'w-80', 'overflow-hidden');
+    expect(container).toHaveClass('bg-white', 'rounded-2xl', 'shadow-2xl', 'max-w-sm', 'w-80', 'overflow-hidden');
   });
 
   it('displays all action buttons when callbacks are provided', () => {

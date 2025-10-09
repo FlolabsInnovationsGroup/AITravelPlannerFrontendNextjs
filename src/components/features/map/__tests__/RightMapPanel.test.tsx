@@ -40,6 +40,7 @@ const mockMapService = {
   connectWebSocket: jest.fn(),
   disconnect: jest.fn(),
   addLocation: jest.fn(),
+  clearAllMarkers: jest.fn(),
   onError: jest.fn(),
   onConnect: jest.fn(),
   onDisconnect: jest.fn(),

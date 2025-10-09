@@ -8,6 +8,8 @@ import LocationInfoWindow from "./LocationInfoWindow";
 import WeatherOverlay from "./WeatherOverlay";
 import RoutePanel from "./RoutePanel";
 import MapControls from "./MapControls";
+import { createCustomMarkerElement } from "./CustomMarker";
+import SmartSuggestions from "./SmartSuggestions";
 
 // Helper function to get marker color based on location type
 const getMarkerColor = (type?: LocationType): string => {
@@ -48,6 +50,49 @@ const getMarkerColor = (type?: LocationType): string => {
         case 'attraction':
         default:
             return '#D0021B';  // Red
+    }
+};
+
+// Helper function to get marker emoji based on location type
+const getMarkerEmoji = (type?: LocationType): string => {
+    switch (type) {
+        case 'hotel':
+        case 'accommodation':
+            return '🏨';
+        case 'restaurant':
+            return '🍽️';
+        case 'cafe':
+            return '☕';
+        case 'airport':
+            return '✈️';
+        case 'station':
+        case 'transport':
+            return '🚉';
+        case 'museum':
+            return '🏛️';
+        case 'park':
+        case 'nature':
+            return '🌳';
+        case 'beach':
+            return '🏖️';
+        case 'mountain':
+            return '⛰️';
+        case 'shopping':
+            return '🛍️';
+        case 'entertainment':
+            return '🎭';
+        case 'landmark':
+        case 'viewpoint':
+            return '🏛️';
+        case 'religious':
+            return '⛪';
+        case 'hospital':
+            return '🏥';
+        case 'sports':
+            return '⚽';
+        case 'attraction':
+        default:
+            return '📍';
     }
 };
 
@@ -103,13 +148,51 @@ interface GoogleMapComponentProps {
 // Define libraries array and ensure it has the correct types
 const libraries: LoadScriptProps["libraries"] = ["places", "geocoding"];
 
-// Define map styles
+// Define map styles inspired by Mindtrip's clean design
 const mapContainerStyle = {
     width: "100%",
     height: "100%",
     minHeight: "500px",
     position: "relative" as const,
+    borderRadius: "12px",
+    overflow: "hidden",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
 };
+
+// Modern map styling similar to Mindtrip - will be applied when map loads
+const getMapOptions = () => ({
+    disableDefaultUI: true,
+    zoomControl: true,
+    mapTypeControl: false,
+    scaleControl: false,
+    streetViewControl: false,
+    rotateControl: false,
+    fullscreenControl: true,
+    gestureHandling: "cooperative",
+    styles: [
+        {
+            "featureType": "poi",
+            "elementType": "labels",
+            "stylers": [{ "visibility": "off" }]
+        },
+        {
+            "featureType": "transit.station",
+            "elementType": "labels",
+            "stylers": [{ "visibility": "off" }]
+        },
+        {
+            "featureType": "road",
+            "elementType": "labels.icon",
+            "stylers": [{ "visibility": "off" }]
+        }
+    ],
+    zoomControlOptions: {
+        position: 7, // google.maps.ControlPosition.RIGHT_CENTER
+    },
+    fullscreenControlOptions: {
+        position: 2, // google.maps.ControlPosition.RIGHT_TOP
+    }
+});
 
 const defaultCenter = {
     lat: 48.8566, // Paris coordinates as default
@@ -261,8 +344,15 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
 
         cleanupMarkers();
 
+        // Filter out duplicate locations by name to prevent clustering issues
+        const uniqueLocations = locations.filter((location, index, self) => 
+            index === self.findIndex(loc => loc.name === location.name)
+        );
+
+        console.log(`🗺️ Filtering locations: ${locations.length} → ${uniqueLocations.length} unique locations`);
+
         const bounds = new google.maps.LatLngBounds();
-        const newMarkers: google.maps.Marker[] = locations.map(location => {
+        const newMarkers: google.maps.Marker[] = uniqueLocations.map(location => {
             const position = {
                 lat: location.latitude,
                 lng: location.longitude
@@ -270,21 +360,31 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
 
             bounds.extend(position);
 
+            // Create custom marker element
+            const customMarkerElement = createCustomMarkerElement(location, selectedLocation?.id === location.id);
+            
             const marker = new google.maps.Marker({
                 position,
                 map,
                 title: location.name,
                 icon: {
-                    url: getMarkerIcon(location.type),
-                    scaledSize: new google.maps.Size(32, 32),
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+                            <circle cx="20" cy="20" r="18" fill="${getMarkerColor(location.type)}" stroke="white" stroke-width="3"/>
+                            <text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-family="Arial, sans-serif">${getMarkerEmoji(location.type)}</text>
+                        </svg>
+                    `),
+                    scaledSize: new google.maps.Size(40, 40),
                     origin: new google.maps.Point(0, 0),
-                    anchor: new google.maps.Point(16, 32)
+                    anchor: new google.maps.Point(20, 40)
                 },
-                animation: google.maps.Animation.DROP
+                animation: google.maps.Animation.DROP,
+                zIndex: selectedLocation?.id === location.id ? 1000 : 100
             });
 
             // Add click listener to marker for enhanced info window
             marker.addListener('click', () => {
+                setSelectedLocation(location);
                 handleMarkerClick(location, marker);
             });
 
@@ -293,14 +393,22 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
 
         markersRef.current = newMarkers;
 
-        // Create a new MarkerClusterer
+        // Only use MarkerClusterer for multiple locations (2 or more)
         if (clustererRef.current) {
             clustererRef.current.clearMarkers();
         }
-        clustererRef.current = new MarkerClusterer({
-            map,
-            markers: newMarkers
-        });
+        
+        // Only use clustering when there are truly multiple unique locations
+        if (uniqueLocations.length > 1) {
+            // Use clustering for multiple locations
+            clustererRef.current = new MarkerClusterer({
+                map,
+                markers: newMarkers
+            });
+        } else {
+            // For single location, don't use clustering - just show individual marker
+            clustererRef.current = null;
+        }
 
         // Adjust bounds if there are markers
         if (newMarkers.length > 0) {
@@ -405,32 +513,7 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                 zoom={13}
                 onLoad={handleLoad}
                 onUnmount={handleUnmount}
-                options={{
-                    // Clean UI with minimal built-in controls
-                    fullscreenControl: false,
-                    mapTypeControl: false,
-                    streetViewControl: false,
-                    zoomControl: false, // Disabled to avoid duplicate controls
-                    scaleControl: false,
-                    rotateControl: false,
-                    gestureHandling: 'cooperative', // Users can still zoom with gestures
-                    
-                    // Travel-friendly styling
-                    styles: [
-                        {
-                            featureType: 'poi.business',
-                            stylers: [{ visibility: 'on' }]
-                        },
-                        {
-                            featureType: 'transit',
-                            stylers: [{ visibility: 'on' }]
-                        }
-                    ],
-                    
-                    disableDefaultUI: false,
-                    clickableIcons: true,
-                    keyboardShortcuts: true
-                }}
+                options={getMapOptions()}
             >
                 <SearchBox 
                     map={map}

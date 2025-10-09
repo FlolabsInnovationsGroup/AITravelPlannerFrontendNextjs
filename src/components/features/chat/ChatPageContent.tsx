@@ -90,6 +90,7 @@ export default function ChatPageContent() {
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [locationSuggestions, setLocationSuggestions] = useState<Location[]>([]);
     const [pendingLocationSearch, setPendingLocationSearch] = useState<string | null>(null);
+    const [lastLocationAlternatives, setLastLocationAlternatives] = useState<Location[]>([]);
     
     // Context menu state
     const [contextMenu, setContextMenu] = useState<{
@@ -298,6 +299,15 @@ export default function ChatPageContent() {
             // Reset initialization state
             initializationRef.current = false;
             setIsInitialized(false);
+            
+            // Disconnect from current session's WebSocket and clear map data safely
+            if (mapServiceRef.current) {
+                console.log("🧹 Disconnecting from previous session and clearing map");
+                mapServiceRef.current.disconnect();
+                // Safely clear markers (won't throw error if map not initialized)
+                mapServiceRef.current.clearAllMarkers();
+            }
+            
             setCurrentSession(null);
             setMessages([]);
             setDisplayPrompts(true);
@@ -331,7 +341,31 @@ export default function ChatPageContent() {
             setCurrentSession(session);
             const sessionMessages = await getSessionMessages(session.sessionId);
             const messageArray = Array.isArray(sessionMessages) ? sessionMessages : [];
-            setMessages(messageArray);
+            
+            // ✅ Apply JSON parsing to historical messages (same logic as new messages)
+            const parsedMessages = messageArray.map(message => {
+                if (message.messageType === 'ASSISTANT' && message.content) {
+                    // Check if the message is actually a JSON string that needs parsing
+                    if (message.content.trim().startsWith('{') && message.content.trim().endsWith('}')) {
+                        try {
+                            const parsedResponse = JSON.parse(message.content);
+                            if (parsedResponse.message && typeof parsedResponse.message === 'string') {
+                                console.log("📝 Parsing JSON in historical message:", parsedResponse);
+                                return {
+                                    ...message,
+                                    content: parsedResponse.message
+                                };
+                            }
+                        } catch (parseError) {
+                            console.warn("⚠️ Failed to parse JSON in historical message, using raw message:", parseError);
+                            // Keep original message if parsing fails
+                        }
+                    }
+                }
+                return message;
+            });
+            
+            setMessages(parsedMessages);
             setDisplayPrompts(false);
             setShowChatHistory(false);
             setIsMobileMenuOpen(false);
@@ -591,28 +625,19 @@ export default function ChatPageContent() {
                     console.log("🔍 Location extraction result:", locationResult);
                     
                     if (locationResult.extractedLocation && currentSession?.sessionId) {
-                        // Check if there are multiple suggestions
-                        if (locationResult.suggestedPlaces && locationResult.suggestedPlaces.length > 0) {
-                            // Show suggestions to user - BUT DON'T add user message to chat yet
-                            // Remove the user message that was added earlier since we're waiting for selection
-                            setMessages((prev) => {
-                                if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.length - 1].messageType === "USER") {
-                                    console.log("🔄 Removing user message temporarily for location selection");
-                                    return prev.slice(0, -1); // Remove last message
-                                }
-                                return prev;
-                            });
-                            
-                            console.log("🔍 Multiple location options found, showing suggestions");
-                            setLocationSuggestions([locationResult.extractedLocation, ...locationResult.suggestedPlaces]);
-                            setPendingLocationSearch(message);
-                            setIsLoading(false); // Stop loading since we're waiting for user input
-                            return; // Don't proceed with sending the message yet
-                        }
-                        
-                        console.log("📍 Found location:", locationResult.extractedLocation);
+                        // Automatically use the most likely location (first result) instead of showing popup
+                        console.log("� Found location:", locationResult.extractedLocation);
                         await addLocationToMap(locationResult.extractedLocation);
                         locationsAdded = true;
+                        
+                        // Store alternative locations for AI context
+                        if (locationResult.suggestedPlaces && locationResult.suggestedPlaces.length > 0) {
+                            console.log(`🎯 Auto-selected most likely location. ${locationResult.suggestedPlaces.length} alternatives available:`, 
+                                locationResult.suggestedPlaces.map(p => p.name).join(', '));
+                            setLastLocationAlternatives(locationResult.suggestedPlaces);
+                        } else {
+                            setLastLocationAlternatives([]);
+                        }
                     } else if (locationResult.error) {
                         console.warn("⚠️ Location extraction error:", locationResult.error);
                     } else {
@@ -630,6 +655,13 @@ export default function ChatPageContent() {
             let messageToSend = message;
             if (locationsAdded) {
                 messageToSend = `${message}. Please provide detailed travel information about this place without adding it to the map again.`;
+                
+                // Add context about alternatives if they exist
+                if (lastLocationAlternatives.length > 0) {
+                    const alternativeNames = lastLocationAlternatives.slice(0, 3).map(loc => loc.name).join(', ');
+                    messageToSend += ` [Context: I auto-selected the most likely location. If multiple locations were possible, mention alternatives like: ${alternativeNames}. Ask if they meant a different location if applicable.]`;
+                }
+                
                 console.log("📍 Enhanced message for AI (internal):", messageToSend);
             }
 
@@ -1486,8 +1518,8 @@ export default function ChatPageContent() {
             {/* Right Map Panel (Desktop only)*/}
             <div className="hidden lg:block flex-[2.7] bg-white overflow-hidden p-4 h-full">
                 <RightMapPanel
-                    currentSessionId={currentSession?.sessionId || ""}
-                    currentUserToken={currentUser?.token || ""}
+                    currentSessionId={currentSession?.sessionId || null}
+                    currentUserToken={currentUser?.token || null}
                 />
 
             </div>
@@ -1519,8 +1551,8 @@ export default function ChatPageContent() {
                         {/* Map content */}
                         <div className="h-full overflow-auto">
                             <RightMapPanel
-                                currentSessionId={currentSession?.sessionId || ""}
-                                currentUserToken={currentUser?.token || ""}
+                                currentSessionId={currentSession?.sessionId || null}
+                                currentUserToken={currentUser?.token || null}
                             />
                         </div>
                     </div>
