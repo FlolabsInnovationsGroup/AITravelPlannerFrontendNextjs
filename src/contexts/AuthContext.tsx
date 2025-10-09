@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { getToken, setToken, clearToken, getCurrentUser, createGuestToken } from '@/lib/api';
+import { getToken, setToken, clearToken, getCurrentUser, createGuestToken, initializeFreshSession } from '@/lib/api';
 
 interface User {
   id: string;
@@ -29,13 +29,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        let token = getToken();
+        let token = getToken(); // This will return null if token is expired
         
-        // Always create a new guest token if we don't have one
+        // If no valid token, initialize fresh session
         if (!token) {
-          token = await createGuestToken();
-          // Token is already saved in createGuestToken(), but ensure it's set
-          setToken(token);
+          console.log('No valid token found, initializing fresh session');
+          token = await initializeFreshSession();
         }
 
         // Add a small delay to ensure token is properly set in localStorage

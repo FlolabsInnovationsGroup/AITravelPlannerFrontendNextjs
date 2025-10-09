@@ -230,14 +230,14 @@ export class MapService {
         this.stompClient = new Client({
             webSocketFactory: () => new SockJS(finalSocketUrl, null, {
                 transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
-                timeout: 10000, // 10 second timeout
+                timeout: 15000, // Increased timeout to 15 seconds
             }),
             connectHeaders: {
                 Authorization: `Bearer ${this.userToken}`,
             },
             reconnectDelay: 5000,
-            heartbeatIncoming: 4000,
-            heartbeatOutgoing: 4000,
+            heartbeatIncoming: 10000, // Increased heartbeat intervals
+            heartbeatOutgoing: 10000,
             debug: (str) => {
                 console.debug('🔄 STOMP:', str);
             },
@@ -252,22 +252,26 @@ export class MapService {
                     this.pendingSessionId = null; // Clear pending session
                     
                     console.log('🔗 Subscribing to pending session:', sessionToSubscribe);
-                    // Use a more reliable approach - subscribe directly since we're in onConnect
-                    try {
-                        this.subscribeToSession(sessionToSubscribe);
-                    } catch (error) {
-                        console.error('❌ Direct subscription failed, trying with retry:', error);
-                        this.subscribeToSessionWithRetry(sessionToSubscribe).catch(retryError => {
-                            console.error('❌ Retry subscription also failed:', retryError);
-                            if (this.onError) this.onError(retryError);
-                        });
-                    }
+                    // Use retry mechanism for better reliability even in onConnect
+                    this.subscribeToSessionWithRetry(sessionToSubscribe).catch(error => {
+                        console.error('❌ Failed to subscribe to pending session:', error);
+                        if (this.onError) this.onError(error);
+                    });
                 }
                 
-                if (this.onConnect) this.onConnect();
+                // Wait a bit to ensure connection is fully stabilized before calling onConnect
+                setTimeout(() => {
+                    if (this.onConnect) this.onConnect();
+                }, 500);
             },
             onStompError: (frame) => {
-                console.error('❌ STOMP error:', frame.headers, 'Session:', sessionId);
+                console.error('❌ STOMP error:', frame);
+                console.error('❌ Error details:', {
+                    command: frame.command,
+                    headers: frame.headers,
+                    body: frame.body,
+                    sessionId: sessionId
+                });
                 this.setConnectionStatus('disconnected');
                 this.handleConnectionError().catch(console.error);
             },
@@ -333,7 +337,7 @@ export class MapService {
         }
     }
 
-    private async subscribeToSessionWithRetry(sessionId: string, maxRetries: number = 5, delayMs: number = 300): Promise<void> {
+    private async subscribeToSessionWithRetry(sessionId: string, maxRetries: number = 5, delayMs: number = 1000): Promise<void> {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 // More comprehensive check for STOMP client readiness
@@ -342,6 +346,9 @@ export class MapService {
                     this.stompClient.state === 1) { // CONNECTED state
                     
                     console.log(`✅ STOMP client ready for subscription, attempt ${attempt}`);
+                    
+                    // Add a small delay to ensure the connection is fully established
+                    await new Promise(resolve => setTimeout(resolve, 200));
                     
                     // Try to subscribe - catch any errors from subscribeToSession
                     try {
@@ -367,13 +374,15 @@ export class MapService {
                     if (!this.stompClient && attempt === 1) {
                         console.log('🔄 No STOMP client found, reinitializing connection...');
                         this.connectWebSocket(sessionId);
-                        await new Promise(resolve => setTimeout(resolve, delayMs * 2)); // Give more time for connection
+                        await new Promise(resolve => setTimeout(resolve, delayMs * 3)); // Give more time for connection
                         continue;
                     }
                 }
                 
                 if (attempt < maxRetries) {
-                    await new Promise(resolve => setTimeout(resolve, delayMs * attempt)); // Exponential backoff
+                    const waitTime = Math.min(delayMs * attempt, 5000); // Cap at 5 seconds
+                    console.log(`⏳ Waiting ${waitTime}ms before retry ${attempt + 1}`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
                 }
             } catch (error) {
                 console.error(`❌ Subscription attempt ${attempt}/${maxRetries} failed:`, error);
@@ -382,7 +391,8 @@ export class MapService {
                     throw error;
                 }
                 // Wait before next attempt with exponential backoff
-                await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
+                const waitTime = Math.min(delayMs * attempt, 5000); // Cap at 5 seconds
+                await new Promise(resolve => setTimeout(resolve, waitTime));
             }
         }
         throw new Error(`Failed to subscribe to session ${sessionId} after ${maxRetries} attempts`);
@@ -524,9 +534,10 @@ export class MapService {
 
     clearAllMarkers(): void {
         if (!this.mapInstance) {
-            const error = new Error('Map instance is not set. Please initialize the map.');
-            console.error('❌', error);
-            if (this.onError) this.onError(error);
+            // Silently clear markers array even if map isn't initialized
+            // This prevents errors during session transitions before map loads
+            console.log('🧹 Clearing markers array (map not yet initialized)');
+            this.markers = [];
             return;
         }
 

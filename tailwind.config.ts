@@ -56,6 +56,9 @@ module.exports = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      fontSize: {
+        lgplus: "1.1875rem", // ~19px, between text-lg (18px) and text-xl (20px)
+      },
       keyframes: {
         "accordion-down": {
           from: { height: 0 },

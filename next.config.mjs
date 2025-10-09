@@ -12,6 +12,11 @@ const nextConfig = {
       ? process.env.NEXT_PUBLIC_API_URL || 'https://api.flomadtravel.com'
       : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
   },
+  // Image configuration for Next.js 16 compatibility
+  images: {
+    qualities: [75, 85, 100],
+    formats: ['image/webp', 'image/avif'],
+  },
   // Remove standalone output to fix Windows symlink issues
   // output: 'standalone', // Commented out due to Windows EPERM symlink errors
   // outputFileTracingRoot: process.cwd(),
