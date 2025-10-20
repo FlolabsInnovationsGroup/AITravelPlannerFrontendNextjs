@@ -49,4 +49,4 @@ next-env.d.ts
 test-*.js
 system-integration-test.js
 test-websocket-debug.js
-scripts/clearTokens.js
+scripts/clearTokens.js.gitignore
