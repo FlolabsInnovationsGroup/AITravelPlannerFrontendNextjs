@@ -39,7 +39,7 @@ useEffect(() => {
     }
 
     const protocol = window.location.protocol === "https:" ? "https" : "http";
-    const socketUrl = `${protocol}://api.flomadtravel.com/ws`;
+    const socketUrl = `${protocol}://localhost:8080`;
 
     const client = new Client({
         webSocketFactory: () => new SockJS(socketUrl),

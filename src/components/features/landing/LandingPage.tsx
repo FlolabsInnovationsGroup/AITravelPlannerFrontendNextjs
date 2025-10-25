@@ -100,18 +100,13 @@ export default function LandingPage() {
               <div className="flex items-center space-x-6">
                 <Link href="/about" className="text-white hover:text-gray-300">About</Link>
                 <Link href="/contact" className="text-white hover:text-gray-300">Contact</Link>
-
-                <Link href="/auth/signup" passHref>
-                  <Button variant="secondary" className="bg-white text-black hover:bg-gray-200">
-                    Create Account
-                  </Button>
+                <Link href="/auth/signin" passHref>
+                  <Button variant="secondary" className="bg-white text-black hover:bg-gray-200">Sign In</Button>
                 </Link>
 
                 {isAuthenticated && (
                   <Link href="/chat" passHref>
-                    <Button variant="secondary" className="bg-blue-500 text-white hover:bg-blue-600">
-                      Go to Chat
-                    </Button>
+                    <Button variant="secondary" className="bg-blue-500 text-white hover:bg-blue-600">Get Started</Button>
                   </Link>
                 )}
               </div>

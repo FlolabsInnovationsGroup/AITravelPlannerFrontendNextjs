@@ -94,7 +94,7 @@ const transcribeAudio = async (audioBlob: Blob) => {
       const formData = new FormData();
       formData.append("audioFile", audioBlob, "recording.wav"); // Match DTO field name
 
-      const response = await fetch("https://api.flomadtravel.com/api/audio/transcribe", {
+      const response = await fetch("http://localhost:8080", {
           method: "POST",
           body: formData,
           headers: {
