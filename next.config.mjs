@@ -1,3 +1,5 @@
+import withBundleAnalyzer from '@next/bundle-analyzer';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable linting during builds for better code quality
@@ -47,6 +49,41 @@ const nextConfig = {
       },
     ];
   },
+  
+  // Performance optimizations (Audit Implementation)
+  webpack: (config, { isServer, webpack }) => {
+    // Optimize bundle size
+    config.optimization = {
+      ...config.optimization,
+      splitChunks: {
+        ...config.optimization.splitChunks,
+        cacheGroups: {
+          ...config.optimization.splitChunks.cacheGroups,
+          // Separate Google Maps libraries
+          maps: {
+            name: 'maps',
+            chunks: 'all',
+            test: /[\\/]node_modules[\\/](@googlemaps|@react-google-maps)[\\/]/,
+            priority: 30,
+          },
+          // Separate UI libraries
+          ui: {
+            name: 'ui',
+            chunks: 'all',
+            test: /[\\/]node_modules[\\/](radix-ui|@headlessui|framer-motion)[\\/]/,
+            priority: 25,
+          },
+        },
+      },
+    };
+
+    return config;
+  },
 };
 
-export default nextConfig;
+// Bundle analyzer wrapper (enable with ANALYZE=true)
+const bundleAnalyzer = withBundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
+
+export default bundleAnalyzer(nextConfig);

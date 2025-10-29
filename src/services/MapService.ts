@@ -371,18 +371,83 @@ export class MapService {
     }
 
     private async handleConnectionError(): Promise<void> {
-        this.setConnectionStatus('connecting');
+        // Enhanced error handling (Audit Implementation)
+        const shouldRetry = await this.wsRetryManager.shouldRetry();
         
-        if (await this.wsRetryManager.shouldRetry()) {
-            // Force reconnection after a delay
-            if (this.stompClient) {
-                this.stompClient.deactivate();
-                this.stompClient.activate();
+        // Check network connectivity before retrying
+        if (!navigator.onLine) {
+            console.warn('🌐 Device is offline. Waiting for network connectivity...');
+            this.setConnectionStatus('disconnected');
+            
+            // Listen for network restoration
+            const onlineHandler = () => {
+                console.log('🌐 Network connectivity restored. Attempting reconnection...');
+                window.removeEventListener('online', onlineHandler);
+                
+                if (this.pendingSessionId) {
+                    this.connectWebSocket(this.pendingSessionId);
+                }
+            };
+            
+            window.addEventListener('online', onlineHandler);
+            return;
+        }
+        
+        if (shouldRetry) {
+            this.setConnectionStatus('connecting');
+            
+            // Enhanced retry with server health check
+            try {
+                const healthCheck = await this.performHealthCheck();
+                if (!healthCheck) {
+                    console.warn('⚠️ Server health check failed. Increasing retry delay...');
+                    // Wait longer if server is unhealthy
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                }
+                
+                // Force reconnection after a delay
+                if (this.stompClient) {
+                    this.stompClient.deactivate();
+                    setTimeout(() => {
+                        if (this.stompClient) {
+                            this.stompClient.activate();
+                        }
+                    }, 2000); // Small delay to ensure proper cleanup
+                }
+            } catch (error) {
+                console.error('❌ Error during enhanced retry:', error);
+                this.setConnectionStatus('disconnected');
             }
         } else {
             console.error('❌ Max reconnection attempts reached. Please refresh the page.');
             this.setConnectionStatus('disconnected');
             this.disconnect(); // Clean up the connection
+            
+            if (this.onError) {
+                this.onError(new Error('WebSocket connection failed permanently after maximum retries'));
+            }
+        }
+    }
+
+    // Enhanced health check for better retry decisions
+    private async performHealthCheck(): Promise<boolean> {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+            
+            const response = await fetch(`${API_BASE_URL}/actuator/health`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.userToken}`,
+                },
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            return response.ok;
+        } catch (error) {
+            console.warn('⚠️ Health check failed:', error);
+            return false;
         }
     }
 
