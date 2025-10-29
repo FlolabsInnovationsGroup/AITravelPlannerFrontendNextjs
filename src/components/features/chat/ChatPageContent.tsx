@@ -16,8 +16,21 @@ import { Location } from '@/types/map';
 import SmartSuggestionsComponent from './SmartSuggestionsComponent';
 import AudioRecorder from './AudioRecorder';
 import LeftMenuBar from '@/components/features/chat/LeftMenuBar';
-import RightMapPanel from '@/components/features/map/RightMapPanel';
 import LocationSuggestions from '@/components/features/map/LocationSuggestions';
+import dynamic from 'next/dynamic';
+
+// Code splitting for heavy map component (Performance Audit Implementation)
+const RightMapPanel = dynamic(() => import('@/components/features/map/RightMapPanel'), {
+  ssr: false, // Map components work better with client-side rendering
+  loading: () => (
+    <div className="h-full w-full flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+        <p className="mt-4 text-gray-600">Loading map...</p>
+      </div>
+    </div>
+  )
+});
 import { LocationExtractionService } from '@/services/LocationExtractionService';
 import { MapService } from '@/services/MapService';
 

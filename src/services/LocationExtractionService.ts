@@ -44,7 +44,6 @@ export class LocationExtractionService {
             this.placesService = new google.maps.places.PlacesService(dummyDiv);
             
             this.#initialized = true;
-            console.log('✅ LocationExtractionService initialized with Places API');
         } catch (error) {
             console.error('❌ Failed to initialize LocationExtractionService:', error);
             throw error;

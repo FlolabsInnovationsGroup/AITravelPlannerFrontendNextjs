@@ -70,15 +70,14 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       
       try {
-        console.log('Attempting token refresh due to 401 error');
+        
         // Get a new guest token directly via axios (no interceptors)
         const response = await axios.post(`${API_BASE_URL}/api/auth/guest-token`);
         
         // Check if we got a valid token in the response
         if (response.status === 200 && response.data.token) {
           const newToken = response.data.token;
-          console.log('Token refresh successful');
-          
+
           // Save the new token
           setToken(newToken);
           
@@ -122,7 +121,7 @@ export const getToken = () => {
     const token = localStorage.getItem(TOKEN_KEY);
     // Check if token exists and is not expired
     if (token && isTokenExpired(token)) {
-      console.log('Token expired, clearing from storage');
+      
       clearToken();
       return null;
     }
@@ -137,8 +136,7 @@ export const clearToken = () => {
 
 // Force clear all authentication data and create fresh session
 export const initializeFreshSession = async (): Promise<string> => {
-  console.log('Initializing fresh session - clearing all tokens');
-  
+
   // Clear all possible token storage
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem('sessionId');
@@ -150,7 +148,7 @@ export const initializeFreshSession = async (): Promise<string> => {
   try {
     // Create new guest token
     const newToken = await createGuestToken();
-    console.log('Fresh session initialized successfully');
+    
     return newToken;
   } catch (error) {
     console.error('Failed to initialize fresh session:', error);
@@ -161,13 +159,13 @@ export const initializeFreshSession = async (): Promise<string> => {
 // Guest token creation - use direct axios without interceptors to avoid circular calls
 export const createGuestToken = async (): Promise<string> => {
   try {
-    console.log('Creating guest token with API URL:', API_BASE_URL);
+    
     // Use direct axios without interceptors to prevent circular dependencies
     const response = await axios.post<GuestTokenResponse>(`${API_BASE_URL}/api/auth/guest-token`);
     
     // Check for successful response
     if (response.status === 200 && response.data.token) {
-      console.log('Guest token created successfully');
+      
       setToken(response.data.token); // Save token to local storage
       return response.data.token;   // Return the token
     } else {
@@ -187,7 +185,7 @@ export const createGuestToken = async (): Promise<string> => {
         // User is already authenticated, check if they have a current token
         const existingToken = getToken();
         if (existingToken) {
-          console.log('User already authenticated with existing token');
+          
           return existingToken;
         } else {
           throw new Error('User authenticated but no token found');
@@ -207,15 +205,14 @@ export const createGuestToken = async (): Promise<string> => {
   }
 };
 
-
 // User management
 export const getCurrentUser = async (): Promise<{ id: string }> => {
   try {
-    console.log('Getting current user with API URL:', API_BASE_URL);
+    
     const token = getToken();
-    console.log('Current token exists:', !!token);
+    
     const response = await apiClient.get<{ id: string }>('/users/current');
-    console.log('getCurrentUser successful:', response.status);
+    
     return response.data;
   } catch (error: any) {
     console.error('Error getting current user:', error);
@@ -274,7 +271,6 @@ export const sendMessage = async (
       },
     };
 
-    console.log("Sending message payload:", formData);
     const response = await apiClient.post('/api/chat/call', formData, config);
     return { content: response.data };
   } catch (error) {
@@ -326,14 +322,6 @@ export const sendMessagesEntity = async (
   }
 };
 
-
-
-
-
-
-
-
-
 export const signIn = async (username: string, password: string) => {
   const response = await apiClient.post('/api/auth/signin', { username, password });
   return response.data;
@@ -375,7 +363,7 @@ export const initializeGuestUser = async (): Promise<void> => {
 export const getChatHistory = async (path: string) => {
   try {
     const response = await apiClient.get(`/sessions/${path}`);
-    console.log('API Response:', response.data); // Debug log
+     // Debug log
     return response.data;
   } catch (error) {
     console.error('Error getting chat history:', error);
@@ -405,11 +393,10 @@ export const getSessionMessages = async (sessionId: string) => {
   }
 };
 
-
 // Get locations by session ID
 export const getLocationsBySession = async (sessionId: string): Promise<Location[]> => {
   try {
-    console.log('🔍 Fetching locations for session:', sessionId);
+    
     // First try to get any existing locations
     const response = await apiClient.get(`/api/locations/${sessionId}`, {
       headers: {
@@ -428,10 +415,9 @@ export const getLocationsBySession = async (sessionId: string): Promise<Location
     
     // Log when no locations are found
     if (locations.length === 0) {
-      console.log('� No locations found for this session yet');
+      
     }
 
-    console.log(`✅ Retrieved ${locations.length} locations:`, locations);
     return locations;
   } catch (error: any) {
     console.error('❌ Error getting locations by session:', {
@@ -455,7 +441,6 @@ export const updateSession = async (sessionId: string, title: string, userId: st
       updatedAt: now
     };
 
-    console.log('Updating session with payload:', payload);
     const response = await apiClient.put(`/sessions/${sessionId}`, payload);
     return response.data;
   } catch (error: unknown) {

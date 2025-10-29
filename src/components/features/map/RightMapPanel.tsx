@@ -142,6 +142,27 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
             // Safely clear markers (won't throw error if map not initialized)
             service.clearAllMarkers();
             
+            // CRITICAL FIX: Clear locations from database for new sessions
+            const clearDatabaseLocations = async () => {
+                try {
+                    console.log("🗑️ Clearing database locations for fresh session:", currentSessionId);
+                    // Clear locations from backend database
+                    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/locations/${currentSessionId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${currentUserToken}`,
+                            'Content-Type': 'application/json',
+                        },
+                    });
+                    console.log("✅ Database locations cleared for session:", currentSessionId);
+                } catch (error) {
+                    console.warn("⚠️ Could not clear database locations (may not exist):", error);
+                    // Don't show user error - this is expected for truly new sessions
+                }
+            };
+            
+            clearDatabaseLocations();
+            
             console.log("🔄 Connecting WebSocket for session:", currentSessionId);
             try {
                 service.connectWebSocket(currentSessionId);
@@ -158,7 +179,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                 service.clearAllMarkers();
             }
         }
-    }, [currentSessionId]);
+    }, [currentSessionId, currentUserToken]);
 
     // Fetch initial locations
     const fetchLocations = useCallback(async () => {

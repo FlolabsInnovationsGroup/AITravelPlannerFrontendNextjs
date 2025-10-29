@@ -25,7 +25,6 @@ export class MapService {
 
     // Update user token (useful for token refresh)
     updateToken(newToken: string): void {
-        console.log('🔄 Updating MapService token');
         this.userToken = newToken;
     }
 
@@ -39,9 +38,6 @@ export class MapService {
         if (this.connectionStatus !== status) {
             const previousStatus = this.connectionStatus;
             this.connectionStatus = status;
-            
-            // Log connection transitions for debugging
-            console.log(`🔄 MapService connection: ${previousStatus} → ${status}`);
             
             // Reset retry manager and clear pending session on successful connection
             if (status === 'connected') {
@@ -100,10 +96,6 @@ export class MapService {
                 sessionId: location.sessionId
             };
 
-            console.log('🚀 Sending location request:', locationRequest);
-            console.log('🔑 Using token:', this.userToken ? `Token present (${this.userToken.substring(0, 20)}...)` : 'No token');
-            console.log('🌐 API URL:', `${API_BASE_URL}/api/locations/add`);
-
             const response = await fetch(`${API_BASE_URL}/api/locations/add`, {
                 method: 'POST',
                 headers: {
@@ -112,9 +104,6 @@ export class MapService {
                 },
                 body: JSON.stringify(locationRequest),
             });
-
-            console.log('📊 Response status:', response.status, response.statusText);
-            console.log('📋 Response headers:', Object.fromEntries(response.headers.entries()));
 
             // First, check if the response is ok
             if (!response.ok) {
@@ -143,7 +132,6 @@ export class MapService {
             }
 
             const data = await response.json();
-            console.log('✅ Location added successfully:', data);
             return data;
         } catch (error) {
             console.error('❌ Error adding location:', error);
@@ -195,7 +183,6 @@ export class MapService {
         }
 
         if (this.stompClient?.connected) {
-            console.log('WebSocket already connected, subscribing to session:', sessionId);
             // If already connected, just subscribe to the new session
             this.subscribeToSessionWithRetry(sessionId).catch(error => {
                 console.error('Failed to subscribe to session:', error);
@@ -206,12 +193,10 @@ export class MapService {
 
         // Prevent multiple connection attempts
         if (this.connectionStatus === 'connecting') {
-            console.log('🔄 Connection already in progress, storing session for pending subscription:', sessionId);
             this.pendingSessionId = sessionId;
             return;
         }
         
-        console.log('Initializing WebSocket connection for session:', sessionId);
         this.setConnectionStatus('connecting');
         this.pendingSessionId = sessionId; // Store for later subscription
 
@@ -226,7 +211,6 @@ export class MapService {
             ? socketUrl.replace('https://localhost', 'http://localhost')
             : socketUrl;
 
-        console.log('Connecting to WebSocket at:', finalSocketUrl);
         this.stompClient = new Client({
             webSocketFactory: () => new SockJS(finalSocketUrl, null, {
                 transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
@@ -238,11 +222,10 @@ export class MapService {
             reconnectDelay: 5000,
             heartbeatIncoming: 10000, // Increased heartbeat intervals
             heartbeatOutgoing: 10000,
-            debug: (str) => {
-                console.debug('🔄 STOMP:', str);
+            debug: () => {
+                // Debug disabled in production
             },
             onConnect: () => {
-                console.log('✅ WebSocket Connected successfully');
                 this.wsRetryManager.reset();
                 this.setConnectionStatus('connected');
                 
@@ -251,7 +234,6 @@ export class MapService {
                     const sessionToSubscribe = this.pendingSessionId;
                     this.pendingSessionId = null; // Clear pending session
                     
-                    console.log('🔗 Subscribing to pending session:', sessionToSubscribe);
                     // Use retry mechanism for better reliability even in onConnect
                     this.subscribeToSessionWithRetry(sessionToSubscribe).catch(error => {
                         console.error('❌ Failed to subscribe to pending session:', error);
@@ -276,7 +258,6 @@ export class MapService {
                 this.handleConnectionError().catch(console.error);
             },
             onWebSocketClose: () => {
-                console.log('⚠️ WebSocket closed for session:', sessionId);
                 this.setConnectionStatus('disconnected');
                 this.handleConnectionError().catch(console.error);
                 if (this.onDisconnect) this.onDisconnect();
@@ -312,14 +293,10 @@ export class MapService {
         }
 
         try {
-            console.log(`🔗 Attempting to subscribe to /topic/locations/${sessionId}`);
-            
             const subscription = this.stompClient.subscribe(`/topic/locations/${sessionId}`, (message) => {
                 try {
-                    console.log('📥 Received WebSocket message:', message.body);
                     const event: WebSocketEvent<LocationAddedPayload | LocationRemovedPayload | MapClearedPayload> = JSON.parse(message.body);
                     this.messageHandlers.forEach(handler => handler(event));
-                    console.log('✅ Processed WebSocket event:', event.type);
                 } catch (error) {
                     console.error('❌ Error parsing WebSocket message:', error, 'Message body:', message.body);
                 }
@@ -327,7 +304,7 @@ export class MapService {
 
             // Verify subscription was successful
             if (subscription) {
-                console.log('✅ Successfully subscribed to session:', sessionId);
+                // Successfully subscribed
             } else {
                 throw new Error('Subscription returned null/undefined - server may have rejected the subscription');
             }
@@ -345,15 +322,12 @@ export class MapService {
                     this.stompClient.connected && 
                     this.stompClient.state === 1) { // CONNECTED state
                     
-                    console.log(`✅ STOMP client ready for subscription, attempt ${attempt}`);
-                    
                     // Add a small delay to ensure the connection is fully established
                     await new Promise(resolve => setTimeout(resolve, 200));
                     
                     // Try to subscribe - catch any errors from subscribeToSession
                     try {
                         this.subscribeToSession(sessionId);
-                        console.log(`✅ Successfully subscribed to session ${sessionId} on attempt ${attempt}`);
                         return; // Success, exit the retry loop
                     } catch (subscribeError) {
                         console.warn(`⚠️ Subscription failed on attempt ${attempt}:`, subscribeError);
@@ -372,7 +346,6 @@ export class MapService {
                     
                     // If no STOMP client exists, try to reinitialize connection
                     if (!this.stompClient && attempt === 1) {
-                        console.log('🔄 No STOMP client found, reinitializing connection...');
                         this.connectWebSocket(sessionId);
                         await new Promise(resolve => setTimeout(resolve, delayMs * 3)); // Give more time for connection
                         continue;
@@ -381,7 +354,6 @@ export class MapService {
                 
                 if (attempt < maxRetries) {
                     const waitTime = Math.min(delayMs * attempt, 5000); // Cap at 5 seconds
-                    console.log(`⏳ Waiting ${waitTime}ms before retry ${attempt + 1}`);
                     await new Promise(resolve => setTimeout(resolve, waitTime));
                 }
             } catch (error) {
@@ -399,19 +371,83 @@ export class MapService {
     }
 
     private async handleConnectionError(): Promise<void> {
-        this.setConnectionStatus('connecting');
+        // Enhanced error handling (Audit Implementation)
+        const shouldRetry = await this.wsRetryManager.shouldRetry();
         
-        if (await this.wsRetryManager.shouldRetry()) {
-            console.log(`⚡ Reconnection attempt ${this.wsRetryManager.getRetryCount()}/${5}`);
-            // Force reconnection after a delay
-            if (this.stompClient) {
-                this.stompClient.deactivate();
-                this.stompClient.activate();
+        // Check network connectivity before retrying
+        if (!navigator.onLine) {
+            console.warn('🌐 Device is offline. Waiting for network connectivity...');
+            this.setConnectionStatus('disconnected');
+            
+            // Listen for network restoration
+            const onlineHandler = () => {
+                console.log('🌐 Network connectivity restored. Attempting reconnection...');
+                window.removeEventListener('online', onlineHandler);
+                
+                if (this.pendingSessionId) {
+                    this.connectWebSocket(this.pendingSessionId);
+                }
+            };
+            
+            window.addEventListener('online', onlineHandler);
+            return;
+        }
+        
+        if (shouldRetry) {
+            this.setConnectionStatus('connecting');
+            
+            // Enhanced retry with server health check
+            try {
+                const healthCheck = await this.performHealthCheck();
+                if (!healthCheck) {
+                    console.warn('⚠️ Server health check failed. Increasing retry delay...');
+                    // Wait longer if server is unhealthy
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                }
+                
+                // Force reconnection after a delay
+                if (this.stompClient) {
+                    this.stompClient.deactivate();
+                    setTimeout(() => {
+                        if (this.stompClient) {
+                            this.stompClient.activate();
+                        }
+                    }, 2000); // Small delay to ensure proper cleanup
+                }
+            } catch (error) {
+                console.error('❌ Error during enhanced retry:', error);
+                this.setConnectionStatus('disconnected');
             }
         } else {
             console.error('❌ Max reconnection attempts reached. Please refresh the page.');
             this.setConnectionStatus('disconnected');
             this.disconnect(); // Clean up the connection
+            
+            if (this.onError) {
+                this.onError(new Error('WebSocket connection failed permanently after maximum retries'));
+            }
+        }
+    }
+
+    // Enhanced health check for better retry decisions
+    private async performHealthCheck(): Promise<boolean> {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+            
+            const response = await fetch(`${API_BASE_URL}/actuator/health`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.userToken}`,
+                },
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            return response.ok;
+        } catch (error) {
+            console.warn('⚠️ Health check failed:', error);
+            return false;
         }
     }
 
@@ -452,7 +488,6 @@ export class MapService {
     setMapInstance(map: google.maps.Map): void {
         this.mapInstance = map;
         this.onMapInitialized();
-        console.log('✅ Map instance set successfully');
     }
 
     private onMapInitialized(): void {
@@ -470,7 +505,6 @@ export class MapService {
 
         // Add error handling for map loading
         google.maps.event.addListenerOnce(this.mapInstance, 'idle', () => {
-            console.log('🗺️ Map fully loaded and ready');
             if (this.onConnect) this.onConnect();
         });
 
@@ -497,7 +531,6 @@ export class MapService {
             });
 
             this.markers.push(marker);
-            console.log('✨ Marker added:', location);
         } catch (error) {
             console.error('❌ Error adding marker:', error);
             if (this.onError) this.onError(error as Error);
@@ -522,7 +555,6 @@ export class MapService {
             if (markerIndex !== -1) {
                 this.markers[markerIndex].setMap(null);
                 this.markers.splice(markerIndex, 1);
-                console.log('🗑️ Marker removed:', location);
             } else {
                 console.warn('⚠️ No marker found at location:', location);
             }
@@ -536,7 +568,6 @@ export class MapService {
         if (!this.mapInstance) {
             // Silently clear markers array even if map isn't initialized
             // This prevents errors during session transitions before map loads
-            console.log('🧹 Clearing markers array (map not yet initialized)');
             this.markers = [];
             return;
         }
@@ -544,7 +575,6 @@ export class MapService {
         try {
             this.markers.forEach((marker) => marker.setMap(null));
             this.markers = [];
-            console.log('🧹 All markers cleared from the map');
         } catch (error) {
             console.error('❌ Error clearing markers:', error);
             if (this.onError) this.onError(error as Error);
@@ -562,7 +592,6 @@ export class MapService {
         try {
             this.mapInstance.panTo(location);
             this.mapInstance.setZoom(14); // Set appropriate zoom level
-            console.log('🎯 Map centered at:', location);
         } catch (error) {
             console.error('❌ Error centering map:', error);
             if (this.onError) this.onError(error as Error);

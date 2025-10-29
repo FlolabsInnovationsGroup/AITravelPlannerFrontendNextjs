@@ -87,7 +87,6 @@ export class LocationService {
                 this.retryConfig.shouldRetry(error)
             ) {
                 const delay = this.retryConfig.initialDelay * Math.pow(2, retryAttempt);
-                console.log(`🔄 Retrying request (${retryAttempt + 1}/${this.retryConfig.maxRetries}) after ${delay}ms...`);
                 
                 await new Promise(resolve => setTimeout(resolve, delay));
                 return this.executeWithRetry(operation, retryAttempt + 1);
@@ -132,43 +131,34 @@ export class LocationService {
     }
 
     public async addLocation(location: Omit<Location, 'id'>, sessionId: string): Promise<Location> {
-        console.log('📍 Adding location:', { location, sessionId });
         const locationData = {
             ...location,
             sessionId: sessionId
         };
-        console.log('📤 Sending location data:', locationData);
         
         const result = await this.executeWithRetry(() => 
             this.apiClient.post<Location>('/api/locations/add', locationData)
         );
         
-        console.log('✅ Location added successfully:', result);
         return result;
     }
 
     public async removeLocation(locationId: string): Promise<void> {
-        console.log('🗑️ Removing location:', locationId);
         await this.executeWithRetry(() =>
             this.apiClient.delete(`/api/locations/remove/${locationId}`)
         );
-        console.log('✅ Location removed successfully');
     }
 
     public async clearLocations(sessionId: string): Promise<void> {
-        console.log('🧹 Clearing locations for session:', sessionId);
         await this.executeWithRetry(() =>
             this.apiClient.delete(`/api/locations/clear/${sessionId}`)
         );
-        console.log('✅ Locations cleared successfully');
     }
 
     public async getLocations(sessionId: string): Promise<Location[]> {
-        console.log('📍 Fetching locations for session:', sessionId);
         const result = await this.executeWithRetry(() =>
             this.apiClient.get<Location[]>(`/api/locations/${sessionId}`)
         );
-        console.log('✅ Locations fetched successfully:', result);
         return result;
     }
 }
