@@ -66,7 +66,7 @@ export class ChatHistoryService {
    */
   async fetchChatHistory(sessionId: string, limit?: number, offset?: number): Promise<ChatHistoryResponse> {
     try {
-      console.log(`🔍 Fetching chat history for session: ${sessionId}`);
+      // Fetching chat history
       
       const params = new URLSearchParams();
       if (limit) params.append('limit', limit.toString());
@@ -87,7 +87,7 @@ export class ChatHistoryService {
       // Update cache
       this.messageCache.set(sessionId, messages);
 
-      console.log(`✅ Loaded ${messages.length} messages for session: ${sessionId}`);
+      // Messages loaded successfully
       
       return {
         messages,
@@ -131,12 +131,12 @@ export class ChatHistoryService {
       if (messageId) {
         const messageExists = debugInfo.messages.some(msg => msg.id === messageId);
         if (!messageExists) {
-          console.warn(`⚠️ Message ${messageId} not found in database for session ${sessionId}`);
+          // Message not found in database
           return false;
         }
       }
 
-      console.log(`✅ Message persistence verified for session ${sessionId}: ${debugInfo.messagesInDatabase} messages`);
+      // Message persistence verified
       return true;
 
     } catch (error) {
@@ -165,7 +165,7 @@ export class ChatHistoryService {
     try {
       await apiClient.delete(`/messages/session/${sessionId}`);
       this.messageCache.delete(sessionId);
-      console.log(`🗑️ Cleared chat history for session: ${sessionId}`);
+      // Chat history cleared
     } catch (error) {
       console.error(`❌ Error clearing chat history for session ${sessionId}:`, error);
       throw error;
@@ -209,7 +209,7 @@ export class ChatHistoryService {
    */
   setPersistenceVerification(enabled: boolean): void {
     this.persistenceVerificationEnabled = enabled;
-    console.log(`🔧 Persistence verification ${enabled ? 'enabled' : 'disabled'}`);
+    // Persistence verification setting updated
   }
 
   /**

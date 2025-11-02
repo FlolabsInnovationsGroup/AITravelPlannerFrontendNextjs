@@ -24,7 +24,6 @@ export class LocationExtractionService {
         try {
             if (typeof window === 'undefined' || !window.google?.maps) {
                 // In test environment or server-side, skip initialization
-                console.warn('Google Maps not available - running in test/server environment');
                 this.#initialized = true;
                 return;
             }
@@ -45,7 +44,6 @@ export class LocationExtractionService {
             
             this.#initialized = true;
         } catch (error) {
-            console.error('❌ Failed to initialize LocationExtractionService:', error);
             throw error;
         }
     }
@@ -66,6 +64,10 @@ export class LocationExtractionService {
         if (types.includes('church') || types.includes('cemetery') || types.includes('historical')) return 'landmark';
         if (types.includes('scenic_lookout') || types.includes('observation_deck')) return 'viewpoint';
         if (types.includes('tourist_attraction') || types.includes('point_of_interest')) return 'attraction';
+        // Geographic locations - cities, countries, localities
+        if (types.includes('locality') || types.includes('administrative_area_level_1') || 
+            types.includes('administrative_area_level_2') || types.includes('country') ||
+            types.includes('political')) return 'attraction';
         
         // Default fallback
         return 'attraction';
@@ -103,8 +105,6 @@ export class LocationExtractionService {
                     types: suggestion.placePrediction!.types || []
                 }));
 
-            console.log('🔍 Autocomplete results:', autocompleteResults.length);
-
             // Convert predictions to Location objects
             const locations: Location[] = [];
             
@@ -139,13 +139,101 @@ export class LocationExtractionService {
                         });
                     }
                 } catch (detailError) {
-                    console.warn('Failed to get place details for:', prediction.description, detailError);
+                    // Place details failed - skip this prediction
                 }
             }
 
             return locations;
         } catch (error) {
-            console.warn('Places API search failed, falling back to geocoding:', error);
+            return [];
+        }
+    }
+
+    // New method to extract multiple locations from AI responses
+    async extractMultipleLocationsFromMessage(message: string): Promise<Location[]> {
+        try {
+            if (typeof window === 'undefined') {
+                throw new Error('Cannot extract location in server-side context');
+            }
+
+            await this.#initPromise;
+
+            // Enhanced patterns to find multiple cities in travel itineraries
+            const cityPatterns = [
+                // Major world cities pattern (expanded with more international cities)
+                /\b(New York|Los Angeles|Chicago|Houston|Phoenix|Philadelphia|San Antonio|San Diego|Dallas|San Jose|Austin|Jacksonville|Fort Worth|Columbus|Charlotte|San Francisco|Indianapolis|Seattle|Denver|Boston|El Paso|Detroit|Nashville|Portland|Memphis|Oklahoma City|Las Vegas|Louisville|Baltimore|Milwaukee|Albuquerque|Tucson|Fresno|Mesa|Sacramento|Atlanta|Kansas City|Colorado Springs|Omaha|Raleigh|Miami|Long Beach|Virginia Beach|Oakland|Minneapolis|Tulsa|Arlington|Tampa|New Orleans|Wichita|Cleveland|Bakersfield|Aurora|Anaheim|Honolulu|Santa Ana|Riverside|Corpus Christi|Lexington|Stockton|Henderson|Saint Paul|St. Louis|Cincinnati|Pittsburgh|Anchorage|Greensboro|Plano|Lincoln|Orlando|Irvine|Newark|Durham|Chula Vista|Toledo|Fort Wayne|St. Petersburg|Laredo|Jersey City|Chandler|Madison|Lubbock|Scottsdale|Reno|Buffalo|Gilbert|Glendale|North Las Vegas|Winston-Salem|Chesapeake|Norfolk|Fremont|Garland|Irving|Hialeah|Richmond|Boise|Spokane|Baton Rouge|Tacoma|San Bernardino|Modesto|Fontana|Des Moines|Moreno Valley|Santa Clarita|Fayetteville|Birmingham|Oxnard|Rochester|Port St. Lucie|Grand Rapids|Huntsville|Salt Lake City|Frisco|Yonkers|Amarillo|Glendale|Huntington Beach|McKinney|Montgomery|Augusta|Aurora|Akron|Little Rock|Tempe|Columbus|Overland Park|Grand Prairie|Tallahassee|Cape Coral|Mobile|Knoxville|Shreveport|Worcester|Ontario|Vancouver|Sioux Falls|Chattanooga|Brownsville|Fort Lauderdale|Providence|Newport News|Rancho Cucamonga|Santa Rosa|Peoria|Oceanside|Elk Grove|Salem|Pembroke Pines|Eugene|Garden Grove|Cary|Fort Collins|Corona|Springfield|Jackson|Alexandria|Hayward|Clarksville|Lakewood|Lancaster|Salinas|Palmdale|Hollywood|Pasadena|Pomona|Escondido|Sunnyvale|Killeen|Naperville|Torrance|Paterson|Rockford|Savannah|Bridgeport|Mesquite|Syracuse|McAllen|Pasadena|Joliet|Kansas City|Thornton|Fullerton|Carrollton|Midland|Concord|Visalia|Thousand Oaks|Simi Valley|Stamford|Olathe|Cedar Rapids|Elizabeth|Hampton|Miramar|Coral Springs|Sterling Heights|Kent|Abilene|West Jordan|Topeka|Denton|San Buenaventura|Waco|El Monte|Dayton|Fargo|Pearland|Richardson|Miami Gardens|League City|Lowell|Elgin|West Valley City|Round Rock|McKinney|Beaumont|Independence|Murfreesboro|Ann Arbor|High Point|Columbia|Clearwater|Westminster|Billings|Peoria|Arvada|Centennial|Pueblo|Fairfield|West Palm Beach|Richardson|Athens|Wilmington|Cambridge|Carlsbad|Allentown|Norwich|Tokyo|Paris|London|Berlin|Rome|Madrid|Amsterdam|Sydney|Vienna|Prague|Budapest|Brussels|Dublin|Edinburgh|Stockholm|Copenhagen|Oslo|Helsinki|Warsaw|Lisbon|Athens|Istanbul|Moscow|Barcelona|Florence|Naples|Milan|Venice|Bologna|Turin|Palermo|Genoa|Verona|Pisa|Siena|Lucca|Prato|Modena|Parma|Padua|Trieste|Brescia|Catania|Bari|Munich|Hamburg|Cologne|Frankfurt|Stuttgart|Düsseldorf|Leipzig|Dortmund|Essen|Bremen|Dresden|Hannover|Nuremberg|Duisburg|Bochum|Wuppertal|Bielefeld|Bonn|Münster|Mannheim|Augsburg|Wiesbaden|Gelsenkirchen|Aachen|Mönchengladbach|Braunschweig|Chemnitz|Kiel|Halle|Magdeburg|Freiburg|Krefeld|Lübeck|Mainz|Erfurt|Oberhausen|Rostock|Kassel|Hagen|Potsdam|Saarbrücken|Hamm|Ludwigshafen|Mülheim|Oldenburg|Leverkusen|Osnabrück|Solingen|Heidelberg|Herne|Neuss|Darmstadt|Paderborn|Regensburg|Ingolstadt|Würzburg|Fürth|Wolfsburg|Offenbach|Ulm|Heilbronn|Pforzheim|Göttingen|Bottrop|Trier|Recklinghausen|Reutlingen|Bremerhaven|Koblenz|Bergisch|Gladbach|Jena|Remscheid|Erlangen|Moers|Siegen|Hildesheim|Salzgitter)\b/gi,
+                
+                // Pattern for travel-style lists with bullet points or numbers
+                /(?:[\d\*\-•]\.?\s*)?(?:Day \d+[:\-]?\s*)?([A-Z][a-zA-Z\s]+)(?:\s*[\-–]\s*[^\n]*)?/g,
+                
+                // Pattern for "From X to Y" or "X and Y" 
+                /(?:from|visit|explore|discover|tour|start in|begin in|end in|finish in|travel to|head to|go to|arrive in)\s+([A-Z][a-zA-Z\s]+?)(?:\s+(?:and|to|then|before|after)\s+([A-Z][a-zA-Z\s]+?))?/gi,
+                
+                // Pattern for lists: "X, Y, and Z" or "X, Y, Z"
+                /\b([A-Z][a-zA-Z\s]+?)\s*,\s*([A-Z][a-zA-Z\s]+?)\s*(?:,\s*and\s+|\s+and\s+|,\s*)([A-Z][a-zA-Z\s]+?)\b/gi,
+                
+                // Pattern for itinerary format: "Day 1: City", "Day 2: Another City"
+                /Day\s+\d+[:\-]?\s*([A-Z][a-zA-Z\s]+?)(?:\s*[\-–]|\n|$)/gi,
+                
+                // Pattern for simple city lists in parentheses or after colons
+                /(?:cities?|destinations?|places?)[:\-]?\s*([A-Z][a-zA-Z\s]+?)(?:\s*,\s*([A-Z][a-zA-Z\s]+?))*(?:\s*,?\s*and\s+([A-Z][a-zA-Z\s]+?))?/gi
+            ];
+
+            const foundCities = new Set<string>();
+
+            // Extract cities using patterns
+            cityPatterns.forEach(pattern => {
+                let match;
+                while ((match = pattern.exec(message)) !== null) {
+                    for (let i = 1; i < match.length; i++) {
+                        if (match[i] && this.#isValidLocationName(match[i])) {
+                            foundCities.add(match[i].trim());
+                        }
+                    }
+                }
+            });
+
+            // If no cities found with specific patterns, try a more general approach
+            if (foundCities.size === 0) {
+                // Look for any capitalized words that could be cities (2-20 characters)
+                const generalPattern = /\b([A-Z][a-z]{1,19})(?:\s+([A-Z][a-z]{1,19}))*\b/g;
+                let generalMatch;
+                while ((generalMatch = generalPattern.exec(message)) !== null) {
+                    const fullMatch = generalMatch[0];
+                    if (this.#isValidLocationName(fullMatch) && this.#couldBeCity(fullMatch)) {
+                        foundCities.add(fullMatch);
+                    }
+                }
+            }
+
+            // Convert city names to Location objects
+            const locations: Location[] = [];
+            for (const cityName of foundCities) {
+                try {
+                    const cityCoords = this.#getCityCoordinates(cityName);
+                    if (cityCoords) {
+                        locations.push({
+                            id: `${cityName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+                            latitude: cityCoords.lat,
+                            longitude: cityCoords.lng,
+                            name: cityName,
+                            type: 'attraction' as LocationType,
+                            sessionId: sessionStorage.getItem('chatSessionId') || undefined
+                        });
+                    } else {
+                        // Try geocoding for unknown cities
+                        const result = await this.extractLocationFromMessage(cityName);
+                        if (result.extractedLocation) {
+                            locations.push(result.extractedLocation);
+                        }
+                    }
+                } catch (error) {
+                    // City geocoding failed - skip
+                }
+            }
+
+            return locations;
+        } catch (error) {
             return [];
         }
     }
@@ -181,7 +269,7 @@ export class LocationExtractionService {
                 /(?:where|what|find|show)\s+(?:is|are)\s+(.*?)(?:\s+(?:located|situated|found))?\??$/i,
                 
                 // High-priority known major cities (HIGHEST PRIORITY - prevents false matches)
-                /(?:in|at|to|from|visit|near|about)\s+(?:the\s+)?(Tokyo|Paris|London|Berlin|Rome|Madrid|Amsterdam|Sydney|Vienna|Prague|Budapest|Brussels|Dublin|Edinburgh|Stockholm|Copenhagen|Oslo|Helsinki|Warsaw|Lisbon|Athens|Istanbul|Moscow|Barcelona)(?:\s*,?\s*(?:Japan|France|UK|USA|Germany|Italy|Spain|Netherlands|Australia|Austria|Hungary|Belgium|Ireland|Scotland|Sweden|Denmark|Norway|Finland|Poland|Portugal|Greece|Turkey|Russia))?/i,
+                /(?:in|at|to|from|visit|near|about)\s+(?:the\s+)?(Tokyo|Paris|London|Berlin|Rome|Madrid|Amsterdam|Sydney|Vienna|Prague|Budapest|Brussels|Dublin|Edinburgh|Stockholm|Copenhagen|Oslo|Helsinki|Warsaw|Lisbon|Athens|Istanbul|Moscow|Barcelona|Florence|Milan|Naples|Bologna|Turin|Venice|Palermo|Genoa|Verona|Pisa|Siena|Lucca|Perugia|Assisi)(?:\s*,?\s*(?:Japan|France|UK|USA|Germany|Italy|Spain|Netherlands|Australia|Austria|Hungary|Belgium|Ireland|Scotland|Sweden|Denmark|Norway|Finland|Poland|Portugal|Greece|Turkey|Russia))?/i,
                 
                 // More specific location patterns (removed the overly broad "find" pattern)
                 /(?:located|situated)\s+(?:in|at|near)\s+([A-Za-z][A-Za-z\s-]+)/i,
@@ -216,18 +304,13 @@ export class LocationExtractionService {
                     if (!isBlacklisted && this.#isValidLocationName(candidate)) {
                         locationName = candidate;
                         break;
-                    } else {
-                        console.log(`🚫 Rejected candidate location: "${candidate}" (${isBlacklisted ? 'blacklisted' : 'invalid format'})`);
                     }
                 }
             }
 
             if (!locationName) {
-                console.warn('❌ No location found in message');
                 return { error: 'No location found in message' };
             }
-
-            console.log('🔍 Extracting location:', locationName);
 
             // First, try Google Places API for better business/POI results
             let placesResults: Location[] = [];
@@ -237,15 +320,13 @@ export class LocationExtractionService {
                 const centerLocation = cityContext ? this.#getCityCoordinates(cityContext) : null;
                 
                 placesResults = await this.#searchPlacesAPI(locationName, centerLocation || undefined);
-                console.log('🏢 Places API found:', placesResults.length, 'results');
             } catch (placesError) {
-                console.warn('Places API search failed:', placesError);
+                // Places API search failed - continue with geocoding fallback
             }
 
             // If Places API found good results, use the best one
             if (placesResults.length > 0) {
                 const bestResult = placesResults[0]; // Places API results are already sorted by relevance
-                console.log('✅ Using Places API result:', bestResult);
                 return {
                     extractedLocation: bestResult,
                     suggestedPlaces: placesResults.slice(1) // Return other options as suggestions
@@ -263,11 +344,9 @@ export class LocationExtractionService {
                 const cityContext = this.#detectCityContext(message);
                 const searchQuery = cityContext ? `${locationName}, ${cityContext}` : locationName;
                 
-                console.log('🗺️ Fallback to Geocoder with query:', searchQuery);
                 const response = await this.geocoder.geocode({ address: searchQuery });
                 
                 if (!response.results || response.results.length === 0) {
-                    console.warn('❌ No results found for location:', searchQuery);
                     return { error: 'Could not find location coordinates' };
                 }
 
@@ -277,18 +356,10 @@ export class LocationExtractionService {
                     (r as any).name?.toLowerCase().includes(locationName.toLowerCase())
                 ) || response.results[0];
 
-                console.log('🎯 Selected geocoder result:', {
-                    formatted_address: result.formatted_address,
-                    types: result.types,
-                    name: (result as any).name
-                });
-
                 if (!result || !result.geometry?.location) {
-                    console.warn('❌ Could not find location geometry:', locationName);
                     return { error: 'Could not find location coordinates' };
                 }
             } catch (geocodeError) {
-                console.error('❌ Geocoding error:', geocodeError);
                 return { error: 'Failed to geocode location. Please ensure the Google Maps API key has Geocoding enabled.' };
             }
 
@@ -304,7 +375,6 @@ export class LocationExtractionService {
                 sessionId: sessionId || undefined
             };
 
-            console.log('✅ Successfully extracted location via Geocoder:', extractedLocation);
             return {
                 extractedLocation,
                 suggestedPlaces: []
@@ -312,7 +382,6 @@ export class LocationExtractionService {
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Error extracting location';
-            console.error('❌ Error extracting location:', errorMessage);
             return { error: errorMessage };
         }
     }
@@ -377,6 +446,23 @@ export class LocationExtractionService {
     }
 
     // Validate if a candidate string could be a valid location name
+    #couldBeCity(candidate: string): boolean {
+        const cleaned = candidate.trim().toLowerCase();
+        
+        // Skip common words that are definitely not cities
+        const definitivelyNotCities = [
+            'perfect', 'amazing', 'wonderful', 'beautiful', 'stunning', 'incredible', 'fantastic', 'excellent',
+            'great', 'good', 'best', 'nice', 'lovely', 'awesome', 'super', 'special', 'unique', 'memorable',
+            'adventure', 'journey', 'trip', 'vacation', 'holiday', 'travel', 'experience', 'destination',
+            'morning', 'afternoon', 'evening', 'night', 'today', 'tomorrow', 'yesterday', 'weekend',
+            'family', 'friends', 'people', 'person', 'group', 'couple', 'children', 'kids', 'adults',
+            'time', 'day', 'days', 'week', 'month', 'year', 'season', 'weather', 'climate',
+            'food', 'restaurant', 'hotel', 'museum', 'park', 'beach', 'mountain', 'river', 'lake'
+        ];
+        
+        return !definitivelyNotCities.includes(cleaned) && cleaned.length >= 3 && cleaned.length <= 25;
+    }
+
     #isValidLocationName(candidate: string): boolean {
         // Basic length check
         if (candidate.length < 2 || candidate.length > 100) {

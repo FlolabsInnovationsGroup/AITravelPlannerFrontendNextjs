@@ -109,24 +109,20 @@ export class MapService {
             if (!response.ok) {
                 let errorDetails = 'Unknown error';
                 try {
-                    // Try to parse as JSON first
-                    const errorData = await response.json();
-                    errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
-                    console.error('❌ Server error (JSON):', errorData);
-                } catch (jsonError) {
-                    // If JSON parsing fails, get as text
-                    const errorText = await response.text();
-                    errorDetails = errorText;
-                    console.error('❌ Server error (Text):', errorText);
+                    // Read response text first, then try to parse as JSON
+                    const responseText = await response.text();
+                    try {
+                        const errorData = JSON.parse(responseText);
+                        errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
+                    } catch (jsonParseError) {
+                        // If JSON parsing fails, use the text directly
+                        errorDetails = responseText;
+                    }
+                } catch (textError) {
+                    errorDetails = `Response read error: ${textError instanceof Error ? textError.message : String(textError)}`;
                 }
                 
-                console.error('❌ Full server error response:', {
-                    status: response.status,
-                    statusText: response.statusText,
-                    details: errorDetails,
-                    url: `${API_BASE_URL}/api/locations/add`,
-                    request: locationRequest
-                });
+                // Log error for monitoring while maintaining user-friendly error messages
                 
                 throw new Error(`Failed to add location (${response.status}): ${errorDetails}`);
             }
@@ -134,7 +130,6 @@ export class MapService {
             const data = await response.json();
             return data;
         } catch (error) {
-            console.error('❌ Error adding location:', error);
             
             // Provide more context for common errors
             if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -178,14 +173,12 @@ export class MapService {
     // WebSocket Methods
     connectWebSocket(sessionId: string): void {
         if (!sessionId) {
-            console.error('❌ Cannot connect WebSocket: Session ID is required');
             return;
         }
 
         if (this.stompClient?.connected) {
             // If already connected, just subscribe to the new session
             this.subscribeToSessionWithRetry(sessionId).catch(error => {
-                console.error('Failed to subscribe to session:', error);
                 if (this.onError) this.onError(error);
             });
             return;
@@ -236,7 +229,6 @@ export class MapService {
                     
                     // Use retry mechanism for better reliability even in onConnect
                     this.subscribeToSessionWithRetry(sessionToSubscribe).catch(error => {
-                        console.error('❌ Failed to subscribe to pending session:', error);
                         if (this.onError) this.onError(error);
                     });
                 }
@@ -247,25 +239,17 @@ export class MapService {
                 }, 500);
             },
             onStompError: (frame) => {
-                console.error('❌ STOMP error:', frame);
-                console.error('❌ Error details:', {
-                    command: frame.command,
-                    headers: frame.headers,
-                    body: frame.body,
-                    sessionId: sessionId
-                });
                 this.setConnectionStatus('disconnected');
-                this.handleConnectionError().catch(console.error);
+                this.handleConnectionError().catch(() => {});
             },
             onWebSocketClose: () => {
                 this.setConnectionStatus('disconnected');
-                this.handleConnectionError().catch(console.error);
+                this.handleConnectionError().catch(() => {});
                 if (this.onDisconnect) this.onDisconnect();
             },
             onWebSocketError: (event: Event) => {
-                console.error('🚨 WebSocket error:', event);
                 this.setConnectionStatus('disconnected');
-                this.handleConnectionError().catch(console.error);
+                this.handleConnectionError().catch(() => {});
                 if (this.onError) this.onError(new Error('WebSocket connection error'));
             },
         });
@@ -298,7 +282,7 @@ export class MapService {
                     const event: WebSocketEvent<LocationAddedPayload | LocationRemovedPayload | MapClearedPayload> = JSON.parse(message.body);
                     this.messageHandlers.forEach(handler => handler(event));
                 } catch (error) {
-                    console.error('❌ Error parsing WebSocket message:', error, 'Message body:', message.body);
+                    // Silently handle message parsing errors - may be due to network issues
                 }
             });
 
@@ -309,7 +293,6 @@ export class MapService {
                 throw new Error('Subscription returned null/undefined - server may have rejected the subscription');
             }
         } catch (error) {
-            console.error('❌ Error subscribing to session:', error);
             throw error;
         }
     }
@@ -330,20 +313,12 @@ export class MapService {
                         this.subscribeToSession(sessionId);
                         return; // Success, exit the retry loop
                     } catch (subscribeError) {
-                        console.warn(`⚠️ Subscription failed on attempt ${attempt}:`, subscribeError);
                         if (attempt === maxRetries) {
                             throw subscribeError;
                         }
                         // Continue to next attempt
                     }
                 } else {
-                    console.warn(`⚠️ WebSocket not ready for subscription, attempt ${attempt}/${maxRetries}`, {
-                        connected: this.stompClient?.connected,
-                        state: this.stompClient?.state,
-                        active: this.stompClient?.active,
-                        exists: !!this.stompClient
-                    });
-                    
                     // If no STOMP client exists, try to reinitialize connection
                     if (!this.stompClient && attempt === 1) {
                         this.connectWebSocket(sessionId);
@@ -357,9 +332,7 @@ export class MapService {
                     await new Promise(resolve => setTimeout(resolve, waitTime));
                 }
             } catch (error) {
-                console.error(`❌ Subscription attempt ${attempt}/${maxRetries} failed:`, error);
                 if (attempt === maxRetries) {
-                    console.error(`❌ All subscription attempts failed for session ${sessionId}`);
                     throw error;
                 }
                 // Wait before next attempt with exponential backoff
@@ -376,12 +349,10 @@ export class MapService {
         
         // Check network connectivity before retrying
         if (!navigator.onLine) {
-            console.warn('🌐 Device is offline. Waiting for network connectivity...');
             this.setConnectionStatus('disconnected');
             
             // Listen for network restoration
             const onlineHandler = () => {
-                console.log('🌐 Network connectivity restored. Attempting reconnection...');
                 window.removeEventListener('online', onlineHandler);
                 
                 if (this.pendingSessionId) {
@@ -400,7 +371,6 @@ export class MapService {
             try {
                 const healthCheck = await this.performHealthCheck();
                 if (!healthCheck) {
-                    console.warn('⚠️ Server health check failed. Increasing retry delay...');
                     // Wait longer if server is unhealthy
                     await new Promise(resolve => setTimeout(resolve, 5000));
                 }
@@ -415,11 +385,9 @@ export class MapService {
                     }, 2000); // Small delay to ensure proper cleanup
                 }
             } catch (error) {
-                console.error('❌ Error during enhanced retry:', error);
                 this.setConnectionStatus('disconnected');
             }
         } else {
-            console.error('❌ Max reconnection attempts reached. Please refresh the page.');
             this.setConnectionStatus('disconnected');
             this.disconnect(); // Clean up the connection
             
@@ -446,7 +414,6 @@ export class MapService {
             clearTimeout(timeoutId);
             return response.ok;
         } catch (error) {
-            console.warn('⚠️ Health check failed:', error);
             return false;
         }
     }
@@ -469,7 +436,7 @@ export class MapService {
                 this.stompClient.deactivate();
             }
         } catch (error) {
-            console.error('Error during disconnect:', error);
+            // Silently handle disconnect errors
         } finally {
             // Ensure cleanup happens even if there's an error
             this.stompClient = null;
@@ -509,7 +476,6 @@ export class MapService {
         });
 
         google.maps.event.addListenerOnce(this.mapInstance, 'error', () => {
-            console.error('❌ Error loading map');
             if (this.onError) this.onError(new Error('Failed to load Google Maps'));
         });
     }
@@ -517,7 +483,6 @@ export class MapService {
     addMarkerToMap(location: { lat: number; lng: number }, title?: string): void {
         if (!this.mapInstance) {
             const error = new Error('Map instance is not set. Please initialize the map.');
-            console.error('❌', error);
             if (this.onError) this.onError(error);
             return;
         }
@@ -532,7 +497,6 @@ export class MapService {
 
             this.markers.push(marker);
         } catch (error) {
-            console.error('❌ Error adding marker:', error);
             if (this.onError) this.onError(error as Error);
         }
     }
@@ -540,7 +504,6 @@ export class MapService {
     removeMarkerFromMap(location: { lat: number; lng: number }): void {
         if (!this.mapInstance) {
             const error = new Error('Map instance is not set. Please initialize the map.');
-            console.error('❌', error);
             if (this.onError) this.onError(error);
             return;
         }
@@ -556,10 +519,9 @@ export class MapService {
                 this.markers[markerIndex].setMap(null);
                 this.markers.splice(markerIndex, 1);
             } else {
-                console.warn('⚠️ No marker found at location:', location);
+                // No marker found at location - silently handle
             }
         } catch (error) {
-            console.error('❌ Error removing marker:', error);
             if (this.onError) this.onError(error as Error);
         }
     }
@@ -576,7 +538,6 @@ export class MapService {
             this.markers.forEach((marker) => marker.setMap(null));
             this.markers = [];
         } catch (error) {
-            console.error('❌ Error clearing markers:', error);
             if (this.onError) this.onError(error as Error);
         }
     }
@@ -584,7 +545,6 @@ export class MapService {
     centerMapOnLocation(location: { lat: number; lng: number }): void {
         if (!this.mapInstance) {
             const error = new Error('Map instance is not set. Please initialize the map.');
-            console.error('❌', error);
             if (this.onError) this.onError(error);
             return;
         }
@@ -593,7 +553,6 @@ export class MapService {
             this.mapInstance.panTo(location);
             this.mapInstance.setZoom(14); // Set appropriate zoom level
         } catch (error) {
-            console.error('❌ Error centering map:', error);
             if (this.onError) this.onError(error as Error);
         }
     }

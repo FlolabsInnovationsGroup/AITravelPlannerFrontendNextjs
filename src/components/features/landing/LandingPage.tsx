@@ -55,7 +55,7 @@ export default function LandingPage() {
     setIsLoading(true)
     try {
       const sessionResponse = await createSession('New Chat')
-      console.log('Session created:', sessionResponse)
+      // Session created successfully
       router.push(
         `/chat?sessionId=${sessionResponse.sessionId}&initialMessage=${encodeURIComponent(message)}`
       )
@@ -94,13 +94,13 @@ export default function LandingPage() {
             <div className="flex items-center">
               <Image
                 src="/image/logowhite.png"
-                alt="Flomad Travel Logo"
+                alt="Travel Logo"
                 width={20}
                 height={25}
                 style={{ width: 'auto', height: 'auto' }}
                 className="mr-2"
               />
-              <span className="text-white text-xl md:text-2xl font-semibold">Flomad Travel</span>
+              <span className="text-white text-xl md:text-2xl font-semibold">Travel Planner</span>
             </div>
 
             {/* Desktop Navigation */}

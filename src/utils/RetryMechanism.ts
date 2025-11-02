@@ -47,7 +47,7 @@ export class RetryMechanism {
                     delay = delay * (0.5 + Math.random() * 0.5); // Add 0-50% jitter
                 }
 
-                console.warn(`Operation failed on attempt ${attempt}/${config.maxAttempts}. Retrying in ${Math.round(delay)}ms...`, error);
+                // Operation failed, retrying with backoff
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
@@ -98,7 +98,6 @@ export class WebSocketRetryManager {
         }
 
         const delay = this.baseDelay * Math.pow(2, this.retryCount);
-        console.log(`WebSocket reconnection attempt ${this.retryCount + 1}/${this.maxRetries} in ${delay}ms`);
         
         await new Promise(resolve => setTimeout(resolve, delay));
         this.retryCount++;

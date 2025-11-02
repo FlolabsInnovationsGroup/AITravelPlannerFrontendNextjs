@@ -137,9 +137,9 @@ export default function ChatPageContent() {
             let sessionId = currentSession?.sessionId;
     
             if (!sessionId) {
-                console.log("Creating a new session...");
+                // Creating a new session
                 const newSession = await createSession('New Chat');
-                console.log("New session created:", newSession);
+                // New session created
                 
                 if (!newSession || !newSession.sessionId) {
                     throw new Error("Failed to create a new session.");
@@ -209,7 +209,7 @@ export default function ChatPageContent() {
     };
     
     const handleTranscription = (transcribedText: string) => {
-        console.log("✅ Received transcription:", transcribedText);
+        // Received transcription from audio
         setInputMessage(transcribedText);
         handleSendMessage(transcribedText); // ✅ Auto-send
     };

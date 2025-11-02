@@ -40,7 +40,7 @@ export default function AudioRecorder({ sessionId, onTranscription }: AudioRecor
 
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          console.log("✅ Audio data available:", event.data);
+          // Audio data available
           audioChunks.current.push(event.data);
         } else {
           console.warn("⚠️ No audio data captured.");
@@ -49,18 +49,18 @@ export default function AudioRecorder({ sessionId, onTranscription }: AudioRecor
 
       mediaRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunks.current, { type: "audio/wav" });
-        console.log("🎤 Recorded Audio Blob:", audioBlob);
+        // Recording completed, preparing transcription
         await transcribeAudio(audioBlob);
       };
 
       mediaRecorderRef.current.start();
       setIsRecording(true);
-      console.log("🎙️ Recording started...");
+      // Recording started
 
       // ✅ Automatically stop recording after 30 seconds
       setTimeout(() => {
         if (mediaRecorderRef.current && isRecording) {
-          console.log("⏳ Auto-stopping recording after 30s...");
+          // Auto-stopping recording after timeout
           stopRecording();
         }
       }, 30000); // Auto-stop after 30s
@@ -86,7 +86,7 @@ export default function AudioRecorder({ sessionId, onTranscription }: AudioRecor
 
 
   const transcribeAudio = async (audioBlob: Blob) => {
-    console.log("⏳ Transcribing audio...", audioBlob);
+    // Starting audio transcription
 
     setIsProcessing(true); // Show processing state
 
@@ -107,7 +107,7 @@ export default function AudioRecorder({ sessionId, onTranscription }: AudioRecor
       }
 
       const data = await response.text();
-      console.log("✅ Transcription Response:", data);
+      // Transcription completed successfully
 
       if (data) {
         onTranscription(data);

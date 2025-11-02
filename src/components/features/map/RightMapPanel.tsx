@@ -57,11 +57,9 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
             
         // Set up WebSocket message handler
         const messageHandler = (event: WebSocketEvent<any>) => {
-            console.log("📡 WebSocket message received:", event);
             switch (event.type) {
                 case 'LOCATION_ADDED':
                     const newLocation = event.payload as Location;
-                    console.log("📍 Adding location from WebSocket:", newLocation);
                     setLocations(prev => {
                         // Check if location already exists (prevent duplicates)
                         const exists = prev.some(loc => {
@@ -71,7 +69,6 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                             }
                             // Check by name (for same cities with slightly different coordinates)
                             if (loc.name === newLocation.name) {
-                                console.log(`⚠️ Location with name "${newLocation.name}" already exists, skipping duplicate`);
                                 return true;
                             }
                             // Then check by distance for locations without IDs
@@ -83,10 +80,8 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                             return distance < 100; // meters
                         });
                         if (exists) {
-                            console.log("⚠️ Location already exists or too close, skipping duplicate");
                             return prev;
                         }
-                        console.log("✅ Adding new location:", newLocation);
                         return [...prev, newLocation];
                     });
                     toast.success("New location added to map");
@@ -112,12 +107,10 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
         };
 
         mapService.onConnect = () => {
-            console.log("✅ Connected to map service");
             toast.success("Map connection established");
         };
 
         mapService.onDisconnect = () => {
-            console.log("⚠️ Disconnected from map service");
             toast("Map connection lost. Attempting to reconnect...", {
                 icon: '⚠️',
                 duration: 4000
@@ -137,24 +130,32 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
         const service = mapServiceRef.current;
         if (currentSessionId && service) {
             // Clear existing locations when switching sessions to prevent cross-session pollution
-            console.log("🧹 Clearing previous session locations before connecting to:", currentSessionId);
+            // Clearing previous session locations
             setLocations([]);
             // Safely clear markers (won't throw error if map not initialized)
             service.clearAllMarkers();
             
             // CRITICAL FIX: Clear locations from database for new sessions
             const clearDatabaseLocations = async () => {
+                // Only attempt to clear if we have a valid token
+                if (!currentUserToken) {
+                    return;
+                }
+                
                 try {
-                    console.log("🗑️ Clearing database locations for fresh session:", currentSessionId);
                     // Clear locations from backend database
-                    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/locations/${currentSessionId}`, {
+                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/locations/clear/${currentSessionId}`, {
                         method: 'DELETE',
                         headers: {
                             'Authorization': `Bearer ${currentUserToken}`,
                             'Content-Type': 'application/json',
                         },
                     });
-                    console.log("✅ Database locations cleared for session:", currentSessionId);
+                    
+                    if (response.ok) {
+                    } else {
+                        // Database clear response handled
+                    }
                 } catch (error) {
                     console.warn("⚠️ Could not clear database locations (may not exist):", error);
                     // Don't show user error - this is expected for truly new sessions
@@ -163,7 +164,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
             
             clearDatabaseLocations();
             
-            console.log("🔄 Connecting WebSocket for session:", currentSessionId);
+            // Connecting WebSocket for session
             try {
                 service.connectWebSocket(currentSessionId);
             } catch (error) {
@@ -172,7 +173,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
             }
         } else if (!currentSessionId) {
             // Clear locations when no session is active (e.g., during new chat creation)
-            console.log("🧹 No session ID - clearing all locations");
+            // No session ID - clearing all locations
             setLocations([]);
             if (service) {
                 // Safely clear markers (won't throw error if map not initialized)
@@ -184,7 +185,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
     // Fetch initial locations
     const fetchLocations = useCallback(async () => {
         if (!currentSessionId) {
-            console.log("⚠️ No session ID available");
+            // No session ID available
             setLocations([]);
             return;
         }
@@ -193,9 +194,9 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
         setError(null);
 
         try {
-            console.log("🔍 Fetching locations for session:", currentSessionId);
+            // Fetching locations for session
             const apiLocations = await getLocationsBySession(currentSessionId);
-            console.log("✅ Locations fetched:", apiLocations);
+            // Locations fetched successfully
             
             // Convert API locations to our Location type
             const convertedLocations: Location[] = apiLocations.map(loc => ({
@@ -223,7 +224,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
     // Show map when locations exist
     useEffect(() => {
         const shouldShowMap = locations.length > 0;
-        console.log(`🔄 Locations changed: ${locations.length} locations - ${shouldShowMap ? 'showing map' : 'showing travel agent'}`);
+        // Location state changed - updating map visibility
         setShowMap(shouldShowMap);
     }, [locations]);
 
@@ -231,14 +232,14 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
     useEffect(() => {
         const handleNewLocation = (event: Event) => {
             const customEvent = event as CustomEvent<Location>;
-            console.log("🌍 New location event received:", customEvent.detail);
+            // New location event received
             
             setLocations(prevLocations => {
                 // Check if location already exists using proper Haversine distance calculation
                 const exists = prevLocations.some(loc => {
                     // Check by name first (for same cities with slightly different coordinates)
                     if (loc.name === customEvent.detail.name) {
-                        console.log(`⚠️ Location with name "${customEvent.detail.name}" already exists, skipping duplicate`);
+                        // Duplicate location name detected, skipping
                         return true;
                     }
                     // Then check by distance
@@ -251,11 +252,11 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                 });
 
                 if (exists) {
-                    console.log("⚠️ Location already exists or too close to existing location, skipping");
+                    // Location too close to existing location, skipping
                     return prevLocations;
                 }
 
-                console.log("✅ Adding new location to state");
+                // Adding new location to state
                 const updatedLocations = [...prevLocations, customEvent.detail];
                 // Notify parent component of location updates
                 onLocationUpdate?.(updatedLocations);
@@ -275,13 +276,13 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
         }
 
         try {
-            console.log("📍 Adding new location:", location);
+            // Adding new location
             const addedLocation = await mapServiceRef.current.addLocation({
                 ...location,
                 sessionId: currentSessionId
             });
             
-            console.log("✅ Location added successfully:", addedLocation);
+            // Location added successfully
             toast.success("Location added to map");
 
             setLocations(prev => [...prev, addedLocation]);
@@ -292,7 +293,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
     };
 
     const handleLocationSelect = (location: Location) => {
-        console.log("🎯 Location selected:", location);
+        // Location selected
         // Implement any additional functionality for location selection
     };
 
@@ -312,10 +313,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
         );
     }
 
-    // Only log in development mode
-    if (process.env.NODE_ENV === 'development' && locations.length > 0) {
-        console.log("🗺️ Map visible with", locations.length, "locations");
-    }
+    // Map visibility handled automatically
     
     return (
         <div className="h-full relative">

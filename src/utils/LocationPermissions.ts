@@ -43,7 +43,7 @@ export class LocationPermissionManager {
           };
         }
       } catch (e) {
-        console.log('Permission API not fully supported, continuing with fallback');
+        // Permission API not fully supported, continuing with fallback
       }
     }
 
