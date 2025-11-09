@@ -1,6 +1,9 @@
 // jest.setup.ts
 import '@testing-library/jest-dom'
 
+// Mock fetch globally for all tests
+global.fetch = jest.fn()
+
 // Suppress React act warnings in tests
 // These warnings occur when state updates happen outside of act() calls
 // which is common in complex async components with WebSocket and API calls

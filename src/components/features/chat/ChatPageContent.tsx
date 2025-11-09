@@ -18,6 +18,13 @@ import AudioRecorder from './AudioRecorder';
 import LeftMenuBar from '@/components/features/chat/LeftMenuBar';
 import LocationSuggestions from '@/components/features/map/LocationSuggestions';
 import dynamic from 'next/dynamic';
+import { useChatErrorHandler } from '@/hooks/useMessageRetry';
+import { ConnectionState } from '@/hooks/useEnhancedWebSocket';
+import { 
+  MessageStatusIndicator, 
+  TypingIndicator, 
+  ErrorMessage 
+} from '@/components/ui/ChatUIComponents';
 
 // Code splitting for heavy map component (Performance Audit Implementation)
 const RightMapPanel = dynamic(() => import('@/components/features/map/RightMapPanel'), {
@@ -106,6 +113,19 @@ export default function ChatPageContent() {
     const [locationSuggestions, setLocationSuggestions] = useState<Location[]>([]);
     const [pendingLocationSearch, setPendingLocationSearch] = useState<string | null>(null);
     const [lastLocationAlternatives, setLastLocationAlternatives] = useState<Location[]>([]);
+    const [isAITyping, setIsAITyping] = useState(false);
+    
+    // Enhanced error handling
+    const { errorState, handleError, clearError } = useChatErrorHandler();
+    
+    // Simulate connection state for demo (in a real implementation, this would come from WebSocket)
+    const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.CONNECTED);
+    const [connectionMetrics, setConnectionMetrics] = useState({
+        connectionAttempts: 1,
+        totalReconnects: 0,
+        averageLatency: 45,
+        lastConnectedAt: new Date()
+    });
     
     // Context menu state
     const [contextMenu, setContextMenu] = useState<{
@@ -126,7 +146,9 @@ export default function ChatPageContent() {
 
     // Memoize token to prevent unnecessary re-renders of RightMapPanel
     const currentUserToken = React.useMemo(() => {
-        return currentUser?.token || getToken();
+        const token = currentUser?.token || getToken();
+        console.log('🔑 Current token status:', token ? 'Present' : 'Missing');
+        return token;
     }, [currentUser?.token]);
 
     // Initialize MapService only once when user token is available
@@ -420,8 +442,21 @@ export default function ChatPageContent() {
             }
 
             if (!currentSession?.sessionId) {
-                console.error("No active session");
-                throw new Error("No active session");
+                console.log("🔄 No session found, creating new session for location operation...");
+                const newSession = await createSession('New Chat');
+                
+                if (!newSession || !newSession.sessionId) {
+                    throw new Error("Failed to create a new session for location operation");
+                }
+                
+                setCurrentSession(newSession);
+                
+                // Initialize WebSocket connection for the new session
+                if (mapServiceRef.current) {
+                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
+                }
+                
+                console.log("✅ Created new session for location:", newSession.sessionId);
             }
 
             // Validate location data before sending
@@ -440,7 +475,7 @@ export default function ChatPageContent() {
                 longitude: Number(location.longitude),
                 name: location.name.trim(),
                 type: location.type || 'attraction',
-                sessionId: currentSession.sessionId
+                sessionId: currentSession?.sessionId || sessionStorage.getItem("chatSessionId") || "default"
             };
             
 
@@ -611,6 +646,8 @@ export default function ChatPageContent() {
         if (!message.trim()) return;
     
         setIsLoading(true);
+        setIsAITyping(false);  // Clear any existing typing indicator
+        clearError();          // Clear any previous errors
     
         try {
             // ✅ FIRST: Add user's original message to chat UI immediately
@@ -733,11 +770,16 @@ export default function ChatPageContent() {
                 setTimeout(() => reject(new Error('API call timeout after 30 seconds')), 30000);
             });
             
+            // Show AI typing indicator
+            setIsAITyping(true);
 
             const response = await Promise.race([
                 sendMessagesEntity(messageToSend, sessionId) as Promise<ApiResponse>,
                 timeoutPromise
             ]) as ApiResponse;
+            
+            // Clear typing indicator
+            setIsAITyping(false);
 
     
             if (!response || typeof response.message !== "string") {
@@ -868,38 +910,27 @@ export default function ChatPageContent() {
     
             setDisplayPrompts(false);
         } catch (error: any) {
-            console.error('❌ DETAILED Error sending message:', {
-                message: error.message,
-                status: error.response?.status,
-                statusText: error.response?.statusText,
-                data: error.response?.data,
-                headers: error.response?.headers,
-                config: error.config,
-                stack: error.stack
-            });
-            
-            // Provide more specific error messages
-            let errorMessage = "Something went wrong. Please try again.";
-            if (error.response?.status === 401) {
-                errorMessage = "Authentication failed. Please sign in again.";
-            } else if (error.response?.status === 429) {
-                errorMessage = "Rate limit exceeded. Please wait a moment and try again.";
-            } else if (error.response?.status === 500) {
-                errorMessage = "Server error. Please try again later.";
-            } else if (error.message?.includes('timeout')) {
-                errorMessage = "Request timed out. Please try again.";
-            } else if (error.message?.includes('Network Error')) {
-                errorMessage = "Network error. Please check your connection.";
-            }
+            // Use enhanced error handling
+            const { errorMessage, errorType, canRetry } = handleError(error, 'sendMessage');
             
             setMessages((prev) => [...prev, {
                 id: Date.now(),
                 messageType: 'ASSISTANT',
                 content: errorMessage,
             }]);
+
+            // Show retry option if applicable  
+            if (canRetry) {
+                toast.error(`${errorMessage} You can try sending your message again.`, {
+                    duration: 6000
+                });
+            } else {
+                toast.error(errorMessage, { duration: 4000 });
+            }
         } finally {
             setIsLoading(false);
             setInputMessage('');
+            setIsAITyping(false);  // Ensure typing indicator is cleared
         }
     };
     
@@ -1456,6 +1487,40 @@ export default function ChatPageContent() {
                         <Map className="w-5 h-5" />
                         <span className="text-sm">Map</span>
                     </button>
+                </div>
+
+                {/* Status indicators */}
+                <div className="px-4 py-2 space-y-2">
+                    {/* AI Typing Indicator */}
+                    {isAITyping && (
+                        <TypingIndicator 
+                            isTyping={true}
+                            user="AI Assistant"
+                            className="text-xs"
+                        />
+                    )}
+                    
+                    {errorState.hasError && (
+                        <ErrorMessage
+                            message={errorState.errorMessage || 'An error occurred'}
+                            type={errorState.errorType === 'network' ? 'warning' : 'error'}
+                            canRetry={errorState.canRetry}
+                            onRetry={() => {
+                                clearError();
+                                // Retry last message if applicable
+                                if (messages.length > 0) {
+                                    const lastUserMessage = [...messages].reverse().find(m => m.messageType === 'USER');
+                                    if (lastUserMessage) {
+                                        handleSendMessage(lastUserMessage.content);
+                                    }
+                                }
+                            }}
+                            onDismiss={clearError}
+                            className="text-sm"
+                        />
+                    )}
+
+
                 </div>
 
                 {/* Beautiful Chat Container - Enhanced UI/UX */}

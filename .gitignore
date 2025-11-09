@@ -50,3 +50,6 @@ test-*.js
 system-integration-test.js
 test-websocket-debug.js
 scripts/clearTokens.js
+
+# Copilot instructions
+.github/copilot-instructions.md

@@ -203,12 +203,20 @@ export const createGuestToken = async (): Promise<string> => {
 };
 
 // User management
-export const getCurrentUser = async (): Promise<{ id: string }> => {
+export const getCurrentUser = async (): Promise<{ id: string; username?: string; email?: string }> => {
   try {
     
     const token = getToken();
     
-    const response = await apiClient.get<{ id: string }>('/users/current');
+    const response = await apiClient.get<{ 
+      id: string; 
+      username?: string; 
+      email?: string; 
+      isEmailVerified?: boolean;
+      provider?: string;
+      roles?: string[];
+      lastActive?: string;
+    }>('/users/current');
     
     return response.data;
   } catch (error: any) {

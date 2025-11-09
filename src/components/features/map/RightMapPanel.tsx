@@ -3,10 +3,23 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { getLocationsBySession } from '@/lib/api';
 import GoogleMapComponent from './GoogleMapComponent';
+import EnhancedGoogleMap from './EnhancedGoogleMap';
 import { Location, LocationType, WebSocketEvent } from '@/types/map';
 import { toast } from 'react-hot-toast';
 import { MapService } from '@/services/MapService';
 import Image from 'next/image';
+import MapFilters, { MapFilterState } from './MapFilters';
+import ThemeSelector from './ThemeSelector';
+import { MapTheme, DEFAULT_THEME, MAP_THEMES } from './MapThemes';
+import ItineraryVisualizer from './ItineraryVisualizer';
+import { MapPin, Route, Filter, X, Eye, EyeOff, Settings, Trash2 } from 'lucide-react';
+
+// Development-only logging utility
+const devLog = (message: string, data?: any) => {
+    if (process.env.NODE_ENV === 'development') {
+        console.log(message, data);
+    }
+};
 
 // Haversine distance calculation for accurate geographic distance
 const calculateHaversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -24,8 +37,8 @@ const calculateHaversineDistance = (lat1: number, lng1: number, lat2: number, ln
     return R * c; // Distance in meters
 };
 
-// Memoized GoogleMapComponent to prevent unnecessary re-renders
-const MemoizedGoogleMapComponent = React.memo(GoogleMapComponent);
+// Memoized EnhancedGoogleMap to prevent unnecessary re-renders
+const MemoizedEnhancedGoogleMap = React.memo(EnhancedGoogleMap);
 
 // Helper function to convert API location type to our LocationType
 const convertLocationType = (type: string | undefined): LocationType | undefined => {
@@ -45,7 +58,69 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showMap, setShowMap] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
+    const [showItinerary, setShowItinerary] = useState(false);
+    const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
+    const [activeFilters, setActiveFilters] = useState<MapFilterState>({
+        types: [],
+        priceRange: [0, 1000],
+        rating: 0,
+        distance: 50,
+        showRoutes: true,
+        showWeather: false
+    });
+    const [currentTheme, setCurrentTheme] = useState('modern');
+    const [showThemeSelector, setShowThemeSelector] = useState(false);
     const mapServiceRef = useRef<MapService | null>(null);
+
+    // Clear all locations function
+    const handleClearAllLocations = useCallback(async () => {
+        if (!currentSessionId || !currentUserToken) {
+            console.warn('Cannot clear locations: missing session ID or token');
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            
+            // Clear from backend database
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/locations/clear/${currentSessionId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${currentUserToken}`,
+                },
+            });
+
+            if (response.ok) {
+                // Clear local state immediately
+                setLocations([]);
+                setFilteredLocations([]);
+                toast.success('Map cleared successfully!');
+                devLog('✅ All locations cleared successfully');
+                
+                // Notify parent component
+                if (onLocationUpdate) {
+                    onLocationUpdate([]);
+                }
+            } else {
+                throw new Error(`Failed to clear locations: ${response.statusText}`);
+            }
+        } catch (error) {
+            console.error('❌ Error clearing locations:', error);
+            toast.error('Failed to clear map locations');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [currentSessionId, currentUserToken, onLocationUpdate]);
+
+    // Debug: Monitor locations state changes (development only)
+    useEffect(() => {
+        devLog('📍 RightMapPanel: Locations state updated:', {
+            count: locations.length,
+            locations: locations.map(loc => ({ name: loc.name, id: loc.id, coords: [loc.latitude, loc.longitude] }))
+        });
+    }, [locations]);
 
     // Initialize MapService when token is available
     useEffect(() => {
@@ -60,7 +135,16 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
             switch (event.type) {
                 case 'LOCATION_ADDED':
                     const newLocation = event.payload as Location;
+                    devLog('🎯 RightMapPanel: LOCATION_ADDED WebSocket event received:', {
+                        locationName: newLocation.name,
+                        locationId: newLocation.id,
+                        coordinates: [newLocation.latitude, newLocation.longitude],
+                        type: newLocation.type
+                    });
+                    
                     setLocations(prev => {
+                        devLog('📍 RightMapPanel: Current locations before add:', prev.length);
+                        
                         // Check if location already exists (prevent duplicates)
                         const exists = prev.some(loc => {
                             // Check by ID first (most reliable)
@@ -79,10 +163,15 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                             // Allow locations that are more than 100 meters apart
                             return distance < 100; // meters
                         });
+                        
                         if (exists) {
+                            devLog('⚠️ RightMapPanel: Location already exists, not adding duplicate');
                             return prev;
                         }
-                        return [...prev, newLocation];
+                        
+                        const updated = [...prev, newLocation];
+                        devLog('✅ RightMapPanel: Added new location. Total locations now:', updated.length);
+                        return updated;
                     });
                     toast.success("New location added to map");
                     break;
@@ -92,7 +181,12 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                     toast.success("Location removed from map");
                     break;
                 case 'MAP_CLEARED':
+                    devLog('🧹 RightMapPanel: MAP_CLEARED WebSocket event received');
+                    devLog('📍 RightMapPanel: Current locations before clearing:', locations.length);
                     setLocations([]);
+                    // Also clear markers from map service
+                    mapService.clearAllMarkers();
+                    devLog('✅ RightMapPanel: Map cleared via WebSocket - locations and markers removed');
                     toast.success("Map has been cleared");
                     break;
             }
@@ -182,6 +276,26 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
         }
     }, [currentSessionId, currentUserToken]);
 
+    // Update filtered locations when locations or filters change
+    useEffect(() => {
+        if (showFilters) {
+            const filtered = locations.filter(location => {
+                // Type filter
+                if (activeFilters.types.length > 0 && location.type && !activeFilters.types.includes(location.type)) {
+                    return false;
+                }
+                // Rating filter
+                if (location.rating && location.rating < activeFilters.rating) {
+                    return false;
+                }
+                return true;
+            });
+            setFilteredLocations(filtered);
+        } else {
+            setFilteredLocations(locations);
+        }
+    }, [locations, activeFilters, showFilters]);
+
     // Fetch initial locations
     const fetchLocations = useCallback(async () => {
         if (!currentSessionId) {
@@ -221,11 +335,11 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
         fetchLocations();
     }, [fetchLocations]);
 
-    // Show map when locations exist
+    // Show map when locations exist or when we want to allow interaction
     useEffect(() => {
-        const shouldShowMap = locations.length > 0;
-        // Location state changed - updating map visibility
-        setShowMap(shouldShowMap);
+        // Always show the map to allow for interaction and location adding
+        setShowMap(true);
+        devLog('📍 Map visibility set to true - locations:', locations.length);
     }, [locations]);
 
     // Listen for new location events
@@ -337,25 +451,201 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                         </button>
                     </div>
                 </div>
-            ) : !showMap ? (
-                // Show travel agent picture when no locations - fill container
-                <div className="h-full w-full relative">
-                    <Image
-                        src="/image/travelagentpic1.png"
-                        alt="Travel Agent"
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        className="object-cover"
-                        priority
-                    />
-                </div>
             ) : (
-                // Show map when locations exist
-                <GoogleMapComponent
-                    locations={locations}
-                    onLocationAdd={handleLocationAdd}
-                    onLocationSelect={handleLocationSelect}
-                />
+                // Enhanced map with overlay panels - map takes full height
+                <div className="h-full relative">
+                    {/* Full Height Map Component - Always visible */}
+                    <div className="absolute inset-0">
+                        <EnhancedGoogleMap
+                            locations={showFilters && filteredLocations.length > 0 ? filteredLocations : locations}
+                            onLocationAdd={handleLocationAdd}
+                            onLocationSelect={handleLocationSelect}
+                            theme={currentTheme}
+                            className="h-full w-full"
+                        />
+                    </div>
+
+                    {/* Travel Agent Image Overlay - Only when no locations */}
+                    {locations.length === 0 && (
+                        <div className="absolute inset-0 bg-white/90 flex items-center justify-center pointer-events-none">
+                            <div className="text-center">
+                                <Image
+                                    src="/image/travelagentpic1.png"
+                                    alt="Travel Agent"
+                                    fill
+                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                    className="object-cover opacity-80"
+                                    priority
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="bg-white/90 px-6 py-3 rounded-lg shadow-lg">
+                                        <p className="text-gray-700 text-lg font-medium">Ask AI to plan your trip!</p>
+                                        <p className="text-gray-500 text-sm mt-1">Locations will appear on the map as you chat</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Floating Map Controls - Top Right */}
+                    <div className="absolute top-2 right-2 z-10">
+                        <div className="flex items-center gap-2 bg-white rounded-lg shadow-lg border border-gray-200 p-2">
+                            <div className="flex items-center gap-2 pr-2 border-r border-gray-200">
+                                <span className="text-sm font-medium text-gray-700">Travel Map</span>
+                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                    {locations.length} locations
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    className={`p-1.5 rounded-md transition-colors ${
+                                        showFilters 
+                                            ? 'bg-blue-100 text-blue-600 border border-blue-200' 
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                    title="Toggle Filters"
+                                >
+                                    <Filter size={16} />
+                                </button>
+                                <button
+                                    onClick={() => setShowItinerary(!showItinerary)}
+                                    className={`p-1.5 rounded-md transition-colors ${
+                                        showItinerary 
+                                            ? 'bg-green-100 text-green-600 border border-green-200' 
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                    title="Toggle Itinerary"
+                                >
+                                    <Route size={16} />
+                                </button>
+                                <button
+                                    onClick={() => setShowThemeSelector(!showThemeSelector)}
+                                    className={`p-1.5 rounded-md transition-colors ${
+                                        showThemeSelector 
+                                            ? 'bg-purple-100 text-purple-600 border border-purple-200' 
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                    title="Map Themes"
+                                >
+                                    <Settings size={16} />
+                                </button>
+                                {locations.length > 0 && (
+                                    <button
+                                        onClick={handleClearAllLocations}
+                                        disabled={isLoading}
+                                        className={`p-1.5 rounded-md transition-colors ${
+                                            isLoading 
+                                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed' 
+                                                : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
+                                        }`}
+                                        title="Clear All Locations"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Floating Filters Panel - Top Left */}
+                    {showFilters && (
+                        <div className="absolute top-2 left-2 z-10 max-w-sm">
+                            <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+                                <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+                                    <h3 className="text-sm font-medium text-gray-700">Map Filters</h3>
+                                    <button
+                                        onClick={() => setShowFilters(false)}
+                                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                        title="Close Filters"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                                <MapFilters
+                                    onFiltersChange={(filters) => {
+                                        setActiveFilters(filters);
+                                        // Apply filters to locations
+                                        const filtered = locations.filter(location => {
+                                            // Type filter
+                                            if (filters.types.length > 0 && location.type && !filters.types.includes(location.type)) {
+                                                return false;
+                                            }
+                                            // Rating filter
+                                            if (location.rating && location.rating < filters.rating) {
+                                                return false;
+                                            }
+                                            return true;
+                                        });
+                                        setFilteredLocations(filtered);
+                                    }}
+                                    activeFilters={activeFilters}
+                                    locationCount={locations.length}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Floating Theme Selector Panel - Top Center */}
+                    {showThemeSelector && (
+                        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 max-w-md">
+                            <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+                                <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-purple-50 rounded-t-lg">
+                                    <h3 className="text-sm font-medium text-gray-700">Map Themes</h3>
+                                    <button
+                                        onClick={() => setShowThemeSelector(false)}
+                                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                        title="Close Themes"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                                <ThemeSelector
+                                    currentTheme={currentTheme}
+                                    onThemeChange={(theme) => {
+                                        setCurrentTheme(theme);
+                                        setShowThemeSelector(false);
+                                    }}
+                                    className="p-4"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Floating Itinerary Panel - Right Side */}
+                    {showItinerary && locations.length > 1 && (
+                        <div className="absolute top-16 right-2 bottom-2 z-10 w-96 max-w-sm">
+                            <div className="bg-white rounded-lg shadow-lg border border-gray-200 h-full flex flex-col">
+                                <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-blue-50 rounded-t-lg flex-shrink-0">
+                                    <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                        <Route size={16} />
+                                        Travel Itinerary
+                                    </h3>
+                                    <button
+                                        onClick={() => setShowItinerary(false)}
+                                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                        title="Close Itinerary"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                                <div className="flex-1 overflow-hidden">
+                                    <ItineraryVisualizer
+                                        locations={locations}
+                                        onLocationSelect={(location) => {
+                                            devLog('Selected location:', location);
+                                        }}
+                                        onRouteOptimize={(optimizedLocations: Location[]) => {
+                                            // Optional: update location order based on optimization
+                                            devLog('Optimized route:', optimizedLocations);
+                                            setLocations(optimizedLocations);
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
             )}
         </div>
     );
