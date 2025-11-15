@@ -59,7 +59,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({
         setError(null);
         setRetryCount(0);
         onLoadingChange?.(false);
-        console.log('Manual reset triggered by user');
+        // Manual reset triggered by user
     }, [onLoadingChange]);
 
     const initializeAutocomplete = useCallback(async (retryAttempt = 0) => {
@@ -122,7 +122,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                     }
                 });
 
-                // Add prediction_changed listener for suggestions using new AutocompleteSuggestion API
+                // Use new Places API for autocomplete suggestions
                 const debouncedFetchPredictions = debounce(async (input: string) => {
                     if (input.length < 3) {
                         setSuggestions([]);
@@ -130,31 +130,40 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                     }
                     
                     try {
-                        const { suggestions: predictions } = await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-                            input,
-                            sessionToken: new google.maps.places.AutocompleteSessionToken(),
-                        });
-                        
-                        if (predictions && predictions.length > 0) {
-                            // Convert AutocompleteSuggestion format to match existing prediction format
-                            const formattedPredictions = predictions.map((suggestion) => ({
-                                description: suggestion.placePrediction?.text?.text || '',
-                                place_id: suggestion.placePrediction?.placeId || '',
-                                structured_formatting: {
-                                    main_text: suggestion.placePrediction?.text?.text?.split(',')[0] || '',
-                                    secondary_text: suggestion.placePrediction?.text?.text?.split(',').slice(1).join(',').trim() || '',
-                                    main_text_matched_substrings: []
-                                },
-                                matched_substrings: [],
-                                terms: [],
-                                types: suggestion.placePrediction?.types || []
-                            }) as google.maps.places.AutocompletePrediction);
-                            setSuggestions(formattedPredictions);
-                        } else {
-                            setSuggestions([]);
-                            if (input.length > 2) {
-                                handleError('No matching locations found');
+                        // Use the new Places API AutocompleteSuggestion
+                        if (window.google?.maps?.places?.AutocompleteSuggestion) {
+                            const { suggestions: predictions } = await window.google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+                                input,
+                                sessionToken: new window.google.maps.places.AutocompleteSessionToken(),
+                                includedPrimaryTypes: ['lodging', 'restaurant', 'tourist_attraction', 'establishment'],
+                                includedRegionCodes: [], // Allow worldwide
+                            });
+                            
+                            if (predictions && predictions.length > 0) {
+                                // Convert new API format to match existing prediction format
+                                const formattedPredictions = predictions.map((suggestion) => ({
+                                    description: suggestion.placePrediction?.text?.text || '',
+                                    place_id: suggestion.placePrediction?.placeId || '',
+                                    structured_formatting: {
+                                        main_text: suggestion.placePrediction?.text?.text?.split(',')[0] || '',
+                                        secondary_text: suggestion.placePrediction?.text?.text?.split(',').slice(1).join(',').trim() || '',
+                                        main_text_matched_substrings: []
+                                    },
+                                    matched_substrings: [],
+                                    terms: [],
+                                    types: suggestion.placePrediction?.types || []
+                                }) as google.maps.places.AutocompletePrediction);
+                                setSuggestions(formattedPredictions);
+                            } else {
+                                setSuggestions([]);
+                                if (input.length > 2) {
+                                    // No matching locations found for query
+                                }
                             }
+                        } else {
+                            // Fallback to legacy API if new one not available
+                            console.warn('New Places API not available, using fallback');
+                            setSuggestions([]);
                         }
                     } catch (error) {
                         console.error('Error fetching autocomplete suggestions:', error);

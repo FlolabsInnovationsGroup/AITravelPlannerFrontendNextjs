@@ -18,6 +18,13 @@ import AudioRecorder from './AudioRecorder';
 import LeftMenuBar from '@/components/features/chat/LeftMenuBar';
 import LocationSuggestions from '@/components/features/map/LocationSuggestions';
 import dynamic from 'next/dynamic';
+import { useChatErrorHandler } from '@/hooks/useMessageRetry';
+import { ConnectionState } from '@/hooks/useEnhancedWebSocket';
+import { 
+  MessageStatusIndicator, 
+  TypingIndicator, 
+  ErrorMessage 
+} from '@/components/ui/ChatUIComponents';
 
 // Code splitting for heavy map component (Performance Audit Implementation)
 const RightMapPanel = dynamic(() => import('@/components/features/map/RightMapPanel'), {
@@ -33,6 +40,7 @@ const RightMapPanel = dynamic(() => import('@/components/features/map/RightMapPa
 });
 import { LocationExtractionService } from '@/services/LocationExtractionService';
 import { MapService } from '@/services/MapService';
+import BeautifulChatContainer from './BeautifulChatContainer';
 
 // Loader Component
 const MessageLoader = () => {
@@ -56,6 +64,7 @@ interface Message {
     id: number;
     messageType: 'USER' | 'ASSISTANT';
     content: string;
+    timestamp?: Date;
 }
 
 interface ApiResponse {
@@ -91,7 +100,7 @@ export default function ChatPageContent() {
     const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
     const [currentSession, setCurrentSession] = useState<{ sessionId: string; title: string } | null>(null);
     const [displayPrompts, setDisplayPrompts] = useState(true);
-    const [showChatHistory, setShowChatHistory] = useState(true);
+    const [showChatHistory, setShowChatHistory] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isInitialized, setIsInitialized] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -104,6 +113,19 @@ export default function ChatPageContent() {
     const [locationSuggestions, setLocationSuggestions] = useState<Location[]>([]);
     const [pendingLocationSearch, setPendingLocationSearch] = useState<string | null>(null);
     const [lastLocationAlternatives, setLastLocationAlternatives] = useState<Location[]>([]);
+    const [isAITyping, setIsAITyping] = useState(false);
+    
+    // Enhanced error handling
+    const { errorState, handleError, clearError } = useChatErrorHandler();
+    
+    // Simulate connection state for demo (in a real implementation, this would come from WebSocket)
+    const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.CONNECTED);
+    const [connectionMetrics, setConnectionMetrics] = useState({
+        connectionAttempts: 1,
+        totalReconnects: 0,
+        averageLatency: 45,
+        lastConnectedAt: new Date()
+    });
     
     // Context menu state
     const [contextMenu, setContextMenu] = useState<{
@@ -124,25 +146,27 @@ export default function ChatPageContent() {
 
     // Memoize token to prevent unnecessary re-renders of RightMapPanel
     const currentUserToken = React.useMemo(() => {
-        return currentUser?.token || getToken();
+        const token = currentUser?.token || getToken();
+        console.log('🔑 Current token status:', token ? 'Present' : 'Missing');
+        return token;
     }, [currentUser?.token]);
 
     // Initialize MapService only once when user token is available
     useEffect(() => {
         const token = currentUser?.token || getToken();
         if (!token) {
-            console.warn("⚠️ No authentication token available for MapService");
+
             return;
         }
         
         // Initialize MapService if not exists
         if (!mapServiceRef.current) {
-            console.log("🔧 Initializing MapService with token:", token ? 'Token available' : 'No token');
+
             mapServiceRef.current = new MapService(token);
             
             // Set up WebSocket event listeners
             mapServiceRef.current.onConnect = () => {
-                console.log("✅ WebSocket connected");
+
                 setWsConnected(true);
                 setWsRetryCount(0);
                 if (wsReconnectTimerRef.current) {
@@ -151,7 +175,7 @@ export default function ChatPageContent() {
             };
 
             mapServiceRef.current.onDisconnect = () => {
-                console.log("❌ WebSocket disconnected");
+
                 setWsConnected(false);
                 handleReconnection();
             };
@@ -180,7 +204,7 @@ export default function ChatPageContent() {
 
                 wsReconnectTimerRef.current = setTimeout(() => {
                     if (currentSession?.sessionId) {
-                        console.log(`🔄 Attempting reconnection (attempt ${newRetryCount})`);
+
                         connectToSession(currentSession.sessionId);
                     }
                 }, Math.min(1000 * (2 ** prev), 10000)); // Exponential backoff, max 10s
@@ -196,7 +220,7 @@ export default function ChatPageContent() {
                     return;
                 }
 
-                console.log(`🔄 Connecting to session: ${sessionId}`);
+
                 await mapServiceRef.current.connectWebSocket(sessionId);
             } catch (error) {
                 console.error("❌ Error connecting to session:", error);
@@ -208,7 +232,7 @@ export default function ChatPageContent() {
         // Cleanup function
         return () => {
             if (mapServiceRef.current) {
-                console.log("🧹 Cleaning up MapService connections");
+
                 mapServiceRef.current.disconnect();
                 mapServiceRef.current = null;
                 setWsConnected(false);
@@ -227,7 +251,7 @@ export default function ChatPageContent() {
 
         const connectToSession = async (sessionId: string) => {
             try {
-                console.log(`🔄 Connecting to session: ${sessionId}`);
+
                 await mapServiceRef.current!.connectWebSocket(sessionId);
             } catch (error) {
                 console.error("❌ Error connecting to session:", error);
@@ -282,7 +306,7 @@ export default function ChatPageContent() {
     // Generate dynamic prompts based on context
     const generateDynamicPrompts = (context: string | undefined) => {
         if (!context) {
-            console.warn("generateDynamicPrompts received an undefined context.");
+
             return defaultPrompts.slice(0, 4); // Return default prompts instead of crashing
         }
     
@@ -313,9 +337,21 @@ export default function ChatPageContent() {
             initializationRef.current = false;
             setIsInitialized(false);
             
+            // Clear locations from backend for current session before starting new one
+            const currentSessionId = sessionStorage.getItem("chatSessionId");
+            if (currentSessionId && mapServiceRef.current) {
+                try {
+
+                    await mapServiceRef.current.clearLocations(currentSessionId);
+                } catch (error) {
+
+                    // Continue with new chat even if clearing fails
+                }
+            }
+
             // Disconnect from current session's WebSocket and clear map data safely
             if (mapServiceRef.current) {
-                console.log("🧹 Disconnecting from previous session and clearing map");
+
                 mapServiceRef.current.disconnect();
                 // Safely clear markers (won't throw error if map not initialized)
                 mapServiceRef.current.clearAllMarkers();
@@ -363,14 +399,14 @@ export default function ChatPageContent() {
                         try {
                             const parsedResponse = JSON.parse(message.content);
                             if (parsedResponse.message && typeof parsedResponse.message === 'string') {
-                                console.log("📝 Parsing JSON in historical message:", parsedResponse);
+
                                 return {
                                     ...message,
                                     content: parsedResponse.message
                                 };
                             }
                         } catch (parseError) {
-                            console.warn("⚠️ Failed to parse JSON in historical message, using raw message:", parseError);
+
                             // Keep original message if parsing fails
                         }
                     }
@@ -406,8 +442,21 @@ export default function ChatPageContent() {
             }
 
             if (!currentSession?.sessionId) {
-                console.error("No active session");
-                throw new Error("No active session");
+                console.log("🔄 No session found, creating new session for location operation...");
+                const newSession = await createSession('New Chat');
+                
+                if (!newSession || !newSession.sessionId) {
+                    throw new Error("Failed to create a new session for location operation");
+                }
+                
+                setCurrentSession(newSession);
+                
+                // Initialize WebSocket connection for the new session
+                if (mapServiceRef.current) {
+                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
+                }
+                
+                console.log("✅ Created new session for location:", newSession.sessionId);
             }
 
             // Validate location data before sending
@@ -426,26 +475,21 @@ export default function ChatPageContent() {
                 longitude: Number(location.longitude),
                 name: location.name.trim(),
                 type: location.type || 'attraction',
-                sessionId: currentSession.sessionId
+                sessionId: currentSession?.sessionId || sessionStorage.getItem("chatSessionId") || "default"
             };
             
-            console.log("📍 Attempting to add location:", locationToAdd);
-            console.log("🔑 Current user:", currentUser ? 'User available' : 'No user');
-            console.log("📋 Session details:", {
-                sessionId: currentSession.sessionId,
-                title: currentSession.title
-            });
-            
+
+
             const addedLocation = await mapServiceRef.current.addLocation(locationToAdd);
             
-            console.log("✅ Location added successfully:", addedLocation);
+
             
             // Dispatch event for map update
             const event = new CustomEvent('newLocation', { 
                 detail: addedLocation
             });
             window.dispatchEvent(event);
-            console.log("🌍 Location event dispatched");
+
             
             return addedLocation;
         } catch (error) {
@@ -456,7 +500,7 @@ export default function ChatPageContent() {
             
             // Check if it's a validation error
             if (error instanceof Error && error.message && error.message.includes('invalid characters')) {
-                console.warn("⚠️ Location name contains invalid characters:", location.name);
+
                 throw new Error(`Location name "${location.name}" contains characters not supported by the server.`);
             }
             
@@ -466,12 +510,12 @@ export default function ChatPageContent() {
 
     // Handler for when user selects a location from suggestions
     const handleLocationSelect = async (location: Location) => {
-        console.log("🎯 User selected location:", location);
+
         
         try {
             // Add the selected location to the map
             await addLocationToMap(location);
-            console.log("✅ Location successfully added to map");
+
             
             // Clear suggestions and continue with the original message
             setLocationSuggestions([]);
@@ -483,21 +527,21 @@ export default function ChatPageContent() {
                 setMessages((prev) => {
                     // Check if message already exists
                     if (prev.length > 0 && prev[prev.length - 1].content === originalMessage && prev[prev.length - 1].messageType === "USER") {
-                        console.warn("⚠️ User message already in chat, skipping duplicate");
+
                         return prev;
                     }
-                    console.log("✅ Adding selected user message to chat:", originalMessage);
+
                     return [...prev, { id: Date.now(), messageType: 'USER', content: originalMessage }];
                 });
                 
-                console.log("📞 Continuing with enhanced message after location selection");
+
                 // Create enhanced message for AI context
                 const enhancedMessage = `I've added ${location.name} to the map. ${originalMessage}. Please provide detailed travel information about this place.`;
                 
                 // Continue processing with enhanced message
                 await processChatMessage(enhancedMessage);
             } else {
-                console.warn("⚠️ No pending message to continue with");
+
             }
         } catch (error) {
             console.error("❌ Error in handleLocationSelect:", error);
@@ -522,7 +566,7 @@ export default function ChatPageContent() {
 
     // Handler for dismissing location suggestions
     const handleLocationSuggestionsDismiss = async () => {
-        console.log("❌ User dismissed location suggestions");
+
         setLocationSuggestions([]);
         const originalMessage = pendingLocationSearch;
         setPendingLocationSearch(null);
@@ -532,10 +576,10 @@ export default function ChatPageContent() {
             setMessages((prev) => {
                 // Check if message already exists
                 if (prev.length > 0 && prev[prev.length - 1].content === originalMessage && prev[prev.length - 1].messageType === "USER") {
-                    console.warn("⚠️ User message already in chat, skipping duplicate");
+
                     return prev;
                 }
-                console.log("✅ Adding dismissed user message to chat:", originalMessage);
+
                 return [...prev, { id: Date.now(), messageType: 'USER', content: originalMessage }];
             });
             
@@ -550,7 +594,7 @@ export default function ChatPageContent() {
             let sessionId = currentSession?.sessionId;
     
             if (!sessionId) {
-                console.log("Creating a new session...");
+
                 const newSession = await createSession('New Chat');
     
                 if (!newSession || !newSession.sessionId) {
@@ -565,8 +609,8 @@ export default function ChatPageContent() {
             }
     
             // Send message to backend (user message should already be in chat UI)
-            console.log("📡 Sending message to API:", message, sessionId);
-            console.log("📡 About to call sendMessagesEntity...");
+
+
             
             // Add timeout to prevent hanging
             const timeoutPromise = new Promise((_, reject) => {
@@ -578,7 +622,7 @@ export default function ChatPageContent() {
                 timeoutPromise
             ]) as ApiResponse;
             
-            console.log("📡 API Response received:", response);
+
     
             if (!response || typeof response.message !== "string") {
                 console.error("Invalid response format:", response);
@@ -588,7 +632,8 @@ export default function ChatPageContent() {
             setMessages((prev) => [...prev, { 
                 id: Date.now() + 1, 
                 messageType: 'ASSISTANT', 
-                content: response.message 
+                content: response.message,
+                timestamp: new Date() 
             }]);
             
         } catch (error) {
@@ -601,17 +646,19 @@ export default function ChatPageContent() {
         if (!message.trim()) return;
     
         setIsLoading(true);
+        setIsAITyping(false);  // Clear any existing typing indicator
+        clearError();          // Clear any previous errors
     
         try {
             // ✅ FIRST: Add user's original message to chat UI immediately
             setMessages((prev) => {
                 // Prevent duplicate messages
                 if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.length - 1].messageType === "USER") {
-                    console.warn("⚠️ Duplicate message detected, skipping:", message);
+
                     return prev;
                 }
-                console.log("✅ User message added to chat:", message);
-                return [...prev, { id: Date.now(), messageType: 'USER', content: message }];
+
+                return [...prev, { id: Date.now(), messageType: 'USER', content: message, timestamp: new Date() }];
             });
 
             // Check if the message mentions locations - expanded for travel terms
@@ -626,42 +673,57 @@ export default function ChatPageContent() {
                 message.toLowerCase().includes(keyword)
             );
             
-            console.log(`🔍 Checking for location keywords in: "${message}"`);
-            console.log(`🎯 Has location keyword: ${hasLocationKeyword}`);
+
+
 
             // Extract and add locations from the message if it contains location keywords
             let locationsAdded = false;
             if (hasLocationKeyword && locationService.current) {
-                console.log("🔍 Extracting location from message:", message);
+
                 try {
+                    // First try to extract multiple locations (for AI responses with itineraries)
+                    const multipleLocations = await locationService.current.extractMultipleLocationsFromMessage(message);
+
+                    
+                    if (multipleLocations && multipleLocations.length > 0 && currentSession?.sessionId) {
+
+                        
+                        // Add all locations to the map
+                        for (const location of multipleLocations) {
+                            await addLocationToMap(location);
+                        }
+                        locationsAdded = true;
+                        setLastLocationAlternatives([]);
+                        // Continue to AI processing instead of returning early
+                    }
+                    
+                    // Fallback to single location extraction
                     const locationResult = await locationService.current.extractLocationFromMessage(message);
-                    console.log("🔍 Location extraction result:", locationResult);
+
                     
                     if (locationResult.extractedLocation && currentSession?.sessionId) {
                         // Automatically use the most likely location (first result) instead of showing popup
-                        console.log("� Found location:", locationResult.extractedLocation);
+
                         await addLocationToMap(locationResult.extractedLocation);
                         locationsAdded = true;
                         
                         // Store alternative locations for AI context
                         if (locationResult.suggestedPlaces && locationResult.suggestedPlaces.length > 0) {
-                            console.log(`🎯 Auto-selected most likely location. ${locationResult.suggestedPlaces.length} alternatives available:`, 
-                                locationResult.suggestedPlaces.map(p => p.name).join(', '));
                             setLastLocationAlternatives(locationResult.suggestedPlaces);
                         } else {
                             setLastLocationAlternatives([]);
                         }
                     } else if (locationResult.error) {
-                        console.warn("⚠️ Location extraction error:", locationResult.error);
+
                     } else {
-                        console.log("ℹ️ No specific location extracted, proceeding with normal chat");
+
                     }
                 } catch (error) {
                     console.error("❌ Location extraction failed:", error);
                     // Continue with normal chat processing even if location extraction fails
                 }
             } else {
-                console.log("ℹ️ No location extraction needed, proceeding with normal chat");
+
             }
             
             // If locations were added, modify the message to provide context to the AI (internal only)
@@ -675,14 +737,14 @@ export default function ChatPageContent() {
                     messageToSend += ` [Context: I auto-selected the most likely location. If multiple locations were possible, mention alternatives like: ${alternativeNames}. Ask if they meant a different location if applicable.]`;
                 }
                 
-                console.log("📍 Enhanced message for AI (internal):", messageToSend);
+
             }
 
-            console.log("💬 Proceeding to send message to chat API");
+
             let sessionId = currentSession?.sessionId;
     
             if (!sessionId) {
-                console.log("Creating a new session...");
+
                 const newSession = await createSession('New Chat');
     
                 if (!newSession || !newSession.sessionId) {
@@ -698,19 +760,27 @@ export default function ChatPageContent() {
             }
     
             // ✅ Send enhanced message to backend (user message already added to UI above)
-            console.log("📡 Sending enhanced message to API:", messageToSend, sessionId);
-            console.log("📡 About to call sendMessagesEntity...");
+
+
+
+
             
             // Add timeout to prevent hanging
             const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('API call timeout after 30 seconds')), 30000);
             });
             
+            // Show AI typing indicator
+            setIsAITyping(true);
+
             const response = await Promise.race([
                 sendMessagesEntity(messageToSend, sessionId) as Promise<ApiResponse>,
                 timeoutPromise
             ]) as ApiResponse;
-            console.log("API Response:", response);
+            
+            // Clear typing indicator
+            setIsAITyping(false);
+
     
             if (!response || typeof response.message !== "string") {
                 console.error("Invalid response format:", response);
@@ -730,12 +800,12 @@ export default function ChatPageContent() {
                     try {
                         const parsedResponse = JSON.parse(response.message);
                         if (parsedResponse.message && typeof parsedResponse.message === 'string') {
-                            console.log("📝 Parsing JSON response from backend:", parsedResponse);
+
                             messageContent = parsedResponse.message;
                             responseSuggestions = parsedResponse.suggestions || responseSuggestions;
                         }
                     } catch (parseError) {
-                        console.warn("⚠️ Failed to parse JSON response, using raw message:", parseError);
+
                         // Keep original message if parsing fails
                     }
                 }
@@ -746,46 +816,58 @@ export default function ChatPageContent() {
                     content: messageContent,
                 }]);
 
+                // 🗺️ Extract locations from AI response (this is where multiple cities would be mentioned)
+                if (locationService.current && messageContent && messageContent.length > 10) {
+                    try {
+
+                        
+                        // First try to extract multiple locations (for AI responses with itineraries)
+                        const aiMultipleLocations = await locationService.current.extractMultipleLocationsFromMessage(messageContent);
+                        
+                        if (aiMultipleLocations && aiMultipleLocations.length > 0) {
+
+                            
+                            // Add all locations found in the AI response
+                            for (const location of aiMultipleLocations) {
+                                try {
+                                    await addLocationToMap(location);
+
+                                } catch (locationError) {
+
+                                }
+                            }
+                        } else {
+
+                        }
+                    } catch (error) {
+
+                    }
+                }
+
                 // ✅ Update session title if this is the first conversation (check for first user message)
-                console.log(`🔍 Checking session title update conditions:`, {
-                    messagesLength: messages.length,
-                    hasCurrentUser: !!currentUser,
-                    userId: currentUser?.id,
-                    hasSessionId: !!sessionId,
-                    sessionId: sessionId,
-                    originalMessage: message,
-                    currentSessionTitle: currentSession?.title
-                });
                 
                 // Check if this is the first message conversation AND the session still has "New Chat" title
                 // Since we add user message first, then AI response, check for length === 2 (user + AI)
                 if (messages.length === 2 && currentUser?.id && sessionId && currentSession?.title === 'New Chat') {
                     const newTitle = generateSessionTitle(message);
-                    console.log(`🎯 First message detected! Updating session title from "${currentSession?.title}" to: "${newTitle}"`);
+
                     
                     try {
-                        console.log(`🔄 Calling updateSession API...`);
+
                         await updateSession(sessionId, newTitle, currentUser.id);
                         
-                        console.log(`📝 Updating local session state...`);
+
                         setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
                         
-                        console.log(`🔄 Refreshing chat history...`);
+
                         await fetchChatHistory();
                         
-                        console.log(`✅ Session title updated successfully to: "${newTitle}"`);
+
                     } catch (error) {
                         console.error('❌ Failed to update session title:', error);
                         // Still update local state even if API call fails
                         setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
                     }
-                } else {
-                    console.log(`ℹ️ Skipping session title update:`, {
-                        reason: messages.length !== 2 ? `Not first message (length: ${messages.length})` : 
-                               !currentUser?.id ? 'No user ID' :
-                               !sessionId ? 'No session ID' :
-                               currentSession?.title !== 'New Chat' ? 'Title already updated' : 'Unknown'
-                    });
                 }
 
                     // Check if the message might contain location data
@@ -798,14 +880,14 @@ export default function ChatPageContent() {
                     // Add a small delay to allow the backend to process locations
                     setTimeout(async () => {
                         try {
-                            console.log('🗺️ Fetching locations for session:', sessionId);
+
                             const locations = await getLocationsBySession(sessionId);
                             
                             if (locations && locations.length > 0) {
-                                console.log(`📍 Found ${locations.length} locations:`, locations);
+
                                 toast.success(`Found ${locations.length} locations on the map`);
                             } else {
-                                console.log('⚠️ No locations found for the request');
+
                                 // Only show the message if it's likely we should have found locations
                                 if (message.toLowerCase().includes('restaurant') || 
                                     message.toLowerCase().includes('place') ||
@@ -827,16 +909,28 @@ export default function ChatPageContent() {
             }
     
             setDisplayPrompts(false);
-        } catch (error) {
-            console.error('Error sending message:', error);
+        } catch (error: any) {
+            // Use enhanced error handling
+            const { errorMessage, errorType, canRetry } = handleError(error, 'sendMessage');
+            
             setMessages((prev) => [...prev, {
                 id: Date.now(),
                 messageType: 'ASSISTANT',
-                content: "Something went wrong. Please try again.",
+                content: errorMessage,
             }]);
+
+            // Show retry option if applicable  
+            if (canRetry) {
+                toast.error(`${errorMessage} You can try sending your message again.`, {
+                    duration: 6000
+                });
+            } else {
+                toast.error(errorMessage, { duration: 4000 });
+            }
         } finally {
             setIsLoading(false);
             setInputMessage('');
+            setIsAITyping(false);  // Ensure typing indicator is cleared
         }
     };
     
@@ -844,7 +938,7 @@ export default function ChatPageContent() {
     
     
     const handlePromptClick = async (prompt: string) => {
-        console.log("🚀 Prompt button clicked:", prompt);
+
         
         // Instead of navigating, directly send the message
         setInputMessage(prompt);
@@ -853,7 +947,7 @@ export default function ChatPageContent() {
 
     // Handle suggestion clicks - convert suggestions to proper questions
     const handleSuggestionClick = async (suggestion: string) => {
-        console.log("💡 Suggestion clicked:", suggestion);
+
         
         // Convert suggestion into a proper question
         let question = suggestion;
@@ -876,7 +970,7 @@ export default function ChatPageContent() {
             question = suggestion + '?';
         }
 
-        console.log("❓ Converted to question:", question);
+
         
         // Send the question directly without location extraction
         await handleSuggestionMessage(question);
@@ -893,18 +987,18 @@ export default function ChatPageContent() {
             setMessages((prev) => {
                 // Prevent duplicate messages
                 if (prev.length > 0 && prev[prev.length - 1].content === question && prev[prev.length - 1].messageType === "USER") {
-                    console.warn("⚠️ Duplicate suggestion message detected, skipping:", question);
+
                     return prev;
                 }
-                console.log("✅ Suggestion question added to chat:", question);
+
                 return [...prev, { id: Date.now(), messageType: 'USER', content: question }];
             });
 
-            console.log("💬 Sending suggestion question to chat API (no location extraction)");
+
             let sessionId = currentSession?.sessionId;
     
             if (!sessionId) {
-                console.log("Creating a new session...");
+
                 const newSession = await createSession('New Chat');
     
                 if (!newSession || !newSession.sessionId) {
@@ -920,7 +1014,7 @@ export default function ChatPageContent() {
             }
     
             // Send question directly to backend without location enhancement
-            console.log("📡 Sending suggestion question to API:", question, sessionId);
+
             
             const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('API call timeout after 30 seconds')), 30000);
@@ -930,7 +1024,7 @@ export default function ChatPageContent() {
                 sendMessagesEntity(question, sessionId) as Promise<ApiResponse>,
                 timeoutPromise
             ]) as ApiResponse;
-            console.log("API Response for suggestion:", response);
+
     
             if (!response || typeof response.message !== "string") {
                 console.error("Invalid response format:", response);
@@ -969,15 +1063,15 @@ export default function ChatPageContent() {
     
     // Handle message click functionality
     const handleMessageClick = (message: Message) => {
-        console.log("🖱️ Message clicked:", message);
+
         if (message.messageType === 'USER') {
             // For user messages, copy to input field for editing/re-sending
-            console.log("📝 Copying user message to input field");
+
             setInputMessage(message.content);
             toast.success("Message copied to input field");
         } else {
             // For assistant messages, offer to continue the conversation
-            console.log("🤖 Creating continuation prompt for assistant message");
+
             const continuePrompt = `Continue from: "${message.content.substring(0, 100)}${message.content.length > 100 ? '...' : ''}"`;
             setInputMessage(continuePrompt);
             toast.success("Click send to continue this conversation");
@@ -986,7 +1080,7 @@ export default function ChatPageContent() {
 
     // Handle right-click context menu
     const handleContextMenu = (e: React.MouseEvent, message: Message) => {
-        console.log("🖱️ Right-click context menu:", message);
+
         e.preventDefault();
         setContextMenu({
             visible: true,
@@ -1034,7 +1128,7 @@ export default function ChatPageContent() {
     
     
     const handleTranscription = (transcribedText: string) => {
-        console.log("✅ Received transcription:", transcribedText);
+
         setInputMessage(transcribedText);
         handleSendMessage(transcribedText); // ✅ Auto-send
     };
@@ -1044,14 +1138,31 @@ export default function ChatPageContent() {
     
     
     const fetchChatHistory = async () => {
-        if (!currentUser?.id) return;
+        if (!currentUser?.id) {
+
+            setChatHistory([]);
+            return;
+        }
     
         try {
+
             const sessions = await getUserSessions(currentUser.id);
-            setChatHistory(sessions);
+
+            
+            if (Array.isArray(sessions)) {
+                setChatHistory(sessions);
+            } else {
+
+                setChatHistory([]);
+            }
         } catch (error) {
-            console.error('Error fetching chat history:', error);
-            toast.error('Failed to load chat history');
+            console.error('❌ Error fetching chat history:', error);
+            setChatHistory([]);
+            // Only show toast if it's not a network/auth issue
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (!errorMessage.includes('Network Error') && !errorMessage.includes('401')) {
+                toast.error('Failed to load chat history');
+            }
         }
     };
     
@@ -1149,7 +1260,7 @@ export default function ChatPageContent() {
             }
             
             initializationRef.current = true;
-            console.log("Initializing chat...");
+
         
             let sessionId = searchParams.get("sessionId");
             if (typeof window !== 'undefined') {
@@ -1157,11 +1268,11 @@ export default function ChatPageContent() {
             }
             const initialMessage = searchParams.get("initialMessage") || sessionStorage.getItem("initialMessage");
         
-            console.log("➡️ Checking sessionId:", sessionId);
-            console.log("➡️ Checking initialMessage:", initialMessage);
+
+
         
             if (!sessionId) {
-                console.log("⚠️ No session found, creating a new session...");
+
                 try {
                     const newSession = await createSession("New Chat");
         
@@ -1169,7 +1280,7 @@ export default function ChatPageContent() {
                         sessionId = newSession.sessionId;
                         sessionStorage.setItem("chatSessionId", sessionId);
                         setCurrentSession({ sessionId, title: "New Chat" });
-                        console.log("✅ New session created:", sessionId);
+
                     } else {
                         console.error("❌ Failed to create a session.");
                         initializationRef.current = false; // Reset on failure
@@ -1182,18 +1293,18 @@ export default function ChatPageContent() {
                 }
             } else {
                 setCurrentSession({ sessionId, title: "New Chat" });
-                console.log("✅ Using existing session:", sessionId);
+
             }
         
             if (initialMessage) {
-                console.log("✅ Retrieved initial message:", initialMessage);
+
         
                 try {
                     const decodedMessage = decodeURIComponent(initialMessage);
         
                     // ✅ Prevent duplicate processing but allow future messages
                     if (sessionStorage.getItem("sentMessage") === decodedMessage) {
-                        console.log("⚠️ Message already sent, skipping duplicate.");
+
                         sessionStorage.removeItem("sentMessage"); // Clear it after sending once
                         setIsInitialized(true);
                         return;
@@ -1202,7 +1313,7 @@ export default function ChatPageContent() {
                     // ✅ Add to state (avoid duplicate messages)
                     setMessages((prev) => {
                         if (!prev.some((m) => m.content === decodedMessage)) {
-                            console.log("✅ Adding initial message to state:", decodedMessage);
+
                             return [
                                 ...prev,
                                 { id: Date.now(), messageType: "USER", content: decodedMessage }
@@ -1215,37 +1326,29 @@ export default function ChatPageContent() {
                     sessionStorage.setItem("sentMessage", decodedMessage);
         
                     // ✅ Update session title for all users (including guests)
-                    console.log('🔍 Checking title update conditions:', {
-                        hasCurrentUser: !!currentUser,
-                        userId: currentUser?.id,
-                        hasSessionId: !!sessionId,
-                        sessionId: sessionId,
-                        message: decodedMessage
-                    });
-                    
                     if (currentUser?.id && sessionId) {
                         const newTitle = generateSessionTitle(decodedMessage);
-                        console.log(`🎯 Generated title: "${newTitle}" from message: "${decodedMessage}"`);
+
                         
                         try {
-                            console.log(`🔄 Calling updateSession API with:`, { sessionId, newTitle, userId: currentUser.id });
+
                             await updateSession(sessionId, newTitle, currentUser.id);
                             
                             // Update the current session title in local state immediately
                             setCurrentSession(prev => {
-                                console.log('📝 Updating current session title from:', prev?.title, 'to:', newTitle);
+
                                 return prev ? { ...prev, title: newTitle } : null;
                             });
                             
                             // Refresh chat history to update the sidebar
-                            console.log('🔄 Refreshing chat history...');
+
                             await fetchChatHistory();
-                            console.log(`✅ Session title updated successfully to: "${newTitle}"`);
+
                         } catch (error) {
                             console.error('❌ Failed to update session title:', error);
                             // Still update local state even if API call fails
                             setCurrentSession(prev => {
-                                console.log('📝 Updating local session title (fallback) to:', newTitle);
+
                                 return prev ? { ...prev, title: newTitle } : null;
                             });
                         }
@@ -1386,146 +1489,59 @@ export default function ChatPageContent() {
                     </button>
                 </div>
 
-                <div className="flex-1 flex flex-col min-h-0 overflow-auto">
-                    {displayPrompts && messages.length === 0 ? (
-
-                        <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
-                            {/* Wrapper for Logo */}
-                            <div className="flex justify-center mt-6 mb-8">
-                                <Image
-                                    src="/logo.png"
-                                    alt="AiTripPlanner Logo"
-                                    width={128}
-                                    height={128}
-                                    className="object-contain"
-                                />
-                            </div>
-
-                            {/* Wrapper for Prompts */}
-                            <div className="flex-1 flex flex-col items-center justify-center px-6">
-                                <div className="max-w-3xl w-full text-center">
-                                    <h2 className="text-2xl font-semibold mb-6">
-                                        How can I help you plan your trip today?
-                                    </h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {defaultPrompts.map((prompt: string, index: number) => (
-                                            <button
-                                                key={index}
-                                                onClick={() => handlePromptClick(prompt)}
-                                                className="text-left p-6 rounded-lg bg-white hover:bg-gray-100
-                                                         transition-all duration-200 shadow-sm hover:shadow
-                                                         border border-gray-200 hover:border-gray-300"
-                                            >
-                                                <p className="text-lg text-gray-800">{prompt}</p>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                    ) : (
-                        <div className="flex-1 overflow-y-auto p-4 flex flex-col min-h-0">
-                            <div className="max-w-3xl mx-auto flex-1 flex flex-col min-h-full">
-                                {/* Spacer to push messages to bottom */}
-                                <div className="flex-1 min-h-[200px]"></div>
-                                {messages.map((message) => (
-                                    <div
-                                        key={message.id}
-                                        className={`mb-8 ${message.messageType === 'USER' ? 'ml-auto' : 'mr-auto'}`}
-                                    >
-                                        <div className="flex items-start gap-4">
-                                            {message.messageType === 'ASSISTANT' && (
-                                                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                                                    AI
-                                                </div>
-                                            )}
-                                            <div
-                                                onClick={() => handleMessageClick(message)}
-                                                onContextMenu={(e) => handleContextMenu(e, message)}
-                                                className={`max-w-[80%] p-4 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] ${message.messageType === 'USER'
-                                                    ? 'bg-blue-500 text-white ml-auto hover:bg-blue-600'
-                                                    : 'bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-                                                    }`}
-                                                title={message.messageType === 'USER' ? 'Left-click to edit • Right-click for options' : 'Left-click to continue • Right-click for options'}
-                                            >
-                                                <div className="prose max-w-none">
-                                                    <ReactMarkdown components={markdownComponents}>
-                                                        {message.content}
-                                                    </ReactMarkdown>
-                                                </div>
-                                            </div>
-                                            {message.messageType === 'USER' && (
-                                                <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
-                                                    You
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                                {/* ✅ Loader Display */}
-                                {isLoading && <MessageLoader />}
-                                <div ref={bottomRef} />
-                            </div>
-                        </div>
+                {/* Status indicators */}
+                <div className="px-4 py-2 space-y-2">
+                    {/* AI Typing Indicator */}
+                    {isAITyping && (
+                        <TypingIndicator 
+                            isTyping={true}
+                            user="AI Assistant"
+                            className="text-xs"
+                        />
                     )}
-                </div>
-
-                {/* Smart Suggestions - Fixed above input */}
-                {messages.length > 0 && (
-                    <div className="border-t border-gray-200 bg-white px-3 sm:px-4 py-2">
-                        <div className="max-w-3xl mx-auto">
-                            <SmartSuggestionsComponent 
-                                suggestions={suggestions} 
-                                handleSendMessage={handleSuggestionClick}
-                                chatHistory={messages}
-                                currentLocation={locationSuggestions.length > 0 ? locationSuggestions[locationSuggestions.length - 1]?.name : undefined}
-                                travelPhase="planning"
-                            />
-                        </div>
-                    </div>
-                )}
-
-                {/* Chat Input - Fixed at bottom */}
-                <div className="border-t bg-white p-3 sm:p-4 mt-auto">
-                    <div className="max-w-3xl mx-auto">
-                        <div className="flex items-center gap-2 sm:gap-4 bg-white rounded-xl border shadow-md p-2 sm:p-3">
-                            <Input
-                                type="text"
-                                placeholder="Type your message..."
-                                value={inputMessage}
-                                onChange={(e) => setInputMessage(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault();
-                                        handleSendMessage(inputMessage);
+                    
+                    {errorState.hasError && (
+                        <ErrorMessage
+                            message={errorState.errorMessage || 'An error occurred'}
+                            type={errorState.errorType === 'network' ? 'warning' : 'error'}
+                            canRetry={errorState.canRetry}
+                            onRetry={() => {
+                                clearError();
+                                // Retry last message if applicable
+                                if (messages.length > 0) {
+                                    const lastUserMessage = [...messages].reverse().find(m => m.messageType === 'USER');
+                                    if (lastUserMessage) {
+                                        handleSendMessage(lastUserMessage.content);
                                     }
-                                }}
-                                className="flex-1 border-none shadow-none focus:ring-0 py-3 sm:py-4 px-3 sm:px-4 rounded-xl bg-gray-100 text-base sm:text-sm h-12 sm:h-auto"
-                                disabled={isLoading}
-                                aria-label="Chat input"
-                            />
-                            <Button
-                                onClick={() => handleSendMessage(inputMessage)}
-                                disabled={isLoading || !inputMessage.trim()}
-                                className="h-12 w-12 sm:h-auto sm:w-auto sm:px-4 sm:py-2 p-0 bg-blue-500 hover:bg-blue-600 text-white rounded-xl shadow min-w-[48px]"
-                                aria-label="Send message"
-                            >
-                                {isLoading ? (
-                                    <div
-                                        className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"
-                                        aria-hidden="true"
-                                    />
-                                ) : (
-                                    <Send className="h-6 w-6 sm:h-5 sm:w-5" />
-                                )}
-                            </Button>
-                            {currentSession?.sessionId && (
-                                <AudioRecorder sessionId={currentSession.sessionId} onTranscription={handleTranscription} />
-                            )}
-                        </div>
-                    </div>
+                                }
+                            }}
+                            onDismiss={clearError}
+                            className="text-sm"
+                        />
+                    )}
+
+
                 </div>
+
+                {/* Beautiful Chat Container - Enhanced UI/UX */}
+                <BeautifulChatContainer
+                    messages={messages}
+                    inputValue={inputMessage}
+                    onInputChange={setInputMessage}
+                    onSendMessage={handleSendMessage}
+                    isLoading={isLoading}
+                    suggestions={suggestions}
+                    currentUser={currentUser}
+                    showWelcome={displayPrompts && messages.length === 0}
+                    onVoiceRecord={(audioBlob) => {
+                        // Handle voice recording if needed
+
+                    }}
+                    onLocationRequest={() => {
+                        // Handle location request if needed
+
+                    }}
+                />
             </div>
 
             {/* Right Map Panel (Desktop only)*/}

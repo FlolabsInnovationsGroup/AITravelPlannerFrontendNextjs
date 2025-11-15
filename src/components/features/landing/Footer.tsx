@@ -11,11 +11,11 @@ export default function Footer() {
           {/* Left Section - Brand & Description */}
           <div className="space-y-4">
             <Link href="/" className="flex items-center space-x-2">
-              <Image src="/image/logowhite.png" alt="Flomad Travel Logo" width={50} height={50} style={{ width: 'auto', height: 'auto' }} className="object-contain" />
-              <span className="text-2xl font-bold tracking-wide text-white">Flomad Travel</span>
+              <Image src="/image/logowhite.png" alt="Travel Logo" width={50} height={50} style={{ width: 'auto', height: 'auto' }} className="object-contain" />
+              <span className="text-2xl font-bold tracking-wide text-white">Travel Planner</span>
             </Link>
             <p className="text-sm text-gray-400 max-w-sm">
-              Discover new destinations, plan your adventures, and travel seamlessly with Flomad Travel. Your journey starts here.
+              Discover new destinations, plan your adventures, and travel seamlessly with our AI Travel Planner. Your journey starts here.
             </p>
           </div>
 

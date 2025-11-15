@@ -74,7 +74,7 @@ class WeatherService {
             ]);
 
             if (!currentResponse.ok || !forecastResponse.ok) {
-                console.warn('Weather API request failed, using mock data');
+                // Weather API request failed, using mock data
                 return this.getMockWeatherData(lat, lng, locationName);
             }
 

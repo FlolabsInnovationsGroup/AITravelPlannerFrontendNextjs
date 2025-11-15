@@ -349,7 +349,7 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
             index === self.findIndex(loc => loc.name === location.name)
         );
 
-        console.log(`🗺️ Filtering locations: ${locations.length} → ${uniqueLocations.length} unique locations`);
+        // Filtering unique locations for map display
 
         const bounds = new google.maps.LatLngBounds();
         const newMarkers: google.maps.Marker[] = uniqueLocations.map(location => {
@@ -548,7 +548,7 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                     onLocationAdd={onLocationAdd}
                     onRouteChange={(route) => {
                         if (route) {
-                            console.log('Route optimized:', route);
+                            // Route optimization completed
                         }
                     }}
                 />

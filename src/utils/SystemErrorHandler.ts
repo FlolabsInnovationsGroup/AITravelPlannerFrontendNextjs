@@ -260,7 +260,6 @@ export class SystemErrorHandler {
   private flushErrorQueue(): void {
     if (this.errorQueue.length >= 10) {
       // In production, send batch to monitoring service
-      console.log(`📤 Flushing ${this.errorQueue.length} errors to monitoring service`);
       this.errorQueue = [];
     }
   }

@@ -41,23 +41,25 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
       {/* Logo Section */}
       <div className="p-4 flex items-center justify-center">
   <Link href="/" className="flex items-center">
-          <Image 
-            src="/logo.png" 
+          <Image
+            src="/logo.png"
             alt="AiTripPlanner Logo"
             width={24}
             height={24}
             style={{ width: 'auto', height: 'auto' }}
           />
-    <span
-      className="ml-2 px-2 py-1 bg-gradient-to-r from-blue-500 to-blue-700 text-white text-[10px] font-medium rounded-full shadow-md border border-white"
-      style={{
-        fontFamily: "'Montserrat', sans-serif",
-        letterSpacing: '0.5px',
-        lineHeight: '1',
-      }}
-    >
-      BETA
-    </span>
+    {showChatHistory && (
+      <span
+        className="ml-2 px-2 py-1 bg-gradient-to-r from-blue-500 to-blue-700 text-white text-[10px] font-medium rounded-full shadow-md border border-white"
+        style={{
+          fontFamily: "'Montserrat', sans-serif",
+          letterSpacing: '0.5px',
+          lineHeight: '1',
+        }}
+      >
+        BETA
+      </span>
+    )}
   </Link>
 </div>
 
@@ -66,25 +68,25 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
         <nav className="flex-grow flex flex-col">
           <Button
             variant="ghost"
-            className="flex items-center py-2 px-4 w-full"
+            className="flex items-center py-2 px-4 w-full text-gray-700 hover:text-gray-900 hover:bg-gray-100"
             onClick={toggleChatHistory}
             aria-label="Toggle chat history"
           >
             <MessageSquare className="w-6 h-6" />
           </Button>
-          <Button variant="ghost" className="flex items-center py-2 px-4 w-full" aria-label="Favorites">
+          <Button variant="ghost" className="flex items-center py-2 px-4 w-full text-gray-700 hover:text-gray-900 hover:bg-gray-100" aria-label="Favorites">
             <Heart className="w-6 h-6" />
           </Button>
-          <Button variant="ghost" className="flex items-center py-2 px-4 w-full" aria-label="Notifications">
+          <Button variant="ghost" className="flex items-center py-2 px-4 w-full text-gray-700 hover:text-gray-900 hover:bg-gray-100" aria-label="Notifications">
             <Bell className="w-6 h-6" />
           </Button>
-          <Button variant="ghost" className="flex items-center py-2 px-4 w-full" aria-label="Global">
+          <Button variant="ghost" className="flex items-center py-2 px-4 w-full text-gray-700 hover:text-gray-900 hover:bg-gray-100" aria-label="Global">
             <Globe className="w-6 h-6" />
           </Button>
           <div className="mt-auto mb-2 border-t border-gray-200 w-full"></div>
           <Button
             variant="ghost"
-            className="flex items-center py-2 px-4 w-full mt-auto"
+            className="flex items-center py-2 px-4 w-full mt-auto text-gray-700 hover:text-gray-900 hover:bg-gray-100"
             onClick={signOut}
             aria-label="Logout"
           >
@@ -92,7 +94,7 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
           </Button>
           <Button
             variant="ghost"
-            className="flex items-center py-2 px-4 w-full mb-4"
+            className="flex items-center py-2 px-4 w-full mb-4 text-gray-700 hover:text-gray-900 hover:bg-gray-100"
             onClick={handleNewChat}
             aria-label="New chat"
           >
@@ -104,7 +106,7 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
           <div className="flex items-center p-4 border-b">
             <Button
               variant="ghost"
-              className="mr-2"
+              className="mr-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100"
               onClick={toggleChatHistory}
               aria-label="Close chat history"
             >
@@ -159,7 +161,7 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
           </Button>
           <Button
             variant="ghost"
-            className="flex items-center justify-center p-4 w-full border-t"
+            className="flex items-center justify-center p-4 w-full border-t text-gray-700 hover:text-gray-900 hover:bg-gray-100"
             onClick={signOut}
             aria-label="Logout"
           >

@@ -33,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // If no valid token, initialize fresh session
         if (!token) {
-          console.log('No valid token found, initializing fresh session');
+          // No valid token found, initializing fresh session
           token = await initializeFreshSession();
         }
 

@@ -1,27 +1,88 @@
 # AI Travel Planner - Copilot Instructions
 
 ## Project Overview
-This is a **full-stack AI travel planning application** with a Next.js frontend and Spring Boot backend, featuring real-time map integration, AI-powered chat assistance, and comprehensive travel services.
+This is a **production-ready full-stack AI travel planning application** with a Next.js frontend and Spring Boot backend, featuring **enterprise-grade chat functionality**, **real-time map synchronization**, **AI-powered travel assistance with 15+ function calls**, and comprehensive travel services.
 
 ## Architecture & Tech Stack
 
-### Frontend (Next.js 15)
+### Frontend (Next.js 15) - Production-Ready
 - **Framework**: Next.js 15 with TypeScript, Tailwind CSS, shadcn/ui
-- **Maps**: Google Maps integration with custom clustering and real-time updates
-- **State**: React Context (AuthContext) + WebSocket for real-time location sync
-- **API**: Axios with JWT auth interceptors + guest token fallback
+- **Enhanced Chat**: `ChatUIComponents.tsx` with connection monitoring, message status tracking, retry logic
+- **WebSocket**: `useEnhancedWebSocket.ts` with heartbeat, reconnection, metrics tracking (up to 10 reconnect attempts)
+- **Messaging**: `useEnhancedMessaging.ts` with smart retry, offline queuing, duplicate prevention
+- **Maps**: Google Maps with rich location data (photos, ratings, hours, contact info) via WebSocket sync
+- **State**: React Context (AuthContext) + session-based WebSocket for real-time location sync
+- **API**: Axios with JWT auth interceptors + guest token fallback + comprehensive error handling
 - **Tests**: Jest with React Testing Library, map-specific test utilities
+- **Responsive**: Mobile-first with `ResponsiveChatLayout` and adaptive view switching
 
-### Backend (Spring Boot 3.2.9)
-- **Framework**: Spring Boot with Spring AI, Spring Security, WebSocket
-- **AI**: OpenAI GPT-3.5-turbo with 9+ function calling capabilities
-- **Database**: MongoDB with Mongock migrations
-- **APIs**: Google Places, Amadeus flights, Viator tours, WeatherAPI
-- **Auth**: JWT + OAuth2 (Google, LinkedIn, Facebook) + guest sessions
+### Backend (Spring Boot 3.4.0) - Enterprise Features
+- **Spring AI**: 1.0.0-M5 with OpenAI GPT-4o-mini integration (15+ AI functions auto-registered)
+- **AI Functions**: Location management, emergency assistance, budget optimization, accessibility support
+- **Rich Location Data**: Google Places API integration with photos, ratings, hours, contact information
+- **Database**: MongoDB with Mongock migrations + optimized chat memory (30-message limit, 8192 tokens)
+- **WebSocket**: STOMP messaging with session-scoped topics (`/topic/locations/{sessionId}`)
+- **Security**: JWT + OAuth2 (Google, LinkedIn, Facebook) + guest sessions + rate limiting (Bucket4j)
+- **APIs**: Google Places, Amadeus flights, Viator tours, WeatherAPI, PositionStack geocoding
+- **Performance**: Connection pooling, rate limiting, comprehensive error handling, production logging
 
 ## Key Development Patterns
 
-### 1. Authentication Flow
+### 1. Production Chat System Architecture - NEW
+```typescript
+// Import enhanced chat components with production features
+import { useEnhancedWebSocket } from '@/hooks/useEnhancedWebSocket';
+import { useEnhancedMessaging } from '@/hooks/useEnhancedMessaging';
+import { ChatUIComponents } from '@/components/ui/ChatUIComponents';
+
+// Message with comprehensive status tracking
+interface Message {
+  id: number;
+  messageType: 'USER' | 'ASSISTANT';
+  content: string;
+  timestamp?: Date;
+  status: 'sending' | 'sent' | 'delivered' | 'failed' | 'retrying';
+  retryCount?: number;
+}
+
+// WebSocket with enterprise features
+const { connectionState, connectionMetrics, isConnected } = useEnhancedWebSocket({
+  maxReconnectAttempts: 10,
+  heartbeatInterval: 25000,
+  enableHeartbeat: true
+});
+```
+
+**CRITICAL Pattern**: Always use enhanced hooks for chat - they provide retry logic, connection monitoring, and error recovery. Standard chat components are deprecated.
+
+### 2. Enhanced WebSocket Error Recovery - NEW
+```typescript
+// Production-ready WebSocket with comprehensive error handling
+const WebSocketManager = () => {
+  const { 
+    sendMessage, 
+    retryMessage, 
+    cancelMessage, 
+    getFailedMessages 
+  } = useEnhancedMessaging();
+  
+  // Smart retry with exponential backoff
+  const handleSendMessage = async (content: string) => {
+    try {
+      await sendMessage(content, {
+        timeout: 30000,
+        retryAttempts: 3,
+        onRetry: (attempt) => showRetryToast(attempt)
+      });
+    } catch (error) {
+      // Automatic error categorization and user guidance
+      handleMessageError(error);
+    }
+  };
+};
+```
+
+### 3. Authentication Flow
 ```typescript
 // Guest-first approach: Always ensure user has a token
 const initializeAuth = async () => {
@@ -36,7 +97,27 @@ const initializeAuth = async () => {
 
 **Convention**: Every API call automatically includes Bearer token; 401 responses trigger guest token refresh.
 
-### 2. Map Integration Architecture
+### 4. Responsive Layout System
+```typescript
+// Mobile-first responsive design pattern
+const ResponsiveChatLayout = ({ chatPanel, mapPanel }) => {
+  const [viewMode, setViewMode] = useState<'chat' | 'map' | 'split'>('chat');
+  const [breakpoint, setBreakpoint] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
+  
+  // Automatic breakpoint detection and view switching
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      if (width < 768) setViewMode('chat'); // Mobile default
+      else setViewMode('split'); // Desktop default
+    };
+  }, []);
+};
+```
+
+**Pattern**: Always design mobile-first, use `ResponsiveChatLayout` for main interfaces, implement view switching for small screens.
+
+### 5. Map Integration Architecture
 ```typescript
 // WebSocket + Google Maps integration pattern
 const RightMapPanel = () => {
@@ -60,7 +141,26 @@ const RightMapPanel = () => {
 
 **Pattern**: WebSocket events drive map state, not direct API polling. Each session has isolated location management.
 
-### 3. AI Function Calling Integration
+### 5. Service Layer Architecture
+```typescript
+// Enhanced service classes with retry mechanisms and proper error handling
+export class MapService {
+  private wsRetryManager = new WebSocketRetryManager(5, 1000);
+  private connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
+  
+  // Production-ready error handling - no console.log pollution
+  private logError(context: string, error: any) {
+    // Clean logging for production - console cleanup implemented
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`MapService[${context}]:`, error);
+    }
+  }
+}
+```
+
+**Convention**: Use service classes for external integrations, implement retry mechanisms, clean up console logs for production.
+
+### 6. AI Function Calling Integration
 ```java
 // Backend: Spring AI function registration
 @Component
@@ -76,7 +176,7 @@ public class FlightSearchFunction implements Function<FlightRequest, FlightRespo
 
 **Convention**: Each AI function is a Spring component with detailed @Description. Functions automatically register with Spring AI for GPT function calling.
 
-### 4. Environment Configuration
+### 7. Environment Configuration
 ```bash
 # Frontend (.env.local)
 NEXT_PUBLIC_API_URL=http://localhost:8080
@@ -116,23 +216,7 @@ mvn spring-boot:run
 docker-compose up  # Includes MongoDB, Elasticsearch, Logstash
 ```
 
-### Testing Patterns
-```typescript
-// Map component testing with mocked Google Maps
-const mockGoogleMaps = {
-  maps: {
-    Map: jest.fn(),
-    Marker: jest.fn(),
-    InfoWindow: jest.fn(),
-    // Mock all required Google Maps APIs
-  }
-};
 
-// Always test WebSocket integration
-expect(mockMapService.addMessageHandler).toHaveBeenCalledWith(
-  expect.any(Function)
-);
-```
 
 ## Critical Integration Points
 
@@ -168,10 +252,22 @@ src/
 ├── components/features/     # Feature-specific components
 │   ├── auth/               # SignIn, SignUp components
 │   ├── chat/               # Chat interface components  
-│   └── map/                # Map-related components + tests
+│   │   ├── BeautifulChatContainer.tsx    # Main chat interface
+│   │   ├── EnhancedChatBubbles.tsx      # Message display
+│   │   └── ModernChatInput.tsx          # Input with voice/location
+│   ├── map/                # Map-related components + tests
+│   └── landing/            # Landing page components
+├── components/layout/       # Layout components
+│   └── ResponsiveChatLayout.tsx  # Responsive chat/map layout
+├── components/ui/          # Reusable UI components
+│   ├── LoadingStates.tsx   # Loading indicators and skeletons
+│   └── ConnectionStatus.tsx # WebSocket connection status
 ├── services/               # External service integrations
 │   ├── MapService.ts       # WebSocket + Google Maps coordination
+│   ├── WeatherService.ts   # Weather data integration
 │   └── LocationService.ts  # Location manipulation utilities
+├── types/                  # TypeScript type definitions
+│   └── chat.ts            # Chat-related types and interfaces
 ├── contexts/               # React contexts for global state
 └── lib/api.ts             # Centralized API client with auth
 ```
@@ -214,6 +310,49 @@ src/main/java/com/springboot/FlomadAIplanner/
 - **MongoDB indexing** on sessionId and location coordinates
 - **Function calling batching** for multi-location requests
 - **Connection pooling** for external APIs (Amadeus, Google, etc.)
+
+## Testing Patterns
+```typescript
+// Map component testing with mocked Google Maps
+const mockGoogleMaps = {
+  maps: {
+    Map: jest.fn(),
+    Marker: jest.fn(),
+    InfoWindow: jest.fn(),
+    // Mock all required Google Maps APIs
+  }
+};
+
+// Always test WebSocket integration
+expect(mockMapService.addMessageHandler).toHaveBeenCalledWith(
+  expect.any(Function)
+);
+```
+
+### 5. Service Layer Architecture
+```typescript
+// Enhanced service classes with retry mechanisms and proper error handling
+export class MapService {
+  private wsRetryManager = new WebSocketRetryManager(5, 1000);
+  private connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
+  
+  // Production-ready error handling - no console.log pollution
+  private logError(context: string, error: any) {
+    // Clean logging for production - console cleanup implemented
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`MapService[${context}]:`, error);
+    }
+  }
+}
+```
+
+**Convention**: Use service classes for external integrations, implement retry mechanisms, clean up console logs for production.
+
+## Console Logging Standards
+- **Development**: Use `console.warn()` for non-critical issues that are expected (e.g., missing optional data)
+- **Production**: All console logs are cleaned up - use conditional logging based on `NODE_ENV`
+- **Testing**: Console output is expected in tests - mock console methods when needed
+- **Service Classes**: Implement `logError()` methods with environment checks
 
 ## When Working on This Project
 

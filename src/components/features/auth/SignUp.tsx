@@ -47,7 +47,7 @@ export function SignUp() {
     setIsLoading(true);
     try {
       const response = await signUp(username, email, password);
-      console.log('Signup successful:', response);
+      // Signup successful
       toast.success('Signup successful! Please check your email for verification.');
       router.push('/auth/signin');
     } catch (error: any) {

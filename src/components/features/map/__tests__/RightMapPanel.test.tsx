@@ -50,9 +50,9 @@ jest.mock('../../../../services/MapService', () => ({
   MapService: jest.fn().mockImplementation(() => mockMapService),
 }));
 
-// Mock GoogleMapComponent
-jest.mock('../GoogleMapComponent', () => {
-  return function MockGoogleMapComponent({ locations, onLocationAdd, onLocationSelect }: any) {
+// Mock EnhancedGoogleMap
+jest.mock('../EnhancedGoogleMap', () => {
+  return function MockEnhancedGoogleMap({ locations, onLocationAdd, onLocationSelect }: any) {
     return (
       <div data-testid="google-map-component">
         <div data-testid="map-locations-count">{locations.length}</div>

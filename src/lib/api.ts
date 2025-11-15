@@ -173,12 +173,9 @@ export const createGuestToken = async (): Promise<string> => {
     }
   } catch (error: any) {
     console.error('Error creating guest token:', error);
-    console.error('API Base URL:', API_BASE_URL);
     
     // Handle specific error cases
     if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', error.response.data);
       
       // If user is already authenticated (400 status), handle gracefully
       if (error.response.status === 400 && error.response.data?.message?.includes('already authenticated')) {
@@ -206,24 +203,30 @@ export const createGuestToken = async (): Promise<string> => {
 };
 
 // User management
-export const getCurrentUser = async (): Promise<{ id: string }> => {
+export const getCurrentUser = async (): Promise<{ id: string; username?: string; email?: string }> => {
   try {
     
     const token = getToken();
     
-    const response = await apiClient.get<{ id: string }>('/users/current');
+    const response = await apiClient.get<{ 
+      id: string; 
+      username?: string; 
+      email?: string; 
+      isEmailVerified?: boolean;
+      provider?: string;
+      roles?: string[];
+      lastActive?: string;
+    }>('/users/current');
     
     return response.data;
   } catch (error: any) {
     console.error('Error getting current user:', error);
-    console.error('API Base URL:', API_BASE_URL);
     if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', error.response.data);
+      // Response error handled
     } else if (error.request) {
-      console.error('Network error - no response received:', error.request);
+      // Network error - no response received
     } else {
-      console.error('Request setup error:', error.message);
+      // Request setup error
     }
     throw error;
   }
@@ -275,9 +278,6 @@ export const sendMessage = async (
     return { content: response.data };
   } catch (error) {
     console.error('Error sending message:', error);
-    if (axios.isAxiosError(error) && error.response) {
-      console.error("Backend response error:", error.response.data);
-    }
     throw error;
   }
 };
@@ -316,8 +316,8 @@ export const sendMessagesEntity = async (
     );
 
     return response.data;
-  } catch (error) {
-    console.error("❌ Error sending message entity:", error);
+  } catch (error: any) {
+    console.error("Error sending message:", error.message || error);
     throw error;
   }
 };
