@@ -52,8 +52,8 @@ const LocationInfoWindow: React.FC<LocationInfoWindowProps> = ({
     return (
         <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-80 overflow-hidden border-0 backdrop-blur-sm">
             {/* Header with photo and gradient overlay */}
-            {location.photos && location.photos.length > 0 && (
-                <div className="relative h-40 bg-gradient-to-br from-blue-400 to-purple-600">
+            <div className="relative h-40 bg-gradient-to-br from-blue-400 to-purple-600">
+                {location.photos && location.photos.length > 0 ? (
                     <img 
                         src={location.photos[0]} 
                         alt={location.name}
@@ -63,21 +63,30 @@ const LocationInfoWindow: React.FC<LocationInfoWindowProps> = ({
                             (e.target as HTMLElement).style.display = 'none';
                         }}
                     />
-                    {/* Gradient overlay for better text readability */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
-                    
-                    {/* Close button on image */}
-                    {onClose && (
-                        <button 
-                            onClick={onClose}
-                            className="absolute top-3 right-3 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center text-gray-700 hover:text-gray-900 transition-all"
-                            aria-label="Close"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    )}
-                </div>
-            )}
+                ) : (
+                    // Fallback content with location type icon when no photos available
+                    <div className="w-full h-full flex items-center justify-center text-white">
+                        <div className="text-center">
+                            <MapPin className="w-12 h-12 mx-auto mb-2 opacity-80" />
+                            <p className="text-sm opacity-75 font-medium">{location.type || 'Location'}</p>
+                        </div>
+                    </div>
+                )}
+                
+                {/* Gradient overlay for better text readability */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
+                
+                {/* Close button on image */}
+                {onClose && (
+                    <button 
+                        onClick={onClose}
+                        className="absolute top-3 right-3 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center text-gray-700 hover:text-gray-900 transition-all"
+                        aria-label="Close"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                )}
+            </div>
             
             {/* Content */}
             <div className="p-5">
