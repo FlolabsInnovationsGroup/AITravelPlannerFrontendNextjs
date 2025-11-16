@@ -498,8 +498,8 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                                 <Image
                                     src="/image/travelagentpic1.png"
                                     alt="Travel Agent"
-                                    width={400}
-                                    height={300}
+                                    fill
+                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                                     className="object-cover opacity-80 rounded-lg"
                                     priority
                                     data-testid="travel-agent-image"
