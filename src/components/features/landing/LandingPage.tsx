@@ -167,7 +167,7 @@ export default function LandingPage() {
                   placeholder="Start planning your trip..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  className="flex-grow"
+                  className="flex-grow bg-white text-black border-gray-300 placeholder:text-gray-500"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
                       e.preventDefault()
