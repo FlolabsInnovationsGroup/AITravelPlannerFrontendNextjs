@@ -494,17 +494,17 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                     {/* Travel Agent Image Overlay - Only when no locations AND not loading */}
                     {locations.length === 0 && !isLoading && (
                         <div className="absolute inset-0 bg-white/90 flex items-center justify-center pointer-events-none">
-                            <div className="text-center relative">
+                            <div className="text-center">
                                 <Image
                                     src="/image/travelagentpic1.png"
                                     alt="Travel Agent"
-                                    fill
-                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                    className="object-cover opacity-80 rounded-lg"
+                                    width={500}
+                                    height={400}
+                                    className="object-cover opacity-80 rounded-lg mx-auto"
                                     priority
                                     data-testid="travel-agent-image"
                                 />
-                                <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="mt-4">
                                     <div className="bg-white/95 px-6 py-3 rounded-lg shadow-lg backdrop-blur-sm">
                                         <p className="text-gray-700 text-lg font-medium">Ask AI to plan your trip!</p>
                                         <p className="text-gray-500 text-sm mt-1">Locations will appear on the map as you chat</p>
