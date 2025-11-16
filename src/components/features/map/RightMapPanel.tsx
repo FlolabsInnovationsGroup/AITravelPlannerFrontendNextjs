@@ -296,6 +296,15 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
         }
     }, [locations, activeFilters, showFilters]);
 
+    // Close filter panels when no locations are available
+    useEffect(() => {
+        if (locations.length === 0) {
+            setShowFilters(false);
+            setShowItinerary(false);
+            setShowThemeSelector(false);
+        }
+    }, [locations.length]);
+
     // Fetch initial locations
     const fetchLocations = useCallback(async () => {
         if (!currentSessionId) {
@@ -487,50 +496,50 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                         </div>
                     )}
 
-                    {/* Floating Map Controls - Top Right */}
-                    <div className="absolute top-2 right-2 z-10">
-                        <div className="flex items-center gap-2 bg-white rounded-lg shadow-lg border border-gray-200 p-2">
-                            <div className="flex items-center gap-2 pr-2 border-r border-gray-200">
-                                <span className="text-sm font-medium text-gray-700">Travel Map</span>
-                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                                    {locations.length} locations
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => setShowFilters(!showFilters)}
-                                    className={`p-1.5 rounded-md transition-colors ${
-                                        showFilters 
-                                            ? 'bg-blue-100 text-blue-600 border border-blue-200' 
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                    title="Toggle Filters"
-                                >
-                                    <Filter size={16} />
-                                </button>
-                                <button
-                                    onClick={() => setShowItinerary(!showItinerary)}
-                                    className={`p-1.5 rounded-md transition-colors ${
-                                        showItinerary 
-                                            ? 'bg-green-100 text-green-600 border border-green-200' 
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                    title="Toggle Itinerary"
-                                >
-                                    <Route size={16} />
-                                </button>
-                                <button
-                                    onClick={() => setShowThemeSelector(!showThemeSelector)}
-                                    className={`p-1.5 rounded-md transition-colors ${
-                                        showThemeSelector 
-                                            ? 'bg-purple-100 text-purple-600 border border-purple-200' 
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                    title="Map Themes"
-                                >
-                                    <Settings size={16} />
-                                </button>
-                                {locations.length > 0 && (
+                    {/* Floating Map Controls - Top Right - Only show when map has loaded and has locations */}
+                    {locations.length > 0 && (
+                        <div className="absolute top-2 right-2 z-10">
+                            <div className="flex items-center gap-2 bg-white rounded-lg shadow-lg border border-gray-200 p-2">
+                                <div className="flex items-center gap-2 pr-2 border-r border-gray-200">
+                                    <span className="text-sm font-medium text-gray-700">Travel Map</span>
+                                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                        {locations.length} locations
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => setShowFilters(!showFilters)}
+                                        className={`p-1.5 rounded-md transition-colors ${
+                                            showFilters 
+                                                ? 'bg-blue-100 text-blue-600 border border-blue-200' 
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                        title="Toggle Filters"
+                                    >
+                                        <Filter size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => setShowItinerary(!showItinerary)}
+                                        className={`p-1.5 rounded-md transition-colors ${
+                                            showItinerary 
+                                                ? 'bg-green-100 text-green-600 border border-green-200' 
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                        title="Toggle Itinerary"
+                                    >
+                                        <Route size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => setShowThemeSelector(!showThemeSelector)}
+                                        className={`p-1.5 rounded-md transition-colors ${
+                                            showThemeSelector 
+                                                ? 'bg-purple-100 text-purple-600 border border-purple-200' 
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                        title="Map Themes"
+                                    >
+                                        <Settings size={16} />
+                                    </button>
                                     <button
                                         onClick={handleClearAllLocations}
                                         disabled={isLoading}
@@ -543,13 +552,13 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                                     >
                                         <Trash2 size={16} />
                                     </button>
-                                )}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
-                    {/* Floating Filters Panel - Top Left */}
-                    {showFilters && (
+                    {/* Floating Filters Panel - Top Left - Only show when controls are visible and filters are toggled */}
+                    {showFilters && locations.length > 0 && (
                         <div className="absolute top-2 left-2 z-10 max-w-sm">
                             <div className="bg-white rounded-lg shadow-lg border border-gray-200">
                                 <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
@@ -565,19 +574,6 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                                 <MapFilters
                                     onFiltersChange={(filters) => {
                                         setActiveFilters(filters);
-                                        // Apply filters to locations
-                                        const filtered = locations.filter(location => {
-                                            // Type filter
-                                            if (filters.types.length > 0 && location.type && !filters.types.includes(location.type)) {
-                                                return false;
-                                            }
-                                            // Rating filter
-                                            if (location.rating && location.rating < filters.rating) {
-                                                return false;
-                                            }
-                                            return true;
-                                        });
-                                        setFilteredLocations(filtered);
                                     }}
                                     activeFilters={activeFilters}
                                     locationCount={locations.length}
@@ -586,8 +582,8 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                         </div>
                     )}
 
-                    {/* Floating Theme Selector Panel - Top Center */}
-                    {showThemeSelector && (
+                    {/* Floating Theme Selector Panel - Top Center - Only show when controls are visible and theme selector is toggled */}
+                    {showThemeSelector && locations.length > 0 && (
                         <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 max-w-md">
                             <div className="bg-white rounded-lg shadow-lg border border-gray-200">
                                 <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-purple-50 rounded-t-lg">
