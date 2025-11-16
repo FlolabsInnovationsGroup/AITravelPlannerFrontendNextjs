@@ -1465,7 +1465,7 @@ export default function ChatPageContent() {
             <div className="flex-[3.3] flex flex-col bg-white border-l border-r overflow-auto">
 
                 {/* Mobile +Tablet header: menu + title + map button */}
-                <div className="lg:hidden flex items-center justify-between px-3 py-3 border-b">
+                <div className="lg:hidden flex items-center justify-between px-3 py-3 border-b bg-white shadow-sm">
                     {/* Left: Menu + Chat title */}
                     <div className="flex items-center gap-2">
                         <button
@@ -1475,17 +1475,21 @@ export default function ChatPageContent() {
                         >
                             <Menu className="w-5 h-5" />
                         </button>
-                        <div className="font-semibold">Chat</div>
+                        <div className="flex items-center gap-2">
+                            <Send className="w-5 h-5 text-blue-600" />
+                            <span className="font-semibold">Chat</span>
+                        </div>
                     </div>
 
-                    {/* Right: Map button */}
+                    {/* Right: Enhanced Map button with tooltip */}
                     <button
                         onClick={() => { setShowMap(true); setIsMobileMenuOpen(false); }}
-                        aria-label="Open map"
-                        className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded-lg shadow-md"
+                        aria-label="View travel map"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition-colors"
+                        title="View locations on map"
                     >
                         <Map className="w-5 h-5" />
-                        <span className="text-sm">Map</span>
+                        <span className="text-sm font-medium">View Map</span>
                     </button>
                 </div>
 
@@ -1555,7 +1559,7 @@ export default function ChatPageContent() {
 
             {/* Mobile Map Overlay */}
             {showMap && (
-                <div className="fixed inset-0 z-50 lg:hidden flex">
+                <div className="fixed inset-0 z-50 lg:hidden flex animate-in slide-in-from-right duration-300">
                     {/* Backdrop */}
                     <div
                         className="absolute inset-0 bg-black/40"
@@ -1564,25 +1568,41 @@ export default function ChatPageContent() {
                     />
 
                     {/* Panel: full-screen map (or you can use width like w-full md:w-80 if you prefer) */}
-                    <div className="relative flex-1 bg-white">
+                    <div className="relative flex-1 bg-white transform transition-transform duration-300 ease-out">
                         {/* Header with close button */}
-                        <div className="flex items-center justify-between px-3 py-2 border-b">
-                            <div className="font-semibold">Map</div>
+                        <div className="flex items-center justify-between px-3 py-3 border-b bg-white shadow-sm">
+                            <div className="flex items-center gap-2">
+                                <Map className="w-5 h-5 text-blue-600" />
+                                <span className="font-semibold">Travel Map</span>
+                            </div>
                             <button
                                 onClick={() => setShowMap(false)}
-                                aria-label="Close map"
-                                className="p-2 rounded hover:bg-gray-100"
+                                aria-label="Back to chat"
+                                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                             >
-                                <X className="w-5 h-5" />
+                                <X className="w-4 h-4" />
+                                <span className="text-sm">Back to Chat</span>
                             </button>
                         </div>
 
                         {/* Map content */}
-                        <div className="h-full overflow-auto">
+                        <div className="h-[calc(100%-60px)] overflow-auto">
                             <RightMapPanel
                                 currentSessionId={currentSession?.sessionId || null}
                                 currentUserToken={currentUser?.token || null}
                             />
+                        </div>
+
+                        {/* Floating Chat Button - Additional navigation option */}
+                        <div className="absolute bottom-6 left-6 z-10">
+                            <button
+                                onClick={() => setShowMap(false)}
+                                aria-label="Return to chat"
+                                className="flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all transform hover:scale-105 active:scale-95"
+                            >
+                                <Send className="w-5 h-5" />
+                                <span className="text-sm font-medium">Chat</span>
+                            </button>
                         </div>
                     </div>
                 </div>

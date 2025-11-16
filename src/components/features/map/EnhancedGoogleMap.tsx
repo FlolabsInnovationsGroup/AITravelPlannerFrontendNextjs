@@ -45,6 +45,11 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
     confidence: number;
   }>>([]);
   const [filteredLocationCount, setFilteredLocationCount] = useState(0);
+  
+  // Track user interaction to prevent auto-fitting when user is manually controlling zoom
+  const [userInteracting, setUserInteracting] = useState(false);
+  const [lastUserInteraction, setLastUserInteraction] = useState<number>(0);
+  const userInteractionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load Google Maps API
   const loadGoogleMapsAPI = useCallback(async () => {
@@ -79,6 +84,15 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
         document.head.removeChild(script);
       } catch (e) {
         // Script might already be removed
+      }
+    };
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (userInteractionTimeoutRef.current) {
+        clearTimeout(userInteractionTimeoutRef.current);
       }
     };
   }, []);
@@ -136,6 +150,39 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       mapInstanceRef.current = map;
       console.log('✅ Map instance stored in ref');
 
+      // Add user interaction listeners to detect when user is manually controlling the map
+      const handleUserInteraction = () => {
+        setUserInteracting(true);
+        setLastUserInteraction(Date.now());
+        
+        // Clear any existing timeout
+        if (userInteractionTimeoutRef.current) {
+          clearTimeout(userInteractionTimeoutRef.current);
+        }
+        
+        // Set a timeout to mark user interaction as finished after 2 seconds of no activity
+        userInteractionTimeoutRef.current = setTimeout(() => {
+          setUserInteracting(false);
+        }, 2000);
+      };
+
+      // Listen for zoom changes (user scrolling/pinching)
+      map.addListener('zoom_changed', handleUserInteraction);
+      
+      // Listen for drag events (user panning the map)
+      map.addListener('drag', handleUserInteraction);
+      map.addListener('dragstart', handleUserInteraction);
+      
+      // Listen for bounds changes that might be user-initiated
+      map.addListener('bounds_changed', () => {
+        // Only mark as user interaction if it's been more than 500ms since last auto-fit
+        // This helps distinguish user interaction from programmatic changes
+        const now = Date.now();
+        if (now - lastUserInteraction > 500) {
+          handleUserInteraction();
+        }
+      });
+
       // Trigger marker updates for any pending locations
       if (locations.length > 0) {
         console.log('🎯 Map initialized - creating markers for', locations.length, 'pending locations');
@@ -174,13 +221,16 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
         }
       });
 
-      // Auto-fit bounds if locations exist
-      if (locations.length > 0) {
+      // Auto-fit bounds if locations exist (only on initial load, not when user is interacting)
+      if (locations.length > 0 && !userInteracting && (Date.now() - lastUserInteraction > 3000)) {
+        console.log(`🎯 Initial bounds fitting for ${locations.length} locations`);
         const bounds = new google.maps.LatLngBounds();
         locations.forEach(location => {
           bounds.extend({ lat: location.latitude, lng: location.longitude });
         });
         map.fitBounds(bounds);
+      } else if (locations.length > 0) {
+        console.log(`🙋‍♂️ Skipping initial bounds fitting - user recently interacted or is currently interacting`);
       }
 
     } catch (error) {
@@ -417,6 +467,15 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
     setFilteredLocationCount(filteredCount);
     
     if (filteredLocations.length > 0) {
+      // Check if user is currently interacting with the map - if so, don't auto-fit bounds
+      const now = Date.now();
+      const timeSinceLastInteraction = now - lastUserInteraction;
+      
+      if (userInteracting || timeSinceLastInteraction < 3000) {
+        console.log(`🙋‍♂️ User is interacting with map (${timeSinceLastInteraction}ms ago) - skipping auto-fit bounds`);
+        return; // Skip bounds fitting to preserve user's zoom/position
+      }
+      
       console.log(`🗺️ Creating smart bounds for ${filteredLocations.length} filtered locations`);
       
       // Calculate center and spread of filtered locations
