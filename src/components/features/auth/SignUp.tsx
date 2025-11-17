@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { signUp } from '@/lib/api'
 import { toast } from 'react-hot-toast'
 import { LinkedInLogoIcon } from "@radix-ui/react-icons"
-import { Facebook, Linkedin } from 'lucide-react'
+import { Facebook } from 'lucide-react'
 
 export function SignUp() {
   const router = useRouter()
@@ -46,7 +46,7 @@ export function SignUp() {
 
     setIsLoading(true);
     try {
-      const response = await signUp(username, email, password);
+      await signUp(username, email, password);
       // Signup successful
       toast.success('Signup successful! Please check your email for verification.');
       router.push('/auth/signin');

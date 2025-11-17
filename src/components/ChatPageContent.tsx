@@ -3,12 +3,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from "next/image";
-import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession } from '@/lib/api';
-import { Send, Menu, X } from 'lucide-react';
+import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages } from '@/lib/api';
+import { Send } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/contexts/AuthContext';
 import AudioRecorder from './AudioRecorder';

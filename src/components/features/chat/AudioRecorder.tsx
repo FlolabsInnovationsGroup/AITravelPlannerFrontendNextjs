@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Mic, MicOff, Loader2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
-import { sendMessagesEntity } from '@/lib/api'
 
 interface AudioRecorderProps {
   sessionId: string
@@ -14,7 +13,7 @@ interface AudioRecorderProps {
 export default function AudioRecorder({ sessionId, onTranscription }: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [recordingDuration, setRecordingDuration] = useState(0)
+  const [recordingDuration] = useState(0)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunks = useRef<Blob[]>([])
   const timerRef = useRef<NodeJS.Timeout | null>(null)
