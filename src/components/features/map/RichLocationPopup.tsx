@@ -233,10 +233,10 @@ const RichLocationPopup: React.FC<RichLocationPopupProps> = ({
 
         {/* Action Buttons */}
         <div className="flex space-x-2 pt-2">
-          <button className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+          <button type="button" className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
             Get Directions
           </button>
-          <button className="flex-1 border border-gray-300 text-gray-700 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+          <button type="button" className="flex-1 border border-gray-300 text-gray-700 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
             Save
           </button>
         </div>

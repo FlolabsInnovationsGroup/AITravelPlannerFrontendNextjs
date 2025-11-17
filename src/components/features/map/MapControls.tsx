@@ -37,6 +37,7 @@ const MapControls: React.FC<MapControlsProps> = ({
             {/* Zoom Controls */}
             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
                 <button
+                    type="button"
                     onClick={handleZoomIn}
                     className="block w-10 h-10 hover:bg-gray-50 transition-colors border-b border-gray-200 flex items-center justify-center"
                     title="Zoom In"
@@ -46,6 +47,7 @@ const MapControls: React.FC<MapControlsProps> = ({
                     </svg>
                 </button>
                 <button
+                    type="button"
                     onClick={handleZoomOut}
                     className="block w-10 h-10 hover:bg-gray-50 transition-colors flex items-center justify-center"
                     title="Zoom Out"
@@ -58,6 +60,7 @@ const MapControls: React.FC<MapControlsProps> = ({
 
             {/* Fullscreen Toggle */}
             <button
+                type="button"
                 onClick={onToggleFullscreen}
                 className="bg-white rounded-lg shadow-lg p-2 hover:bg-gray-50 transition-colors"
                 title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
@@ -76,6 +79,7 @@ const MapControls: React.FC<MapControlsProps> = ({
             {/* Weather Toggle */}
             {locations.length > 0 && (
                 <button
+                    type="button"
                     onClick={onToggleWeather}
                     className="bg-white rounded-lg shadow-lg p-2 hover:bg-gray-50 transition-colors"
                     title={isWeatherVisible ? "Hide Weather" : "Show Weather"}

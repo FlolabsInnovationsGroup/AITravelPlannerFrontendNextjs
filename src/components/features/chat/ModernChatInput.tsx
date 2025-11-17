@@ -221,6 +221,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
             {filteredSuggestions.map((suggestion, index) => (
               <button
                 key={index}
+                type="button"
                 onClick={() => handleSuggestionSelect(suggestion)}
                 className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                   index === selectedSuggestionIndex
@@ -256,6 +257,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
                 <span className="text-sm">{formatRecordingTime(recordingDuration)}</span>
               </div>
               <button
+                type="button"
                 onClick={stopRecording}
                 className="text-white hover:bg-red-600 p-1 rounded"
               >
@@ -269,6 +271,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
         <div className="flex items-center gap-1">
           {showAttachments && (
             <button
+              type="button"
               className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
               title="Attach file"
               disabled={disabled}
@@ -279,6 +282,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
 
           {showVoice && (
             <button
+              type="button"
               onMouseDown={startRecording}
               onMouseUp={stopRecording}
               onMouseLeave={stopRecording}
@@ -323,6 +327,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
         <div className="flex items-center gap-1">
           {showEmojiPicker && !isRecording && (
             <button
+              type="button"
               className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
               title="Add emoji"
               disabled={disabled}
@@ -333,6 +338,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
 
           {showLocation && !isRecording && onLocationRequest && (
             <button
+              type="button"
               onClick={onLocationRequest}
               className="p-2.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors flex items-center justify-center"
               title="Share location"
@@ -344,6 +350,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
 
           {/* Send Button */}
           <button
+            type="button"
             onClick={handleSend}
             disabled={disabled || isLoading || !value.trim() || isRecording}
             className={`p-2.5 rounded-lg transition-all duration-200 flex items-center justify-center ${

@@ -97,6 +97,7 @@ const ItineraryVisualizer: React.FC<ItineraryVisualizerProps> = ({
         
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setShowRouteDetails(!showRouteDetails)}
             className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
             title={showRouteDetails ? 'Hide details' : 'Show details'}
@@ -104,6 +105,7 @@ const ItineraryVisualizer: React.FC<ItineraryVisualizerProps> = ({
             {showRouteDetails ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
           <button
+            type="button"
             onClick={() => setIsExpanded(!isExpanded)}
             className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
           >
@@ -125,6 +127,7 @@ const ItineraryVisualizer: React.FC<ItineraryVisualizerProps> = ({
               ].map(({ mode, icon, label }) => (
                 <button
                   key={mode}
+                  type="button"
                   onClick={() => setSelectedTravelMode(mode)}
                   className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
                     selectedTravelMode === mode
@@ -153,6 +156,7 @@ const ItineraryVisualizer: React.FC<ItineraryVisualizerProps> = ({
                 </div>
               </div>
               <button
+                type="button"
                 onClick={handleOptimizeRoute}
                 className="text-xs text-blue-600 hover:text-blue-700 transition-colors font-medium"
               >

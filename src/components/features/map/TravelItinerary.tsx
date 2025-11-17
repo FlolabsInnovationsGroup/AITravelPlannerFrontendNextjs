@@ -151,6 +151,7 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
                                 </a>
                             )}
                             <button
+                                type="button"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     const url = `https://www.google.com/maps/dir/?api=1&destination=${location.latitude},${location.longitude}`;
@@ -168,6 +169,7 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
                 {/* Remove button */}
                 {onLocationRemove && location.id && (
                     <button
+                        type="button"
                         onClick={(e) => {
                             e.stopPropagation();
                             onLocationRemove(location.id!);
@@ -206,6 +208,7 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
                     <div className="flex space-x-2">
                         {onOptimizeRoute && (
                             <button
+                                type="button"
                                 onClick={() => {
                                     const optimizedItinerary = travelAnalyzer.createOptimizedItinerary(locations);
                                     const optimizedLocations = optimizedItinerary.flatMap(day => day.locations);
@@ -217,6 +220,7 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
                             </button>
                         )}
                         <button
+                            type="button"
                             onClick={() => setShowAnalysis(!showAnalysis)}
                             className={`px-3 py-1 rounded-md text-sm transition-colors ${
                                 showAnalysis 
@@ -235,6 +239,7 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
                     <span className="text-sm text-gray-600">Day:</span>
                     {itineraryDays.map((day) => (
                         <button
+                            type="button"
                             key={day.day}
                             onClick={() => setSelectedDay(day.day)}
                             className={`px-3 py-1 rounded-md text-sm transition-colors ${

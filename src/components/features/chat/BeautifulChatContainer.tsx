@@ -236,6 +236,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
                 return (
                   <button
                     key={index}
+                    type="button"
                     onClick={() => handlePromptClick(prompt)}
                     className="group p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all duration-300 text-center transform hover:-translate-y-0.5"
                   >
@@ -295,6 +296,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
         {/* Scroll to Bottom Button */}
         {showScrollToBottom && (
           <button
+            type="button"
             onClick={scrollToBottom}
             className="absolute bottom-6 right-6 p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 transform hover:scale-110 z-10"
             title="Scroll to bottom"

@@ -257,6 +257,7 @@ const EnhancedChatBubbles: React.FC<EnhancedChatBubblesProps> = ({
                 {/* Expand/Collapse for long messages */}
                 {isLongMessage && (
                   <button
+                    type="button"
                     onClick={() => toggleMessageExpansion(message.id)}
                     className={`mt-2 text-xs underline transition-colors ${
                       isUser 

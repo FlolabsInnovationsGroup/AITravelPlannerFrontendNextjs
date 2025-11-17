@@ -49,6 +49,7 @@ const LocationSuggestions: React.FC<LocationSuggestionsProps> = ({
                 <div className="max-h-80 overflow-y-auto">
                     {suggestions.map((location, index) => (
                         <button
+                            type="button"
                             key={location.placeId || index}
                             onClick={() => onLocationSelect(location)}
                             className="w-full p-4 text-left hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
@@ -101,12 +102,14 @@ const LocationSuggestions: React.FC<LocationSuggestionsProps> = ({
                 {/* Footer */}
                 <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
                     <button
+                        type="button"
                         onClick={onDismiss}
                         className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
                     >
                         Cancel
                     </button>
                     <button
+                        type="button"
                         onClick={() => onLocationSelect(suggestions[0])}
                         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                     >

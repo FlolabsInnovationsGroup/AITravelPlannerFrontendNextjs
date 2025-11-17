@@ -49,7 +49,7 @@ jest.mock('@/components/features/chat/ChatPageContent', () => {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
           />
-          <button onClick={handleSendMessage}>Send</button>
+          <button type="button" onClick={handleSendMessage}>Send</button>
         </div>
       </div>
     );

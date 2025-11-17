@@ -212,6 +212,7 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => setIsExpanded(!isExpanded)}
               className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
             >
@@ -224,6 +225,7 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
         <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
           {categories.map(category => (
             <button
+              type="button"
               key={category.id}
               onClick={() => setSelectedCategory(category.id)}
               className={`flex items-center gap-1 px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
@@ -281,6 +283,7 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
                   <div className="flex items-start justify-between">
                     <h4 className="font-semibold text-sm text-gray-900 truncate">{suggestion.name}</h4>
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onAddToTrip({

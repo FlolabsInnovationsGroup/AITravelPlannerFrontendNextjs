@@ -57,6 +57,7 @@ const SmartSuggestionsComponent: React.FC<SmartSuggestionsProps> = ({
           <span className="text-sm font-medium text-gray-700">Smart Suggestions</span>
         </div>
         <button
+          type="button"
           onClick={() => setIsMinimized(!isMinimized)}
           className="p-1 hover:bg-white hover:bg-opacity-50 rounded transition-colors"
           aria-label={isMinimized ? "Expand suggestions" : "Minimize suggestions"}
@@ -77,6 +78,7 @@ const SmartSuggestionsComponent: React.FC<SmartSuggestionsProps> = ({
             {topSuggestions.slice(0, 6).map((suggestion, index) => (
               <button
                 key={`suggestion-${index}`}
+                type="button"
                 onClick={() => handleSendMessage(suggestion)}
                 className="px-3 py-1.5 bg-white text-sm text-gray-700 rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow-md"
               >
@@ -94,6 +96,7 @@ const SmartSuggestionsComponent: React.FC<SmartSuggestionsProps> = ({
             {topSuggestions.slice(0, 3).map((suggestion, index) => (
               <button
                 key={`mini-suggestion-${index}`}
+                type="button"
                 onClick={() => handleSendMessage(suggestion)}
                 className="flex-shrink-0 px-2 py-1 bg-white text-xs text-gray-600 rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all"
               >

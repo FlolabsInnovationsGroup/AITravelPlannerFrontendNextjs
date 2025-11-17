@@ -249,6 +249,7 @@ export default function EnhancedChatInput({
             ].map((suggestion, index) => (
               <button
                 key={index}
+                type="button"
                 onClick={() => onChange(suggestion.substring(3))}
                 className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 transition-colors"
               >

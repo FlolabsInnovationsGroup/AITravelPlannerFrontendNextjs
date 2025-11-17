@@ -690,6 +690,7 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
               </div>
             </div>
             <button
+              type="button"
               onClick={() => setFilteredLocationCount(0)}
               className="ml-2 text-orange-700 hover:text-orange-900 text-xs font-bold"
               title="Dismiss notification"

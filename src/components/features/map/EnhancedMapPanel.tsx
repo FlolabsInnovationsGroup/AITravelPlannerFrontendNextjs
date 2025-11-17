@@ -117,6 +117,7 @@ function MapControls({
           {filters.map((filter) => (
             <button
               key={filter.id}
+              type="button"
               onClick={() => {
                 setSelectedFilter(filter.id);
                 onFilterChange?.(filter.id);

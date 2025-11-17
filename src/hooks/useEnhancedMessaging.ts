@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { useMessageRetry, useChatErrorHandler } from './useMessageRetry';
 import { MessageStatus } from '@/components/ui/ChatUIComponents';
+import { useMessageRetry, useChatErrorHandler } from './useMessageRetry';
 
 interface Message {
   id: number;
@@ -34,8 +34,7 @@ interface UseEnhancedMessagingResult {
 }
 
 export const useEnhancedMessaging = (
-  sendMessageApi: (message: string) => Promise<any>,
-  sessionId?: string
+  sendMessageApi: (message: string) => Promise<any>
 ): UseEnhancedMessagingResult => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -77,15 +76,7 @@ export const useEnhancedMessaging = (
     return newMessage.id;
   }, [generateMessageId]);
 
-  const updateMessage = useCallback((messageId: number, updates: Partial<Message>) => {
-    setMessages(prev => prev.map(msg => 
-      msg.id === messageId ? { ...msg, ...updates } : msg
-    ));
-  }, []);
 
-  const removeMessage = useCallback((messageId: number) => {
-    setMessages(prev => prev.filter(msg => msg.id !== messageId));
-  }, []);
 
   const createAbortableOperation = useCallback(<T,>(
     messageId: number,

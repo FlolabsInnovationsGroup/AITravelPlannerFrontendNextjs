@@ -199,7 +199,7 @@ const LocationInfoWindow: React.FC<LocationInfoWindowProps> = ({
                         )}
                         
                         {/* Additional action button for future features */}
-                        <button className="flex items-center justify-center gap-2 flex-1 px-4 py-2 bg-white border-2 border-gray-200 text-gray-700 rounded-lg font-medium hover:border-gray-300 hover:bg-gray-50 transition-all">
+                        <button type="button" className="flex items-center justify-center gap-2 flex-1 px-4 py-2 bg-white border-2 border-gray-200 text-gray-700 rounded-lg font-medium hover:border-gray-300 hover:bg-gray-50 transition-all">
                             <Users className="w-4 h-4" />
                             Share
                         </button>

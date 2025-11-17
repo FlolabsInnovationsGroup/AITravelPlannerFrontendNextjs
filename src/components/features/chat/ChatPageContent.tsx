@@ -1417,6 +1417,7 @@ export default function ChatPageContent() {
                         <div className="flex items-center justify-between px-3 py-3 border-b">
                             <span className="font-semibold">Menu</span>
                             <button
+                                type="button"
                                 className="p-2 rounded hover:bg-gray-100"
                                 onClick={toggleMobileMenu}
                                 aria-label="Close menu"
@@ -1469,6 +1470,7 @@ export default function ChatPageContent() {
                     {/* Left: Menu + Chat title */}
                     <div className="flex items-center gap-2">
                         <button
+                            type="button"
                             className="p-2 rounded hover:bg-gray-100 md:hidden"
                             aria-label="Open menu"
                             onClick={toggleMobileMenu}
@@ -1483,6 +1485,7 @@ export default function ChatPageContent() {
 
                     {/* Right: Enhanced Map button with tooltip */}
                     <button
+                        type="button"
                         onClick={() => { setShowMap(true); setIsMobileMenuOpen(false); }}
                         aria-label="View travel map"
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition-colors"
@@ -1576,6 +1579,7 @@ export default function ChatPageContent() {
                                 <span className="font-semibold">Travel Map</span>
                             </div>
                             <button
+                                type="button"
                                 onClick={() => setShowMap(false)}
                                 aria-label="Back to chat"
                                 className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -1596,6 +1600,7 @@ export default function ChatPageContent() {
                         {/* Floating Chat Button - Additional navigation option */}
                         <div className="absolute bottom-6 left-6 z-10">
                             <button
+                                type="button"
                                 onClick={() => setShowMap(false)}
                                 aria-label="Return to chat"
                                 className="flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all transform hover:scale-105 active:scale-95"
@@ -1626,6 +1631,7 @@ export default function ChatPageContent() {
                     <div className="flex items-center justify-between px-4 py-3 border-b">
                         <div className="font-semibold">Menu</div>
                         <button
+                            type="button"
                             onClick={() => setIsMobileMenuOpen(false)}
                             aria-label="Close menu"
                             className="p-2 rounded hover:bg-gray-100"
@@ -1674,6 +1680,7 @@ export default function ChatPageContent() {
                     }}
                 >
                     <button
+                        type="button"
                         onClick={handleCopyMessage}
                         className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2"
                     >
@@ -1681,6 +1688,7 @@ export default function ChatPageContent() {
                     </button>
                     {contextMenu.message?.messageType === 'USER' ? (
                         <button
+                            type="button"
                             onClick={handleEditMessage}
                             className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2"
                         >
@@ -1688,6 +1696,7 @@ export default function ChatPageContent() {
                         </button>
                     ) : (
                         <button
+                            type="button"
                             onClick={handleContinueConversation}
                             className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2"
                         >

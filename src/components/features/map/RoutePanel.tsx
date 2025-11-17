@@ -161,6 +161,7 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
             {/* Toggle Button */}
             {!isOpen && (
                 <button
+                    type="button"
                     onClick={() => setIsOpen(true)}
                     className="bg-blue-600 text-white rounded-lg shadow-lg p-3 hover:bg-blue-700 transition-colors flex items-center gap-2"
                     title="Optimize Route"
@@ -180,6 +181,7 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
                             <h3 className="font-semibold text-gray-900">Route Optimization</h3>
                         </div>
                         <button
+                            type="button"
                             onClick={() => setIsOpen(false)}
                             className="text-gray-400 hover:text-gray-600"
                         >
@@ -202,6 +204,7 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
                                     { mode: google.maps?.TravelMode?.TRANSIT || 'TRANSIT' as google.maps.TravelMode, label: 'Transit' }
                                 ].map(({ mode, label }) => (
                                     <button
+                                        type="button"
                                         key={mode}
                                         onClick={() => setOptions(prev => ({ ...prev, travelMode: mode }))}
                                         className={`flex items-center gap-2 p-2 rounded-md text-sm font-medium transition-colors ${
@@ -271,6 +274,7 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
 
                         {/* Optimize Button */}
                         <button
+                            type="button"
                             onClick={optimizeRoute}
                             disabled={isLoading}
                             className="w-full bg-blue-600 text-white px-4 py-2 rounded-md font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"

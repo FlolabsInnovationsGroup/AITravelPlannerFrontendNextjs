@@ -274,6 +274,7 @@ export default function ChatPageContent() {
                 {suggestions.map((suggestion, index) => (
                     <button
                         key={index}
+                        type="button"
                         onClick={() => handleSendMessage(suggestion)}
                         className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
                     >
@@ -376,6 +377,7 @@ export default function ChatPageContent() {
                                     {defaultPrompts.map((prompt: string, index: number) => (
                                         <button
                                             key={index}
+                                            type="button"
                                             onClick={() => handlePromptClick(prompt)}
                                             className="text-left p-6 rounded-lg bg-white hover:bg-gray-100
                                                      transition-all duration-200 shadow-sm hover:shadow

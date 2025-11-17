@@ -22,6 +22,7 @@ const ThemeSelector: React.FC<ThemeSelectorProps> = ({
     <div className={`relative ${className}`}>
       {/* Theme Selector Button */}
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md border border-gray-200 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
       >
@@ -50,6 +51,7 @@ const ThemeSelector: React.FC<ThemeSelectorProps> = ({
             
             {Object.values(MAP_THEMES).map((theme) => (
               <button
+                type="button"
                 key={theme.name}
                 onClick={() => handleThemeSelect(theme.name)}
                 className="w-full px-3 py-3 text-left hover:bg-gray-50 transition-colors flex items-start gap-3 group"

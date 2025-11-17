@@ -49,6 +49,7 @@ export default function ResponsiveChatLayout({
   const MobileViewSwitcher = () => (
     <div className="flex bg-white border-t border-gray-200 md:hidden">
       <button
+        type="button"
         onClick={() => setViewMode('chat')}
         className={cn(
           "flex-1 flex items-center justify-center py-3 text-sm font-medium transition-colors",
@@ -62,6 +63,7 @@ export default function ResponsiveChatLayout({
       </button>
       
       <button
+        type="button"
         onClick={() => setViewMode('map')}
         className={cn(
           "flex-1 flex items-center justify-center py-3 text-sm font-medium transition-colors",
@@ -81,6 +83,7 @@ export default function ResponsiveChatLayout({
     <div className="hidden md:flex items-center gap-2 p-2 bg-gray-50 border-b border-gray-200">
       <div className="flex bg-white rounded-md p-1 shadow-sm">
         <button
+          type="button"
           onClick={() => setViewMode('chat')}
           className={cn(
             "px-3 py-1.5 text-xs font-medium rounded transition-colors",
@@ -93,6 +96,7 @@ export default function ResponsiveChatLayout({
         </button>
         
         <button
+          type="button"
           onClick={() => setViewMode('split')}
           className={cn(
             "px-3 py-1.5 text-xs font-medium rounded transition-colors",
@@ -105,6 +109,7 @@ export default function ResponsiveChatLayout({
         </button>
         
         <button
+          type="button"
           onClick={() => setViewMode('map')}
           className={cn(
             "px-3 py-1.5 text-xs font-medium rounded transition-colors",

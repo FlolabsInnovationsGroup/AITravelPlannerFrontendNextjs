@@ -330,6 +330,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                 <div className="bg-white shadow-lg rounded-md overflow-hidden backdrop-blur-sm bg-white/90">
                     {suggestions.map((suggestion) => (
                         <button
+                            type="button"
                             key={suggestion.place_id}
                             className="w-full px-4 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors duration-150 ease-in-out"
                             onClick={() => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import { Wifi, WifiOff } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface ConnectionStatusProps {
@@ -45,6 +45,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
             </div>
             {onRetry && (
               <button
+                type="button"
                 onClick={handleRetry}
                 className="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors"
               >

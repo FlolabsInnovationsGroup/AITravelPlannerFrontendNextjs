@@ -2,11 +2,6 @@ import withBundleAnalyzer from '@next/bundle-analyzer';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Enable linting during builds for better code quality
-  eslint: {
-    // Remove ignoreDuringBuilds to enable linting
-    dirs: ['src', 'components', 'lib', 'services', 'types'],
-  },
   // Environment-specific configuration
   env: {
     // Ensure HTTPS API URL in production
@@ -14,9 +9,8 @@ const nextConfig = {
       ? process.env.NEXT_PUBLIC_API_URL || 'https://api.flomadtravel.com'
       : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
   },
-  // Image configuration for Next.js 16 compatibility
+  // Image configuration for Next.js 15
   images: {
-    qualities: [75, 85, 100],
     formats: ['image/webp', 'image/avif'],
   },
   // Remove standalone output to fix Windows symlink issues
@@ -31,30 +25,12 @@ const nextConfig = {
       'node_modules/@esbuild/linux-x64',
     ],
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, webpack }) => {
     // Optimization settings
     config.optimization = {
       ...config.optimization,
       moduleIds: 'deterministic',
-      chunkIds: 'deterministic'
-    }
-    return config
-  },
-  async redirects() {
-    return [
-      {
-        source: '/auth-redirect',
-        destination: '/auth/callback/google',
-        permanent: true,
-      },
-    ];
-  },
-  
-  // Performance optimizations (Audit Implementation)
-  webpack: (config, { isServer, webpack }) => {
-    // Optimize bundle size
-    config.optimization = {
-      ...config.optimization,
+      chunkIds: 'deterministic',
       splitChunks: {
         ...config.optimization.splitChunks,
         cacheGroups: {
@@ -78,6 +54,15 @@ const nextConfig = {
     };
 
     return config;
+  },
+  async redirects() {
+    return [
+      {
+        source: '/auth-redirect',
+        destination: '/auth/callback/google',
+        permanent: true,
+      },
+    ];
   },
 };
 
