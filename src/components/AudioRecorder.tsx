@@ -7,9 +7,10 @@ import { toast } from 'react-hot-toast'
 
 interface AudioRecorderProps {
   onTranscription: (transcribedText: string) => void
+  sessionId?: string // Optional session ID for future transcription API integration
 }
 
-export default function AudioRecorder({ onTranscription }: AudioRecorderProps) {
+export default function AudioRecorder({ onTranscription, sessionId }: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [recordingDuration, setRecordingDuration] = useState(0)

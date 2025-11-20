@@ -202,6 +202,8 @@ export default function ChatPageContent() {
                 setCurrentSession(newSession);
             }
     
+            // Check message limit for guest users (1000 messages)
+            const messageCount = messages.length;
             if (messageCount >= 1000 && !currentUser) {
                 setMessages((prev) => [
                     ...prev,
