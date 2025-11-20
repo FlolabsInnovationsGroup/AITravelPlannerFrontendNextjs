@@ -1,8 +1,5 @@
-'use client';
-
 import React, { useState } from 'react';
-import { Filter, MapPin, DollarSign, Star, Clock, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Filter, MapPin, DollarSign, Star } from 'lucide-react';
 import { LocationType } from '@/types/map';
 
 interface MapFiltersProps {
@@ -97,6 +94,7 @@ const MapFilters: React.FC<MapFiltersProps> = ({
       {/* Filter Toggle Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-100">
         <button
+          type="button"
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
         >
@@ -117,6 +115,7 @@ const MapFilters: React.FC<MapFiltersProps> = ({
           )}
           {hasActiveFilters && (
             <button
+              type="button"
               onClick={clearFilters}
               className="text-xs text-blue-600 hover:text-blue-700 transition-colors"
             >
@@ -131,12 +130,13 @@ const MapFilters: React.FC<MapFiltersProps> = ({
         <div className="p-4 space-y-4">
           {/* Location Types */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="block text-sm font-medium text-gray-700 mb-2">
               Location Types
-            </label>
+            </div>
             <div className="grid grid-cols-2 gap-2">
-              {LOCATION_TYPES.map(({ type, label, icon, color }) => (
+              {LOCATION_TYPES.map(({ type, label, icon }) => (
                 <button
+                  type="button"
                   key={type}
                   onClick={() => handleTypeToggle(type)}
                   className={`flex items-center gap-2 p-2 rounded-md border text-sm transition-colors ${
@@ -154,9 +154,9 @@ const MapFilters: React.FC<MapFiltersProps> = ({
 
           {/* Price Range */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="block text-sm font-medium text-gray-700 mb-2">
               Price Range (per night/meal)
-            </label>
+            </div>
             <div className="flex items-center gap-3">
               <DollarSign size={16} className="text-gray-400" />
               <input
@@ -164,7 +164,7 @@ const MapFilters: React.FC<MapFiltersProps> = ({
                 min="0"
                 max="500"
                 value={localFilters.priceRange[1]}
-                onChange={(e) => handlePriceRangeChange(0, parseInt(e.target.value))}
+                onChange={(e) => handlePriceRangeChange(0, parseInt(e.target.value, 10))}
                 className="flex-1"
               />
               <span className="text-sm text-gray-600 min-w-[60px]">
@@ -175,12 +175,13 @@ const MapFilters: React.FC<MapFiltersProps> = ({
 
           {/* Minimum Rating */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="block text-sm font-medium text-gray-700 mb-2">
               Minimum Rating
-            </label>
+            </div>
             <div className="flex items-center gap-2">
               {[1, 2, 3, 4, 5].map((rating) => (
                 <button
+                  type="button"
                   key={rating}
                   onClick={() => handleRatingChange(rating === localFilters.rating ? 0 : rating)}
                   className={`p-1 rounded transition-colors ${
@@ -200,9 +201,9 @@ const MapFilters: React.FC<MapFiltersProps> = ({
 
           {/* Distance Range */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="block text-sm font-medium text-gray-700 mb-2">
               Search Radius
-            </label>
+            </div>
             <div className="flex items-center gap-3">
               <MapPin size={16} className="text-gray-400" />
               <input
@@ -210,7 +211,7 @@ const MapFilters: React.FC<MapFiltersProps> = ({
                 min="1"
                 max="100"
                 value={localFilters.distance}
-                onChange={(e) => handleDistanceChange(parseInt(e.target.value))}
+                onChange={(e) => handleDistanceChange(parseInt(e.target.value, 10))}
                 className="flex-1"
               />
               <span className="text-sm text-gray-600 min-w-[50px]">
@@ -221,11 +222,11 @@ const MapFilters: React.FC<MapFiltersProps> = ({
 
           {/* Map Layers */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="block text-sm font-medium text-gray-700 mb-2">
               Map Layers
-            </label>
+            </div>
             <div className="space-y-2">
-              <label className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={localFilters.showRoutes}
@@ -233,8 +234,8 @@ const MapFilters: React.FC<MapFiltersProps> = ({
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-600">Show Routes & Directions</span>
-              </label>
-              <label className="flex items-center gap-2">
+              </div>
+              <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={localFilters.showWeather}
@@ -242,7 +243,7 @@ const MapFilters: React.FC<MapFiltersProps> = ({
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-600">Weather Overlay</span>
-              </label>
+              </div>
             </div>
           </div>
         </div>

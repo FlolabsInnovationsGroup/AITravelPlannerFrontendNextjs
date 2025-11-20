@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import '@testing-library/jest-dom';
 import RightMapPanel from '../RightMapPanel';
 import { Location, LocationType, WebSocketEvent } from '../../../../types/map';
+import { getLocationsBySession } from '../../../../lib/api';
 
 // Mock react-hot-toast
 jest.mock('react-hot-toast', () => ({
@@ -13,8 +14,7 @@ jest.mock('react-hot-toast', () => ({
 }));
 
 // Mock Next.js Image component
-jest.mock('next/image', () => {
-  return function MockImage({ src, alt, fill, className, priority }: any) {
+jest.mock('next/image', () => function MockImage({ src, alt, fill, className, priority }: any) {
     return (
       <img
         src={src}
@@ -25,8 +25,7 @@ jest.mock('next/image', () => {
         data-priority={priority}
       />
     );
-  };
-});
+  });
 
 // Mock the API call
 jest.mock('../../../../lib/api', () => ({
@@ -51,15 +50,15 @@ jest.mock('../../../../services/MapService', () => ({
 }));
 
 // Mock EnhancedGoogleMap
-jest.mock('../EnhancedGoogleMap', () => {
-  return function MockEnhancedGoogleMap({ locations, onLocationAdd, onLocationSelect }: any) {
+jest.mock('../EnhancedGoogleMap', () => function MockEnhancedGoogleMap({ locations, onLocationAdd, onLocationSelect }: any) {
     return (
       <div data-testid="google-map-component">
         <div data-testid="map-locations-count">{locations.length}</div>
         <button
+          type="button"
           data-testid="mock-add-location"
           onClick={() => onLocationAdd?.({
-            id: 'test-location-' + Date.now(),
+            id: `test-location-${  Date.now()}`,
             name: 'Test Location',
             latitude: 40.7128,
             longitude: -74.0060,
@@ -69,6 +68,7 @@ jest.mock('../EnhancedGoogleMap', () => {
           Add Test Location
         </button>
         <button
+          type="button"
           data-testid="mock-select-location"
           onClick={() => onLocationSelect?.(locations[0])}
         >
@@ -81,20 +81,7 @@ jest.mock('../EnhancedGoogleMap', () => {
         ))}
       </div>
     );
-  };
-});
-
-// Import the API mock
-const { getLocationsBySession } = require('../../../../lib/api');
-
-// Helper function to render component with proper act wrapping for async tests
-const renderWithAct = async (component: React.ReactElement) => {
-  let result: any;
-  await act(async () => {
-    result = render(component);
   });
-  return result;
-};
 
 describe('RightMapPanel', () => {
   const mockProps = {
@@ -142,9 +129,16 @@ describe('RightMapPanel', () => {
   });
 
   describe('Component Rendering', () => {
-    it('renders without crashing', () => {
-      render(<RightMapPanel {...mockProps} />);
-      expect(screen.getByTestId('travel-agent-image')).toBeInTheDocument();
+    it('renders without crashing', async () => {
+      getLocationsBySession.mockResolvedValue([]);
+      
+      await act(async () => {
+        render(<RightMapPanel {...mockProps} />);
+      });
+      
+      await waitFor(() => {
+        expect(screen.getByTestId('travel-agent-image')).toBeInTheDocument();
+      });
     });
 
     it('shows travel agent image when no locations', async () => {
@@ -196,9 +190,16 @@ describe('RightMapPanel', () => {
       expect(getLocationsBySession).not.toHaveBeenCalled();
     });
 
-    it('handles null user token gracefully', () => {
-      render(<RightMapPanel {...mockProps} currentUserToken={null} />);
-      expect(screen.getByTestId('travel-agent-image')).toBeInTheDocument();
+    it('handles null user token gracefully', async () => {
+      getLocationsBySession.mockResolvedValue([]);
+      
+      await act(async () => {
+        render(<RightMapPanel {...mockProps} currentUserToken={null} />);
+      });
+      
+      await waitFor(() => {
+        expect(screen.getByTestId('travel-agent-image')).toBeInTheDocument();
+      });
     });
   });
 
@@ -280,7 +281,7 @@ describe('RightMapPanel', () => {
 
   describe('WebSocket Integration', () => {
     it('initializes MapService with user token', () => {
-      const { MapService } = require('../../../../services/MapService');
+      const { MapService } = jest.requireMock('../../../../services/MapService');
       render(<RightMapPanel {...mockProps} />);
       
       expect(MapService).toHaveBeenCalledWith('test-token-456');
@@ -596,7 +597,7 @@ describe('RightMapPanel', () => {
       rerender(<RightMapPanel {...mockProps} />);
       
       // Should not cause additional MapService instantiation
-      const { MapService } = require('../../../../services/MapService');
+      const { MapService } = jest.requireMock('../../../../services/MapService');
       expect(MapService).toHaveBeenCalledTimes(1);
     });
 
@@ -613,7 +614,7 @@ describe('RightMapPanel', () => {
     it('re-renders when user token changes', () => {
       const { rerender } = render(<RightMapPanel {...mockProps} />);
       
-      const { MapService } = require('../../../../services/MapService');
+      const { MapService } = jest.requireMock('../../../../services/MapService');
       MapService.mockClear();
       
       // Re-render with different token

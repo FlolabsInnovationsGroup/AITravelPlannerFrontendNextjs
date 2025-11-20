@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useMemo } from 'react';
 import { getToken, setToken, clearToken, getCurrentUser, createGuestToken } from '@/lib/api';
 
 interface User {
@@ -74,8 +74,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.location.href = '/signin';
   };
 
+  const contextValue = useMemo(
+    () => ({ isAuthenticated, currentUser, signIn, signOut }),
+    [isAuthenticated, currentUser]
+  );
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, currentUser, signIn, signOut }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

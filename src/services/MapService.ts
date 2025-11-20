@@ -7,21 +7,38 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;  // Non-null assertion as
 
 export class MapService {
     private stompClient: Client | null = null;
+
     private messageHandlers: ((event: WebSocketEvent<any>) => void)[] = [];
+
     private wsRetryManager = new WebSocketRetryManager(5, 1000);
+
     private mapInstance: google.maps.Map | null = null;
+
     private markers: google.maps.Marker[] = [];
+
     private connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
+
     private pendingSessionId: string | null = null; // Store session ID for subscription after connection
     
     // Event handlers
     onConnect: (() => void) | null = null;
+
     onDisconnect: (() => void) | null = null;
+
     onError: ((error: Error) => void) | null = null;
+
     onMessage: ((event: WebSocketEvent<any>) => void) | null = null;
+
     onConnectionStatusChange: ((status: 'disconnected' | 'connecting' | 'connected') => void) | null = null;
 
     constructor(private userToken: string) { }
+
+    // Production-ready error logging
+    private logError(context: string, error: any): void {
+        if (process.env.NODE_ENV === 'development') {
+            console.warn(`MapService[${context}]:`, error);
+        }
+    }
 
     // Update user token (useful for token refresh)
     updateToken(newToken: string): void {
@@ -36,7 +53,6 @@ export class MapService {
     // Enhanced connection status management with metrics
     private setConnectionStatus(status: 'disconnected' | 'connecting' | 'connected') {
         if (this.connectionStatus !== status) {
-            const previousStatus = this.connectionStatus;
             this.connectionStatus = status;
             
             // Reset retry manager and clear pending session on successful connection
@@ -95,6 +111,11 @@ export class MapService {
                 type: location.type || 'attraction',
                 sessionId: location.sessionId
             };
+
+            // Timeout warning (cleanup not implemented)
+            /* const timeoutRef = */ setTimeout(() => {
+                this.logError('addLocation', 'Request timeout - server may be slow or unavailable');
+            }, 15000); // 15 second warning
 
             const response = await fetch(`${API_BASE_URL}/api/locations/add`, {
                 method: 'POST',
@@ -238,7 +259,7 @@ export class MapService {
                     if (this.onConnect) this.onConnect();
                 }, 500);
             },
-            onStompError: (frame) => {
+            onStompError: () => {
                 this.setConnectionStatus('disconnected');
                 this.handleConnectionError().catch(() => {});
             },
@@ -247,7 +268,7 @@ export class MapService {
                 this.handleConnectionError().catch(() => {});
                 if (this.onDisconnect) this.onDisconnect();
             },
-            onWebSocketError: (event: Event) => {
+            onWebSocketError: () => {
                 this.setConnectionStatus('disconnected');
                 this.handleConnectionError().catch(() => {});
                 if (this.onError) this.onError(new Error('WebSocket connection error'));
@@ -276,29 +297,27 @@ export class MapService {
             throw new Error(`Cannot subscribe: WebSocket not connected (state: ${this.stompClient.state} - ${stateMap[this.stompClient.state] || 'UNKNOWN'})`);
         }
 
-        try {
-            const subscription = this.stompClient.subscribe(`/topic/locations/${sessionId}`, (message) => {
-                try {
-                    const event: WebSocketEvent<LocationAddedPayload | LocationRemovedPayload | MapClearedPayload> = JSON.parse(message.body);
-                    this.messageHandlers.forEach(handler => handler(event));
-                } catch (error) {
-                    // Silently handle message parsing errors - may be due to network issues
-                }
-            });
-
-            // Verify subscription was successful
-            if (subscription) {
-                // Successfully subscribed
-            } else {
-                throw new Error('Subscription returned null/undefined - server may have rejected the subscription');
+        const subscription = this.stompClient.subscribe(`/topic/locations/${sessionId}`, (message) => {
+            try {
+                const event: WebSocketEvent<LocationAddedPayload | LocationRemovedPayload | MapClearedPayload> = JSON.parse(message.body);
+                this.messageHandlers.forEach(handler => handler(event));
+            } catch (error) {
+                // Silently handle message parsing errors - may be due to network issues
             }
-        } catch (error) {
-            throw error;
+        });
+
+        // Verify subscription was successful
+        if (subscription) {
+            // Successfully subscribed
+        } else {
+            throw new Error('Subscription returned null/undefined - server may have rejected the subscription');
         }
     }
 
     private async subscribeToSessionWithRetry(sessionId: string, maxRetries: number = 5, delayMs: number = 1000): Promise<void> {
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        // Sequential retry logic - await in loop is intentional for retry pattern
+        // eslint-disable-next-line no-plusplus
+        for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
             try {
                 // More comprehensive check for STOMP client readiness
                 if (this.stompClient && 
@@ -306,7 +325,10 @@ export class MapService {
                     this.stompClient.state === 1) { // CONNECTED state
                     
                     // Add a small delay to ensure the connection is fully established
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    // eslint-disable-next-line no-await-in-loop
+                    await new Promise(resolve => {
+                        setTimeout(() => resolve(undefined), 200);
+                    });
                     
                     // Try to subscribe - catch any errors from subscribeToSession
                     try {
@@ -318,18 +340,21 @@ export class MapService {
                         }
                         // Continue to next attempt
                     }
-                } else {
+                } else if (!this.stompClient && attempt === 1) {
                     // If no STOMP client exists, try to reinitialize connection
-                    if (!this.stompClient && attempt === 1) {
-                        this.connectWebSocket(sessionId);
-                        await new Promise(resolve => setTimeout(resolve, delayMs * 3)); // Give more time for connection
-                        continue;
-                    }
+                    this.connectWebSocket(sessionId);
+                    // eslint-disable-next-line no-await-in-loop
+                    await new Promise(resolve => {
+                        setTimeout(() => resolve(undefined), delayMs * 3);
+                    }); // Give more time for connection
                 }
                 
                 if (attempt < maxRetries) {
                     const waitTime = Math.min(delayMs * attempt, 5000); // Cap at 5 seconds
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    // eslint-disable-next-line no-await-in-loop
+                    await new Promise(resolve => {
+                        setTimeout(() => resolve(undefined), waitTime);
+                    });
                 }
             } catch (error) {
                 if (attempt === maxRetries) {
@@ -337,7 +362,10 @@ export class MapService {
                 }
                 // Wait before next attempt with exponential backoff
                 const waitTime = Math.min(delayMs * attempt, 5000); // Cap at 5 seconds
-                await new Promise(resolve => setTimeout(resolve, waitTime));
+                // eslint-disable-next-line no-await-in-loop
+                await new Promise(resolve => {
+                    setTimeout(() => resolve(undefined), waitTime);
+                });
             }
         }
         throw new Error(`Failed to subscribe to session ${sessionId} after ${maxRetries} attempts`);
@@ -372,7 +400,9 @@ export class MapService {
                 const healthCheck = await this.performHealthCheck();
                 if (!healthCheck) {
                     // Wait longer if server is unhealthy
-                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    await new Promise(resolve => {
+                        setTimeout(() => resolve(undefined), 5000);
+                    });
                 }
                 
                 // Force reconnection after a delay

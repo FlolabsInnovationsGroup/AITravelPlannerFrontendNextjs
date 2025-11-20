@@ -55,8 +55,8 @@ export function ExploreSection() {
             className="flex overflow-x-auto space-x-6 no-scrollbar"
             onScroll={checkScroll}
           >
-            {places.map((place, index) => (
-              <div key={index} className="flex-none w-72">
+            {places.map((place) => (
+              <div key={place.name} className="flex-none w-72">
                 <div className="relative aspect-[4/3] mb-4">
                   <Image
                     src={place.image}

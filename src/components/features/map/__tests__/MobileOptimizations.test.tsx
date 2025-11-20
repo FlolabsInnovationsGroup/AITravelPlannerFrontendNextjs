@@ -42,7 +42,7 @@ describe('MobileMapControls', () => {
       <MobileMapControls
         onFullscreen={mockOnFullscreen}
         onLocationMode={mockOnLocationMode}
-        isFullscreen={true}
+        isFullscreen
       />
     );
 
@@ -131,7 +131,7 @@ describe('MobileMapControls', () => {
       <MobileMapControls
         onFullscreen={mockOnFullscreen}
         onLocationMode={mockOnLocationMode}
-        isFullscreen={true}
+        isFullscreen
       />
     );
 

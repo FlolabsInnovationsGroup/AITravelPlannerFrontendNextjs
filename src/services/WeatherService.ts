@@ -39,8 +39,11 @@ export interface WeatherForecast {
 
 class WeatherService {
     private readonly apiKey: string;
+
     private readonly baseUrl = 'https://api.openweathermap.org/data/2.5';
+
     private cache = new Map<string, { data: WeatherData; timestamp: number }>();
+
     private readonly cacheTime = 10 * 60 * 1000; // 10 minutes
 
     constructor() {
@@ -125,6 +128,7 @@ class WeatherService {
     /**
      * Process forecast data to get daily summaries
      */
+    // eslint-disable-next-line class-methods-use-this
     private processForecastData(forecastList: any[]): WeatherForecast[] {
         const dailyForecasts = new Map<string, any[]>();
         
@@ -162,6 +166,7 @@ class WeatherService {
     /**
      * Generate mock weather data for demo purposes
      */
+    // eslint-disable-next-line class-methods-use-this
     private getMockWeatherData(lat: number, lng: number, locationName?: string): WeatherData {
         // Generate pseudo-random but consistent weather based on coordinates
         const tempBase = 20 + (Math.sin(lat * 0.1) * 15) + (Math.cos(lng * 0.1) * 10);
@@ -214,6 +219,7 @@ class WeatherService {
     /**
      * Get weather icon URL
      */
+    // eslint-disable-next-line class-methods-use-this
     getWeatherIconUrl(icon: string): string {
         return `https://openweathermap.org/img/wn/${icon}@2x.png`;
     }
@@ -224,8 +230,8 @@ class WeatherService {
     private generateTravelInsights(weatherData: WeatherData): TravelWeatherInsights {
         const temp = weatherData.current.temperature;
         const description = weatherData.current.description.toLowerCase();
-        const windSpeed = weatherData.current.windSpeed;
-        const humidity = weatherData.current.humidity;
+        const {windSpeed} = weatherData.current;
+        const {humidity} = weatherData.current;
         
         const insights: TravelWeatherInsights = {
             bestTimeToVisit: this.getBestTimeToVisit(weatherData),
@@ -237,6 +243,7 @@ class WeatherService {
         return insights;
     }
     
+    // eslint-disable-next-line class-methods-use-this
     private getBestTimeToVisit(weather: WeatherData): string {
         const temp = weather.current.temperature;
         const description = weather.current.description.toLowerCase();
@@ -260,6 +267,7 @@ class WeatherService {
         return "Good weather for most activities with proper preparation.";
     }
     
+    // eslint-disable-next-line class-methods-use-this
     private getClothingRecommendations(temp: number, description: string, windSpeed: number): string[] {
         const recommendations: string[] = [];
         
@@ -293,6 +301,7 @@ class WeatherService {
         return recommendations;
     }
     
+    // eslint-disable-next-line class-methods-use-this
     private getActivitySuggestions(temp: number, description: string, windSpeed: number, humidity: number): string[] {
         const activities: string[] = [];
         
@@ -325,11 +334,12 @@ class WeatherService {
         return activities;
     }
     
+    // eslint-disable-next-line class-methods-use-this
     private getWeatherAlerts(weather: WeatherData): string[] {
         const alerts: string[] = [];
         const temp = weather.current.temperature;
         const description = weather.current.description.toLowerCase();
-        const windSpeed = weather.current.windSpeed;
+        const {windSpeed} = weather.current;
         
         if (temp > 35) {
             alerts.push("⚠️ Extreme heat - stay hydrated and seek shade");

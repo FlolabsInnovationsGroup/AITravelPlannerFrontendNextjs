@@ -34,6 +34,7 @@ export interface RouteOptimizationOptions {
 
 class RouteOptimizationService {
     private directionsService: google.maps.DirectionsService | null = null;
+
     private distanceMatrixService: google.maps.DistanceMatrixService | null = null;
 
     constructor() {
@@ -129,8 +130,8 @@ class RouteOptimizationService {
                         locations: optimizedLocations,
                         totalDistance: Math.round(totalDistance * 10) / 10,
                         totalDuration: Math.round(totalDuration),
-                        waypoints: waypoints,
-                        route: route
+                        waypoints,
+                        route
                     });
                 } else {
                     console.error('Directions request failed:', status);
@@ -167,7 +168,7 @@ class RouteOptimizationService {
                     location: new google.maps.LatLng(location.latitude, location.longitude),
                     stopover: true
                 })),
-                route: route
+                route
             };
         } catch (error) {
             console.error('TSP optimization failed:', error);
@@ -222,6 +223,7 @@ class RouteOptimizationService {
     /**
      * Euclidean distance fallback
      */
+    // eslint-disable-next-line class-methods-use-this
     private euclideanDistance(loc1: Location, loc2: Location): number {
         const R = 6371; // Earth's radius in km
         const dLat = (loc2.latitude - loc1.latitude) * Math.PI / 180;
@@ -236,17 +238,18 @@ class RouteOptimizationService {
     /**
      * Nearest Neighbor TSP heuristic
      */
+    // eslint-disable-next-line class-methods-use-this
     private nearestNeighborTSP(distanceMatrix: number[][]): number[] {
         const n = distanceMatrix.length;
         const visited = new Array(n).fill(false);
         const path = [0]; // Start from first location
         visited[0] = true;
 
-        for (let i = 1; i < n; i++) {
+        for (let i = 1; i < n; i += 1) {
             let nearest = -1;
             let minDistance = Infinity;
 
-            for (let j = 0; j < n; j++) {
+            for (let j = 0; j < n; j += 1) {
                 if (!visited[j] && distanceMatrix[path[path.length - 1]][j] < minDistance) {
                     nearest = j;
                     minDistance = distanceMatrix[path[path.length - 1]][j];
@@ -265,9 +268,10 @@ class RouteOptimizationService {
     /**
      * Calculate total distance for a given path
      */
+    // eslint-disable-next-line class-methods-use-this
     private calculateTotalDistance(distanceMatrix: number[][], path: number[]): number {
         let total = 0;
-        for (let i = 0; i < path.length - 1; i++) {
+        for (let i = 0; i < path.length - 1; i += 1) {
             total += distanceMatrix[path[i]][path[i + 1]];
         }
         return Math.round(total * 10) / 10;
@@ -325,7 +329,7 @@ class RouteOptimizationService {
         destination: Location,
         travelMode: google.maps.TravelMode = google.maps.TravelMode.DRIVING
     ): Promise<OptimizedRoute | null> {
-        return await this.optimizeRoute([origin, destination], { travelMode });
+        return this.optimizeRoute([origin, destination], { travelMode });
     }
 }
 

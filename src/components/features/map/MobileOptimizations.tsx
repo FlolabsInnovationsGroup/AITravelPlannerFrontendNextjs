@@ -9,11 +9,11 @@ export const MobileMapControls: React.FC<{
     onFullscreen: () => void;
     onLocationMode: () => void;
     isFullscreen: boolean;
-}> = ({ onFullscreen, onLocationMode, isFullscreen }) => {
-    return (
+}> = ({ onFullscreen, onLocationMode, isFullscreen }) => (
         <div className="md:hidden fixed bottom-4 right-4 z-20 flex flex-col gap-3">
             {/* Mobile-optimized control buttons */}
             <button
+                type="button"
                 onClick={onFullscreen}
                 className="bg-white shadow-lg rounded-full p-3 border border-gray-200 active:bg-gray-100"
                 aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
@@ -30,6 +30,7 @@ export const MobileMapControls: React.FC<{
             </button>
             
             <button
+                type="button"
                 onClick={onLocationMode}
                 className="bg-blue-600 text-white shadow-lg rounded-full p-3 active:bg-blue-700"
                 aria-label="Center on my location"
@@ -41,7 +42,6 @@ export const MobileMapControls: React.FC<{
             </button>
         </div>
     );
-};
 
 export const MobileTravelQuickActions: React.FC<{
     onFindNearby: (type: string) => void;
@@ -58,6 +58,7 @@ export const MobileTravelQuickActions: React.FC<{
             <div className="grid grid-cols-4 gap-2">
                 {quickActions.map((action) => (
                     <button
+                        type="button"
                         key={action.type}
                         onClick={() => onFindNearby(action.type)}
                         className="flex flex-col items-center p-3 rounded-lg border border-gray-200 active:bg-gray-100"

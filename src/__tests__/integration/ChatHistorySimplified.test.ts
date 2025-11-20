@@ -48,7 +48,7 @@ describe('Chat History Integration Tests', () => {
         content: 'Hello, I need help planning a trip to Paris',
         sender: 'user',
         timestamp: new Date(),
-        sessionId: sessionId,
+        sessionId,
         messageType: 'USER',
         metadata: { source: 'user_input' }
       };
@@ -59,7 +59,7 @@ describe('Chat History Integration Tests', () => {
         content: 'I\'d be happy to help you plan your trip to Paris! What dates are you considering?',
         sender: 'assistant',
         timestamp: new Date(),
-        sessionId: sessionId,
+        sessionId,
         messageType: 'ASSISTANT',
         metadata: { model: 'gpt-3.5-turbo', source: 'ai_assistant' }
       };
@@ -125,7 +125,7 @@ describe('Chat History Integration Tests', () => {
         content: 'This is a voice message',
         sender: 'user',
         timestamp: new Date(),
-        sessionId: sessionId,
+        sessionId,
         messageType: 'USER',
         metadata: {
           hasAudio: true,
@@ -141,7 +141,7 @@ describe('Chat History Integration Tests', () => {
         content: 'I found 3 flights to Paris for you.',
         sender: 'assistant',
         timestamp: new Date(),
-        sessionId: sessionId,
+        sessionId,
         messageType: 'ASSISTANT',
         metadata: {
           functionsUsed: ['searchFlights'],
@@ -191,7 +191,7 @@ describe('Chat History Integration Tests', () => {
         content: 'This should remain in cache',
         sender: 'user',
         timestamp: new Date(),
-        sessionId: sessionId,
+        sessionId,
         messageType: 'USER',
         metadata: {}
       }, false);
@@ -218,7 +218,7 @@ describe('Chat History Integration Tests', () => {
           content: 'I want to visit Tokyo',
           sender: 'user' as const,
           timestamp: new Date('2025-10-01T10:00:00Z'),
-          sessionId: sessionId,
+          sessionId,
           messageType: 'USER' as const,
           metadata: { source: 'web_ui' }
         },
@@ -227,7 +227,7 @@ describe('Chat History Integration Tests', () => {
           content: 'Tokyo is a fantastic destination! When are you planning to visit?',
           sender: 'assistant' as const,
           timestamp: new Date('2025-10-01T10:00:01Z'),
-          sessionId: sessionId,
+          sessionId,
           messageType: 'ASSISTANT' as const,
           metadata: { model: 'gpt-3.5-turbo', responseTime: 1.2 }
         }
@@ -260,7 +260,7 @@ describe('Chat History Integration Tests', () => {
           content: `Message for session ${sessionId}`,
           sender: 'user',
           timestamp: new Date(),
-          sessionId: sessionId,
+          sessionId,
           messageType: 'USER',
           metadata: {}
         }, false);
@@ -288,6 +288,7 @@ describe('Chat History Integration Tests', () => {
       ];
 
       // Add all messages to the service
+      /* eslint-disable no-plusplus, no-await-in-loop */
       for (let i = 0; i < conversation.length; i++) {
         const msg = conversation[i];
         await chatHistoryService.addMessage({
@@ -295,7 +296,7 @@ describe('Chat History Integration Tests', () => {
           content: msg.content,
           sender: msg.role === 'user' ? 'user' : 'assistant',
           timestamp: new Date(Date.now() + i * 1000), // Stagger timestamps
-          sessionId: sessionId,
+          sessionId,
           messageType: msg.role === 'user' ? 'USER' : 'ASSISTANT',
           metadata: { 
             turn: i + 1,
@@ -304,6 +305,7 @@ describe('Chat History Integration Tests', () => {
           }
         }, false);
       }
+      /* eslint-enable no-plusplus, no-await-in-loop */
 
       // Verify conversation flow
       const messages = chatHistoryService.getCachedMessages(sessionId);

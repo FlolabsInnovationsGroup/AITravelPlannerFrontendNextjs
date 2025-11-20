@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useMemo } from 'react';
 import { getToken, setToken, clearToken, getCurrentUser, createGuestToken, initializeFreshSession } from '@/lib/api';
 
 interface User {
@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // Add a small delay to ensure token is properly set in localStorage
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => { setTimeout(resolve, 100); });
 
         // Get current user info using the token we just ensured exists
         try {
@@ -99,8 +99,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.location.href = '/auth/signin';
   };
 
+  const contextValue = useMemo(
+    () => ({ isAuthenticated, currentUser, signIn, signOut }),
+    [isAuthenticated, currentUser]
+  );
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, currentUser, signIn, signOut }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

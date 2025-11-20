@@ -2,8 +2,8 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import TravelItinerary from '../TravelItinerary';
 import { Location } from '@/types/map';
+import TravelItinerary from '../TravelItinerary';
 
 // Mock the TravelLocationAnalyzer service since it's imported in the component
 jest.mock('../../../../services/TravelLocationAnalyzer', () => ({

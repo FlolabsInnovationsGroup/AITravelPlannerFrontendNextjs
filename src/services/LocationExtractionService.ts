@@ -1,15 +1,19 @@
 import { Location, LocationType } from '@/types/map';
 
-interface LocationExtractionResult {
-    extractedLocation?: Location;
-    error?: string;
-    suggestedPlaces?: Location[];
-}
+// Unused interface - kept for reference
+// interface LocationExtractionResult {
+//     extractedLocation?: Location;
+//     error?: string;
+//     suggestedPlaces?: Location[];
+// }
 
 export class LocationExtractionService {
     private geocoder: google.maps.Geocoder | null = null;
+
     private placesService: google.maps.places.PlacesService | null = null;
+
     #initialized = false;
+
     #initPromise: Promise<void> = Promise.resolve();
 
     constructor() {
@@ -21,33 +25,30 @@ export class LocationExtractionService {
     async #initialize(): Promise<void> {
         if (this.#initialized) return;
 
-        try {
-            if (typeof window === 'undefined' || !window.google?.maps) {
-                // In test environment or server-side, skip initialization
-                this.#initialized = true;
-                return;
-            }
-
-            // Make sure the required libraries are loaded
-            if (!window.google.maps.Geocoder) {
-                throw new Error('Geocoding library not loaded');
-            }
-            if (!window.google.maps.places?.PlacesService) {
-                throw new Error('Places library not loaded');
-            }
-
-            this.geocoder = new google.maps.Geocoder();
-            // Create a dummy div for PlacesService (required by Google Maps API)
-            // TODO: Migrate to google.maps.places.Place API when ready - PlacesService is deprecated as of March 2025
-            const dummyDiv = document.createElement('div');
-            this.placesService = new google.maps.places.PlacesService(dummyDiv);
-            
+        if (typeof window === 'undefined' || !window.google?.maps) {
+            // In test environment or server-side, skip initialization
             this.#initialized = true;
-        } catch (error) {
-            throw error;
+            return;
         }
+
+        // Make sure the required libraries are loaded
+        if (!window.google.maps.Geocoder) {
+            throw new Error('Geocoding library not loaded');
+        }
+        if (!window.google.maps.places?.PlacesService) {
+            throw new Error('Places library not loaded');
+        }
+
+        this.geocoder = new google.maps.Geocoder();
+        // Create a dummy div for PlacesService (required by Google Maps API)
+        // TODO: Migrate to google.maps.places.Place API when ready - PlacesService is deprecated as of March 2025
+        const dummyDiv = document.createElement('div');
+        this.placesService = new google.maps.places.PlacesService(dummyDiv);
+        
+        this.#initialized = true;
     }
 
+    // eslint-disable-next-line class-methods-use-this
     #getLocationType(types: string[]): LocationType {
         // Travel-specific categorization
         if (types.includes('lodging') || types.includes('hotel')) return 'hotel';
@@ -105,10 +106,8 @@ export class LocationExtractionService {
                     types: suggestion.placePrediction!.types || []
                 }));
 
-            // Convert predictions to Location objects
-            const locations: Location[] = [];
-            
-            for (const prediction of autocompleteResults.slice(0, 3)) { // Limit to top 3 results
+            // Convert predictions to Location objects in parallel
+            const locationPromises = autocompleteResults.slice(0, 3).map(async (prediction) => {
                 try {
                     const placeDetails = await new Promise<google.maps.places.PlaceResult>((resolve, reject) => {
                         this.placesService!.getDetails({
@@ -125,7 +124,7 @@ export class LocationExtractionService {
 
                     if (placeDetails.geometry?.location) {
                         const sessionId = sessionStorage.getItem('chatSessionId');
-                        locations.push({
+                        return {
                             id: `${placeDetails.place_id}-${Date.now()}`, // Generate unique ID
                             latitude: placeDetails.geometry.location.lat(),
                             longitude: placeDetails.geometry.location.lng(),
@@ -136,12 +135,18 @@ export class LocationExtractionService {
                             rating: placeDetails.rating,
                             priceLevel: placeDetails.price_level as 1 | 2 | 3 | 4,
                             vicinity: placeDetails.formatted_address
-                        });
+                        };
                     }
+                    return null;
                 } catch (detailError) {
+                    return null;
                     // Place details failed - skip this prediction
                 }
-            }
+            });
+
+            // Wait for all promises and filter out nulls
+            const locationResults = await Promise.all(locationPromises);
+            const locations = locationResults.filter((loc): loc is Location => loc !== null);
 
             return locations;
         } catch (error) {
@@ -164,7 +169,7 @@ export class LocationExtractionService {
                 /\b(New York|Los Angeles|Chicago|Houston|Phoenix|Philadelphia|San Antonio|San Diego|Dallas|San Jose|Austin|Jacksonville|Fort Worth|Columbus|Charlotte|San Francisco|Indianapolis|Seattle|Denver|Boston|El Paso|Detroit|Nashville|Portland|Memphis|Oklahoma City|Las Vegas|Louisville|Baltimore|Milwaukee|Albuquerque|Tucson|Fresno|Mesa|Sacramento|Atlanta|Kansas City|Colorado Springs|Omaha|Raleigh|Miami|Long Beach|Virginia Beach|Oakland|Minneapolis|Tulsa|Arlington|Tampa|New Orleans|Wichita|Cleveland|Bakersfield|Aurora|Anaheim|Honolulu|Santa Ana|Riverside|Corpus Christi|Lexington|Stockton|Henderson|Saint Paul|St. Louis|Cincinnati|Pittsburgh|Anchorage|Greensboro|Plano|Lincoln|Orlando|Irvine|Newark|Durham|Chula Vista|Toledo|Fort Wayne|St. Petersburg|Laredo|Jersey City|Chandler|Madison|Lubbock|Scottsdale|Reno|Buffalo|Gilbert|Glendale|North Las Vegas|Winston-Salem|Chesapeake|Norfolk|Fremont|Garland|Irving|Hialeah|Richmond|Boise|Spokane|Baton Rouge|Tacoma|San Bernardino|Modesto|Fontana|Des Moines|Moreno Valley|Santa Clarita|Fayetteville|Birmingham|Oxnard|Rochester|Port St. Lucie|Grand Rapids|Huntsville|Salt Lake City|Frisco|Yonkers|Amarillo|Glendale|Huntington Beach|McKinney|Montgomery|Augusta|Aurora|Akron|Little Rock|Tempe|Columbus|Overland Park|Grand Prairie|Tallahassee|Cape Coral|Mobile|Knoxville|Shreveport|Worcester|Ontario|Vancouver|Sioux Falls|Chattanooga|Brownsville|Fort Lauderdale|Providence|Newport News|Rancho Cucamonga|Santa Rosa|Peoria|Oceanside|Elk Grove|Salem|Pembroke Pines|Eugene|Garden Grove|Cary|Fort Collins|Corona|Springfield|Jackson|Alexandria|Hayward|Clarksville|Lakewood|Lancaster|Salinas|Palmdale|Hollywood|Pasadena|Pomona|Escondido|Sunnyvale|Killeen|Naperville|Torrance|Paterson|Rockford|Savannah|Bridgeport|Mesquite|Syracuse|McAllen|Pasadena|Joliet|Kansas City|Thornton|Fullerton|Carrollton|Midland|Concord|Visalia|Thousand Oaks|Simi Valley|Stamford|Olathe|Cedar Rapids|Elizabeth|Hampton|Miramar|Coral Springs|Sterling Heights|Kent|Abilene|West Jordan|Topeka|Denton|San Buenaventura|Waco|El Monte|Dayton|Fargo|Pearland|Richardson|Miami Gardens|League City|Lowell|Elgin|West Valley City|Round Rock|McKinney|Beaumont|Independence|Murfreesboro|Ann Arbor|High Point|Columbia|Clearwater|Westminster|Billings|Peoria|Arvada|Centennial|Pueblo|Fairfield|West Palm Beach|Richardson|Athens|Wilmington|Cambridge|Carlsbad|Allentown|Norwich|Tokyo|Paris|London|Berlin|Rome|Madrid|Amsterdam|Sydney|Vienna|Prague|Budapest|Brussels|Dublin|Edinburgh|Stockholm|Copenhagen|Oslo|Helsinki|Warsaw|Lisbon|Athens|Istanbul|Moscow|Barcelona|Florence|Naples|Milan|Venice|Bologna|Turin|Palermo|Genoa|Verona|Pisa|Siena|Lucca|Prato|Modena|Parma|Padua|Trieste|Brescia|Catania|Bari|Munich|Hamburg|Cologne|Frankfurt|Stuttgart|Düsseldorf|Leipzig|Dortmund|Essen|Bremen|Dresden|Hannover|Nuremberg|Duisburg|Bochum|Wuppertal|Bielefeld|Bonn|Münster|Mannheim|Augsburg|Wiesbaden|Gelsenkirchen|Aachen|Mönchengladbach|Braunschweig|Chemnitz|Kiel|Halle|Magdeburg|Freiburg|Krefeld|Lübeck|Mainz|Erfurt|Oberhausen|Rostock|Kassel|Hagen|Potsdam|Saarbrücken|Hamm|Ludwigshafen|Mülheim|Oldenburg|Leverkusen|Osnabrück|Solingen|Heidelberg|Herne|Neuss|Darmstadt|Paderborn|Regensburg|Ingolstadt|Würzburg|Fürth|Wolfsburg|Offenbach|Ulm|Heilbronn|Pforzheim|Göttingen|Bottrop|Trier|Recklinghausen|Reutlingen|Bremerhaven|Koblenz|Bergisch|Gladbach|Jena|Remscheid|Erlangen|Moers|Siegen|Hildesheim|Salzgitter)\b/gi,
                 
                 // Pattern for travel-style lists with bullet points or numbers
-                /(?:[\d\*\-•]\.?\s*)?(?:Day \d+[:\-]?\s*)?([A-Z][a-zA-Z\s]+)(?:\s*[\-–]\s*[^\n]*)?/g,
+                /(?:[\d*\-•]\.?\s*)?(?:Day \d+[:-]?\s*)?([A-Z][a-zA-Z\s]+)(?:\s*[-–]\s*[^\n]*)?/g,
                 
                 // Pattern for "From X to Y" or "X and Y" 
                 /(?:from|visit|explore|discover|tour|start in|begin in|end in|finish in|travel to|head to|go to|arrive in)\s+([A-Z][a-zA-Z\s]+?)(?:\s+(?:and|to|then|before|after)\s+([A-Z][a-zA-Z\s]+?))?/gi,
@@ -173,23 +178,24 @@ export class LocationExtractionService {
                 /\b([A-Z][a-zA-Z\s]+?)\s*,\s*([A-Z][a-zA-Z\s]+?)\s*(?:,\s*and\s+|\s+and\s+|,\s*)([A-Z][a-zA-Z\s]+?)\b/gi,
                 
                 // Pattern for itinerary format: "Day 1: City", "Day 2: Another City"
-                /Day\s+\d+[:\-]?\s*([A-Z][a-zA-Z\s]+?)(?:\s*[\-–]|\n|$)/gi,
+                /Day\s+\d+[:-]?\s*([A-Z][a-zA-Z\s]+?)(?:\s*[-–]|\n|$)/gi,
                 
                 // Pattern for simple city lists in parentheses or after colons
-                /(?:cities?|destinations?|places?)[:\-]?\s*([A-Z][a-zA-Z\s]+?)(?:\s*,\s*([A-Z][a-zA-Z\s]+?))*(?:\s*,?\s*and\s+([A-Z][a-zA-Z\s]+?))?/gi
+                /(?:cities?|destinations?|places?)[:-]?\s*([A-Z][a-zA-Z\s]+?)(?:\s*,\s*([A-Z][a-zA-Z\s]+?))*(?:\s*,?\s*and\s+([A-Z][a-zA-Z\s]+?))?/gi
             ];
 
             const foundCities = new Set<string>();
 
             // Extract cities using patterns
             cityPatterns.forEach(pattern => {
-                let match;
-                while ((match = pattern.exec(message)) !== null) {
-                    for (let i = 1; i < match.length; i++) {
+                let match = pattern.exec(message);
+                while (match !== null) {
+                    for (let i = 1; i < match.length; i += 1) {
                         if (match[i] && this.#isValidLocationName(match[i])) {
                             foundCities.add(match[i].trim());
                         }
                     }
+                    match = pattern.exec(message);
                 }
             });
 
@@ -197,40 +203,42 @@ export class LocationExtractionService {
             if (foundCities.size === 0) {
                 // Look for any capitalized words that could be cities (2-20 characters)
                 const generalPattern = /\b([A-Z][a-z]{1,19})(?:\s+([A-Z][a-z]{1,19}))*\b/g;
-                let generalMatch;
-                while ((generalMatch = generalPattern.exec(message)) !== null) {
+                let generalMatch = generalPattern.exec(message);
+                while (generalMatch !== null) {
                     const fullMatch = generalMatch[0];
                     if (this.#isValidLocationName(fullMatch) && this.#couldBeCity(fullMatch)) {
                         foundCities.add(fullMatch);
                     }
+                    generalMatch = generalPattern.exec(message);
                 }
             }
 
             // Convert city names to Location objects
-            const locations: Location[] = [];
-            for (const cityName of foundCities) {
-                try {
-                    const cityCoords = this.#getCityCoordinates(cityName);
-                    if (cityCoords) {
-                        locations.push({
-                            id: `${cityName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
-                            latitude: cityCoords.lat,
-                            longitude: cityCoords.lng,
-                            name: cityName,
-                            type: 'attraction' as LocationType,
-                            sessionId: sessionStorage.getItem('chatSessionId') || undefined
-                        });
-                    } else {
+            const locationResults = await Promise.all(
+                foundCities.map(async (cityName) => {
+                    try {
+                        const cityCoords = this.#getCityCoordinates(cityName);
+                        if (cityCoords) {
+                            return {
+                                id: `${cityName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+                                latitude: cityCoords.lat,
+                                longitude: cityCoords.lng,
+                                name: cityName,
+                                type: 'attraction' as LocationType,
+                                sessionId: sessionStorage.getItem('chatSessionId') || undefined
+                            };
+                        } 
                         // Try geocoding for unknown cities
                         const result = await this.extractLocationFromMessage(cityName);
-                        if (result.extractedLocation) {
-                            locations.push(result.extractedLocation);
-                        }
+                        return result.extractedLocation || null;
+                    } catch (error) {
+                        // City geocoding failed - skip
+                        return null;
                     }
-                } catch (error) {
-                    // City geocoding failed - skip
-                }
-            }
+                })
+            );
+            
+            const locations = locationResults.filter((loc): loc is Location => loc !== null);
 
             return locations;
         } catch (error) {
@@ -288,7 +296,9 @@ export class LocationExtractionService {
             ];
 
             let locationName = '';
-            for (const pattern of patterns) {
+            
+            // Find first valid pattern match
+            patterns.find(pattern => {
                 const match = message.match(pattern);
                 if (match?.[1]) {
                     const candidate = match[1].trim();
@@ -303,10 +313,11 @@ export class LocationExtractionService {
                     
                     if (!isBlacklisted && this.#isValidLocationName(candidate)) {
                         locationName = candidate;
-                        break;
+                        return true; // Found valid location, stop searching
                     }
                 }
-            }
+                return false; // Keep searching
+            });
 
             if (!locationName) {
                 return { error: 'No location found in message' };
@@ -363,7 +374,7 @@ export class LocationExtractionService {
                 return { error: 'Failed to geocode location. Please ensure the Google Maps API key has Geocoding enabled.' };
             }
 
-            const location = result.geometry.location;
+            const {location} = result.geometry;
             const sessionId = sessionStorage.getItem('chatSessionId');
             
             const extractedLocation: Location = {
@@ -387,6 +398,7 @@ export class LocationExtractionService {
     }
 
     // Helper method to detect city context from conversation
+    // eslint-disable-next-line class-methods-use-this
     #detectCityContext(message: string): string | null {
         const cityPatterns = [
             /\bin\s+(Paris|London|New York|Tokyo|Rome|Barcelona|Madrid|Berlin|Amsterdam|Vienna|Prague|Budapest|Brussels|Dublin|Edinburgh|Stockholm|Copenhagen|Oslo|Helsinki|Warsaw|Lisbon|Athens|Istanbul|Moscow|St\.\s*Petersburg)/gi,
@@ -394,11 +406,21 @@ export class LocationExtractionService {
             /\bto\s+(Paris|London|New York|Tokyo|Rome|Barcelona|Madrid|Berlin|Amsterdam|Vienna|Prague|Budapest|Brussels|Dublin|Edinburgh|Stockholm|Copenhagen|Oslo|Helsinki|Warsaw|Lisbon|Athens|Istanbul|Moscow|St\.\s*Petersburg)/gi,
         ];
 
-        for (const pattern of cityPatterns) {
+        // Find first pattern that matches
+        let cityName: string | undefined;
+        cityPatterns.find(pattern => {
             const match = message.match(pattern);
             if (match?.[1]) {
-                return match[1];
+                [, cityName] = match;
+                return true; // Found match, stop searching
             }
+            return false; // Keep searching
+        });
+
+        return cityName || null;
+        
+        if (cityName) {
+            return cityName;
         }
 
         // Check if we're already in a city context from previous locations
@@ -413,6 +435,7 @@ export class LocationExtractionService {
     }
 
     // Helper method to get coordinates for major cities
+    // eslint-disable-next-line class-methods-use-this
     #getCityCoordinates(city: string): { lat: number; lng: number } | null {
         const cityCoords: Record<string, { lat: number; lng: number }> = {
             'Paris': { lat: 48.8566, lng: 2.3522 },
@@ -446,6 +469,7 @@ export class LocationExtractionService {
     }
 
     // Validate if a candidate string could be a valid location name
+    // eslint-disable-next-line class-methods-use-this
     #couldBeCity(candidate: string): boolean {
         const cleaned = candidate.trim().toLowerCase();
         
@@ -463,6 +487,7 @@ export class LocationExtractionService {
         return !definitivelyNotCities.includes(cleaned) && cleaned.length >= 3 && cleaned.length <= 25;
     }
 
+    // eslint-disable-next-line class-methods-use-this
     #isValidLocationName(candidate: string): boolean {
         // Basic length check
         if (candidate.length < 2 || candidate.length > 100) {

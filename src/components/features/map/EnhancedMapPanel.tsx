@@ -1,9 +1,10 @@
 // Enhanced Map Panel with better UX and visual design
+
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Location } from '@/types/map';
-import { Map, Layers, Search, Filter, MoreVertical, Route, Share } from 'lucide-react';
+import { Map, Search, MoreVertical, Route, Share } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import dynamic from 'next/dynamic';
@@ -15,7 +16,7 @@ const GoogleMapComponent = dynamic(() => import('./GoogleMapComponent'), {
     <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
       <div className="text-center p-8">
         <div className="relative">
-          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto" />
           <Map className="w-6 h-6 absolute inset-0 m-auto text-blue-600" />
         </div>
         <p className="mt-4 text-gray-600 font-medium">Loading interactive map...</p>
@@ -138,23 +139,21 @@ function MapControls({
 }
 
 interface EnhancedMapPanelProps {
-  currentSessionId: string | null;
-  currentUserToken: string | null;
   onLocationUpdate?: (locations: Location[]) => void;
   className?: string;
 }
 
 export default function EnhancedMapPanel({
-  currentSessionId,
-  currentUserToken,
+  // currentSessionId,
+  // currentUserToken,
   onLocationUpdate,
   className = ""
 }: EnhancedMapPanelProps) {
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [locations] = useState<Location[]>([]);
   const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
+  const [isLoading] = useState(false);
+  const [error] = useState<string | null>(null); // setError unused
+  // const mapRef = useRef<google.maps.Map | null>(null); // Unused variable
 
   const handleLocationSearch = useCallback((query: string) => {
     if (!query) {
@@ -179,11 +178,12 @@ export default function EnhancedMapPanel({
   }, [locations]);
 
   const handleRouteGenerate = useCallback(() => {
-    if (locations.length < 2) return;
-    
-    // Generate route between locations
-    // This would integrate with Google Directions API
-    // Generating route for selected locations
+    if (locations.length >= 2) {
+      // Generate route between locations
+      // This would integrate with Google Directions API
+      // Generating route for selected locations
+    }
+    // If less than 2 locations, do nothing (need at least 2 for route)
   }, [locations]);
 
   const handleShare = useCallback(() => {
@@ -231,11 +231,11 @@ export default function EnhancedMapPanel({
         ) : (
           <GoogleMapComponent
             locations={filteredLocations}
-            onLocationAdd={(location) => {
+            onLocationAdd={() => {
               // Handle location addition if needed
               onLocationUpdate?.(locations);
             }}
-            onLocationSelect={(location) => {
+            onLocationSelect={() => {
               // Handle location selection
               // Location selection handled internally
             }}
@@ -246,7 +246,7 @@ export default function EnhancedMapPanel({
         {isLoading && (
           <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
             <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-lg shadow-lg">
-              <div className="w-4 h-4 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+              <div className="w-4 h-4 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
               <span className="text-sm text-gray-600">Updating map...</span>
             </div>
           </div>

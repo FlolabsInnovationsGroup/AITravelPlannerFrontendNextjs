@@ -83,7 +83,7 @@ export const useEnhancedWebSocket = (
   });
 
   const calculateReconnectDelay = useCallback((attempt: number): number => {
-    const delay = opts.baseReconnectDelay * Math.pow(opts.backoffFactor, attempt);
+    const delay = opts.baseReconnectDelay * opts.backoffFactor**attempt;
     return Math.min(delay, opts.maxReconnectDelay);
   }, [opts.baseReconnectDelay, opts.maxReconnectDelay, opts.backoffFactor]);
 
@@ -195,6 +195,8 @@ export const useEnhancedWebSocket = (
     }
   }, []);
 
+  // Declare attemptReconnect first (before connect) to avoid use-before-define
+  // Note: This creates a forward reference to connect, which is resolved at runtime
   const attemptReconnect = useCallback(() => {
     if (isIntentionalDisconnectRef.current || !currentSessionIdRef.current) {
       return;
@@ -224,6 +226,8 @@ export const useEnhancedWebSocket = (
 
     reconnectTimeoutRef.current = setTimeout(() => {
       if (currentSessionIdRef.current && !isIntentionalDisconnectRef.current) {
+        // Forward reference to connect (defined below) - both functions reference each other
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
         connect(currentSessionIdRef.current);
       }
     }, delay);
@@ -247,6 +251,13 @@ export const useEnhancedWebSocket = (
     currentSessionIdRef.current = sessionId;
     isIntentionalDisconnectRef.current = false;
     updateConnectionState(ConnectionState.CONNECTING);
+
+    // Forward reference to attemptReconnect - will be called at runtime after both defined
+    const scheduleReconnect = (delay: number) => {
+      if (!isIntentionalDisconnectRef.current) {
+        setTimeout(attemptReconnect, delay);
+      }
+    };
 
     try {
       // Dynamic import to avoid SSR issues
@@ -289,28 +300,22 @@ export const useEnhancedWebSocket = (
               toast.dismiss('websocket-connect');
               toast.dismiss('websocket-reconnect');
 
-              if (!isIntentionalDisconnectRef.current) {
-                setTimeout(attemptReconnect, 100);
-              }
+              scheduleReconnect(100);
             },
             onStompError: (frame) => {
-              console.error('❌ STOMP Error:', frame.headers['message'], frame.body);
-              const error = new Error(frame.headers['message'] || 'WebSocket connection error');
+              console.error('❌ STOMP Error:', frame.headers.message, frame.body);
+              const error = new Error(frame.headers.message || 'WebSocket connection error');
               errorHandlerRef.current?.(error);
               updateConnectionState(ConnectionState.ERROR);
               
-              if (!isIntentionalDisconnectRef.current) {
-                setTimeout(attemptReconnect, 1000);
-              }
+              scheduleReconnect(1000);
             },
             onWebSocketError: (error) => {
               console.error('❌ WebSocket Error:', error);
               errorHandlerRef.current?.(error);
               updateConnectionState(ConnectionState.ERROR);
               
-              if (!isIntentionalDisconnectRef.current) {
-                setTimeout(attemptReconnect, 1000);
-              }
+              scheduleReconnect(1000);
             }
           });
 
@@ -322,9 +327,9 @@ export const useEnhancedWebSocket = (
       console.error('❌ Error creating WebSocket connection:', error);
       errorHandlerRef.current?.(error);
       updateConnectionState(ConnectionState.ERROR);
-      setTimeout(attemptReconnect, 1000);
+      scheduleReconnect(1000);
     }
-  }, [connectionState, baseUrl, handleMessage, startHeartbeat, stopHeartbeat, attemptReconnect, updateConnectionState]);
+  }, [connectionState, baseUrl, handleMessage, startHeartbeat, stopHeartbeat, updateConnectionState, attemptReconnect]);
 
   const disconnect = useCallback(() => {
     isIntentionalDisconnectRef.current = true;
@@ -393,11 +398,9 @@ export const useEnhancedWebSocket = (
   }, []);
 
   // Cleanup on unmount
-  useEffect(() => {
-    return () => {
+  useEffect(() => () => {
       disconnect();
-    };
-  }, [disconnect]);
+    }, [disconnect]);
 
   return {
     connectionState,

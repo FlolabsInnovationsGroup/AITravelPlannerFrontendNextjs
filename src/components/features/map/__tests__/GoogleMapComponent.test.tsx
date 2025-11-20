@@ -4,6 +4,9 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { Location } from '../../../../types/map';
 
+// Import the component after mocking
+import GoogleMapComponent from '../GoogleMapComponent';
+
 // Mock the entire @react-google-maps/api library to avoid DOM issues
 jest.mock('@react-google-maps/api', () => ({
   GoogleMap: ({ children, onLoad, ...props }: any) => {
@@ -40,41 +43,29 @@ jest.mock('@googlemaps/markerclusterer', () => ({
 }));
 
 // Mock child components that might have complex implementations
-jest.mock('../SearchBox', () => {
-  return function MockSearchBox(props: any) {
+jest.mock('../SearchBox', () => function MockSearchBox() {
     return <div data-testid="search-box" />;
-  };
-});
+  });
 
-jest.mock('../MapErrorBoundary', () => {
-  return function MockMapErrorBoundary({ children }: any) {
+jest.mock('../MapErrorBoundary', () => function MockMapErrorBoundary({ children }: any) {
     return <div data-testid="map-error-boundary">{children}</div>;
-  };
-});
+  });
 
-jest.mock('../LocationInfoWindow', () => {
-  return function MockLocationInfoWindow(props: any) {
+jest.mock('../LocationInfoWindow', () => function MockLocationInfoWindow() {
     return <div data-testid="location-info-window" />;
-  };
-});
+  });
 
-jest.mock('../WeatherOverlay', () => {
-  return function MockWeatherOverlay(props: any) {
+jest.mock('../WeatherOverlay', () => function MockWeatherOverlay() {
     return <div data-testid="weather-overlay" />;
-  };
-});
+  });
 
-jest.mock('../RoutePanel', () => {
-  return function MockRoutePanel(props: any) {
+jest.mock('../RoutePanel', () => function MockRoutePanel() {
     return <div data-testid="route-panel" />;
-  };
-});
+  });
 
-jest.mock('../MapControls', () => {
-  return function MockMapControls(props: any) {
+jest.mock('../MapControls', () => function MockMapControls() {
     return <div data-testid="map-controls" />;
-  };
-});
+  });
 
 // Mock Google Maps API services
 const mockPlacesService = {
@@ -136,16 +127,11 @@ const mockMapService = {
 };
 
 // Mock the map service
-jest.mock('../../../../services/MapService', () => {
-  return {
+jest.mock('../../../../services/MapService', () => ({
     MapService: {
       getInstance: () => mockMapService
     }
-  };
-});
-
-// Import the component after mocking
-import GoogleMapComponent from '../GoogleMapComponent';
+  }));
 
 describe('GoogleMapComponent - DOM Safe Tests', () => {
   const mockLocations: Location[] = [

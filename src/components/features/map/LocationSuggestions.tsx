@@ -1,6 +1,6 @@
 import React from 'react';
 import { Location } from '@/types/map';
-import { MapPin, Star, DollarSign, Clock } from 'lucide-react';
+import { MapPin, Star, DollarSign } from 'lucide-react';
 
 interface LocationSuggestionsProps {
     suggestions: Location[];
@@ -38,7 +38,7 @@ const LocationSuggestions: React.FC<LocationSuggestionsProps> = ({
                 {/* Header */}
                 <div className="p-4 border-b bg-blue-50">
                     <h3 className="font-semibold text-gray-900">
-                        Multiple locations found for "{searchTerm}"
+                        Multiple locations found for &quot;{searchTerm}&quot;
                     </h3>
                     <p className="text-sm text-gray-600 mt-1">
                         Please select the location you meant:

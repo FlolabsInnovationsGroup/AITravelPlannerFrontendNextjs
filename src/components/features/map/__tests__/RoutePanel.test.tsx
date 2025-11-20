@@ -4,6 +4,9 @@ import '@testing-library/jest-dom';
 import RoutePanel from '../RoutePanel';
 import { Location } from '../../../../types/map';
 
+// Import the mocked service to access it in tests
+import { routeOptimizationService } from '../../../../services/RouteOptimizationService';
+
 // Mock Google Maps APIs
 const mockDirectionsRenderer = {
   setMap: jest.fn(),
@@ -17,9 +20,6 @@ jest.mock('../../../../services/RouteOptimizationService', () => ({
     optimizeRoute: jest.fn(),
   },
 }));
-
-// Import the mocked service to access it in tests
-import { routeOptimizationService } from '../../../../services/RouteOptimizationService';
 
 // Mock Lucide React icons
 jest.mock('lucide-react', () => ({
@@ -266,7 +266,7 @@ describe('RoutePanel', () => {
 
     it('shows loading state during optimization', async () => {
       // Make the service take time to resolve
-      const promise = new Promise(resolve => setTimeout(() => resolve(mockOptimizedRoute), 100));
+      const promise = new Promise(resolve => { setTimeout(() => resolve(mockOptimizedRoute), 100); });
       (routeOptimizationService.optimizeRoute as jest.Mock).mockReturnValue(promise);
       
       // Just check that loading appears since auto-optimization triggers it
@@ -430,7 +430,7 @@ describe('RoutePanel', () => {
     });
 
     it('disables optimize button during loading', async () => {
-      const promise = new Promise(resolve => setTimeout(() => resolve(mockOptimizedRoute), 100));
+      const promise = new Promise(resolve => { setTimeout(() => resolve(mockOptimizedRoute), 100); });
       (routeOptimizationService.optimizeRoute as jest.Mock).mockReturnValue(promise);
       
       render(<RoutePanel locations={sampleLocations} map={mockMap} />);

@@ -13,8 +13,8 @@ export function FeaturedTourPlaces() {
       <div className="container mx-auto px-4">
         <h2 className="text-3xl font-bold mb-8">Featured Tour Places</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {places.map((place, index) => (
-            <div key={index} className="relative aspect-square">
+          {places.map((place) => (
+            <div key={place.name} className="relative aspect-square">
               <Image
                 src={place.image}
                 alt={place.name}

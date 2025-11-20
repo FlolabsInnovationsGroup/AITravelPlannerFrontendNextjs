@@ -9,7 +9,7 @@ export default function ContactPage() {
       <header className="fixed top-0 left-0 right-0 z-50 py-4 px-6 md:px-10 bg-black/30 backdrop-blur-md">
         <nav className="flex justify-between items-center">
           <Link href="/" className="flex items-center">
-            <Image src="/logo.png" alt="Flomad Travel Logo" width={25} height={25} style={{ width: 'auto', height: 'auto' }} className="mr-2" />
+            <Image src="/logo.svg" alt="Flomad Travel Logo" width={25} height={25} style={{ width: 'auto', height: 'auto' }} className="mr-2" />
             <span className="text-white text-2xl font-semibold">Flomad Travel</span>
           </Link>
           <div className="flex items-center space-x-6">
@@ -71,7 +71,7 @@ export default function ContactPage() {
           </div> */}
         </div> 
       </main>
-      {/* FOOTER*/}
+      {/* FOOTER */}
       <Footer />
     </div>
   );

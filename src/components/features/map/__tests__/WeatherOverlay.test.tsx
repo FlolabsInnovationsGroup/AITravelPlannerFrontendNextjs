@@ -1,8 +1,8 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WeatherOverlay from '../WeatherOverlay';
-import { WeatherData } from '../../../../services/WeatherService';
+import { WeatherData, weatherService } from '../../../../services/WeatherService';
 import { Location } from '../../../../types/map';
 
 // Mock the WeatherService
@@ -11,9 +11,6 @@ jest.mock('../../../../services/WeatherService', () => ({
     getWeatherData: jest.fn(),
   },
 }));
-
-// Import the mocked service
-import { weatherService } from '../../../../services/WeatherService';
 
 // Mock Lucide React icons
 jest.mock('lucide-react', () => ({
@@ -127,7 +124,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={[]}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -145,7 +142,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={mockLocations}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -159,7 +156,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={mockLocations}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -178,7 +175,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={[mockLocations[0]]}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -197,7 +194,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={[mockLocations[0]]}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -215,7 +212,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={[mockLocations[0]]}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -229,7 +226,7 @@ describe('WeatherOverlay', () => {
     const { rerender } = render(
       <WeatherOverlay
         locations={[mockLocations[0]]}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -242,7 +239,7 @@ describe('WeatherOverlay', () => {
     rerender(
       <WeatherOverlay
         locations={mockLocations}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -262,7 +259,7 @@ describe('WeatherOverlay', () => {
     );
 
     // Wait a bit to ensure no calls are made
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => { setTimeout(resolve, 100); });
 
     expect(mockWeatherService.getWeatherData).not.toHaveBeenCalled();
   });
@@ -278,7 +275,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={[mockLocations[0]]}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -299,7 +296,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={[mockLocations[0]]}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -320,7 +317,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={[mockLocations[0]]}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -334,7 +331,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={mockLocations}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -347,7 +344,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={mockLocations}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -367,7 +364,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={[locationWithoutName]}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -381,13 +378,13 @@ describe('WeatherOverlay', () => {
   it('shows loading animation for individual cards', async () => {
     // Mock one location to be slow, one to be fast
     mockWeatherService.getWeatherData
-      .mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve(mockWeatherData), 1000)))
+      .mockImplementationOnce(() => new Promise(resolve => { setTimeout(() => resolve(mockWeatherData), 1000); }))
       .mockResolvedValueOnce(mockWeatherData);
 
     render(
       <WeatherOverlay
         locations={mockLocations}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );
@@ -417,7 +414,7 @@ describe('WeatherOverlay', () => {
     render(
       <WeatherOverlay
         locations={[mockLocations[0]]}
-        isVisible={true}
+        isVisible
         onToggleVisibility={mockOnToggleVisibility}
       />
     );

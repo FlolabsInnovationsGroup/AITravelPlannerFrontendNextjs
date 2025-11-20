@@ -23,7 +23,6 @@ interface BeautifulChatContainerProps {
   currentUser?: any;
   showWelcome?: boolean;
   onVoiceRecord?: (audioBlob: Blob) => void;
-  onLocationRequest?: () => void;
 }
 
 const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
@@ -35,12 +34,10 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
   suggestions = [],
   currentUser,
   showWelcome = true,
-  onVoiceRecord,
-  onLocationRequest
+  onVoiceRecord
 }) => {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(true);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [logoError, setLogoError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -90,8 +87,20 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
   };
 
   const handleMessageAction = (action: string, message: Message) => {
-    // Message action processed
-    // Handle message actions like copy, like, dislike
+    switch (action) {
+      case 'copy':
+        navigator.clipboard.writeText(message.content);
+        // Message copied to clipboard
+        break;
+      case 'like':
+      case 'dislike':
+        // Handle message feedback
+        // Could send to analytics or backend for AI improvement
+        break;
+      default:
+        // Unknown action
+        break;
+    }
   };
 
   const handleContinueConversation = (message: Message) => {
@@ -108,7 +117,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
   // Enhanced location request handler with proper error handling
   const handleLocationRequest = async () => {
     if (!navigator.geolocation) {
-      alert('🚫 Geolocation is not supported by this browser. Please try using a modern browser like Chrome, Firefox, or Safari.');
+      console.error('Geolocation not supported by browser');
       return;
     }
 
@@ -148,7 +157,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
 
     const error = (err: GeolocationPositionError) => {
       let message = '';
-      let title = '📍 Location Request Failed';
+      const title = '📍 Location Request Failed';
       
       switch (err.code) {
         case err.PERMISSION_DENIED:
@@ -165,8 +174,8 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
           break;
       }
       
-      // Use a more user-friendly alert with better formatting
-      alert(`${title}\n\n${message}`);
+      // Log error instead of using alert for production
+      console.error(`${title}: ${message}`);
     };
 
     navigator.geolocation.getCurrentPosition(success, error, options);
@@ -187,7 +196,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
         {messages.length === 0 && showWelcome && (
           <div className="h-full flex flex-col items-center p-4 py-6 overflow-y-auto">
             {/* Spacer for top alignment */}
-            <div className="flex-1 min-h-[2rem] max-h-[4rem]"></div>
+            <div className="flex-1 min-h-[2rem] max-h-[4rem]" />
             
             {/* Branded Logo - Enhanced professional branding with improved sizing */}
             <div className="mb-4 relative flex-shrink-0">
@@ -195,7 +204,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
                 <div className="relative w-16 h-16 transition-transform duration-500 group-hover:scale-105">
                   {!logoError ? (
                     <Image 
-                      src="/logo.png" 
+                      src="/logo.svg" 
                       alt="AI Travel Planner" 
                       width={64}
                       height={64}
@@ -216,7 +225,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
                 <MessageCircle className="w-3 h-3 text-white drop-shadow-sm" />
               </div>
               {/* Enhanced glow effect */}
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400/30 via-purple-400/30 to-indigo-400/30 blur-2xl -z-10 scale-125 opacity-70 animate-pulse"></div>
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400/30 via-purple-400/30 to-indigo-400/30 blur-2xl -z-10 scale-125 opacity-70 animate-pulse" />
             </div>
 
             {/* Enhanced Branded Welcome Text */}
@@ -231,11 +240,11 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
 
             {/* Example Prompts */}
             <div className="grid grid-cols-2 gap-3 w-full max-w-lg flex-shrink-0">
-              {welcomePrompts.map((prompt, index) => {
+              {welcomePrompts.map((prompt) => {
                 const IconComponent = prompt.icon;
                 return (
                   <button
-                    key={index}
+                    key={prompt.text}
                     type="button"
                     onClick={() => handlePromptClick(prompt)}
                     className="group p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all duration-300 text-center transform hover:-translate-y-0.5"
@@ -261,7 +270,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
 
             
             {/* Bottom spacer */}
-            <div className="flex-1 min-h-[1rem] max-h-[3rem]"></div>
+            <div className="flex-1 min-h-[1rem] max-h-[3rem]" />
           </div>
         )}
 
@@ -319,8 +328,8 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
             suggestions={suggestions}
             onVoiceRecord={onVoiceRecord}
             onLocationRequest={handleLocationRequest}
-            showVoice={true}
-            showLocation={true}
+            showVoice
+            showLocation
             showEmojiPicker={false} // Simplified for travel focus
           />
         </div>

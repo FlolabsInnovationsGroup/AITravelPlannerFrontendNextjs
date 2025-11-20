@@ -1,9 +1,10 @@
 // Enhanced Chat Input with modern UX features
+
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Send, Mic, MicOff, Paperclip, Smile, MapPin } from 'lucide-react';
+import { Send, Mic, MicOff, Smile, MapPin } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import EmojiPicker from 'emoji-picker-react';
 
@@ -73,7 +74,7 @@ export default function EnhancedChatInput({
       };
       
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(chunks, { type: 'audio/wav' });
+        // const audioBlob = new Blob(chunks, { type: 'audio/wav' });
         // Here you would implement speech-to-text conversion
         toast.success('Voice recording completed');
         stream.getTracks().forEach(track => track.stop());
@@ -162,7 +163,7 @@ export default function EnhancedChatInput({
               <div className="absolute top-3 left-4 pointer-events-none">
                 <div className="flex items-center gap-1 text-xs text-gray-400">
                   <MapPin size={12} />
-                  <span>Try: "Show me Paris" or "Plan a trip to Tokyo"</span>
+                  <span>Try: &quot;Show me Paris&quot; or &quot;Plan a trip to Tokyo&quot;</span>
                 </div>
               </div>
             )}
@@ -246,9 +247,9 @@ export default function EnhancedChatInput({
               "✈️ Plan a weekend trip",
               "🏨 Find hotels in Tokyo",
               "🍕 Best restaurants nearby"
-            ].map((suggestion, index) => (
+            ].map((suggestion) => (
               <button
-                key={index}
+                key={suggestion}
                 type="button"
                 onClick={() => onChange(suggestion.substring(3))}
                 className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 transition-colors"

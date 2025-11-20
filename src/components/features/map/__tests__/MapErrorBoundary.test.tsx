@@ -34,7 +34,7 @@ describe('MapErrorBoundary', () => {
   it('displays error UI when child component throws error', () => {
     render(
       <MapErrorBoundary>
-        <ThrowingComponent shouldThrow={true} />
+        <ThrowingComponent shouldThrow />
       </MapErrorBoundary>
     );
 
@@ -46,7 +46,7 @@ describe('MapErrorBoundary', () => {
   it('displays helpful error information and recovery options', () => {
     render(
       <MapErrorBoundary>
-        <ThrowingComponent shouldThrow={true} />
+        <ThrowingComponent shouldThrow />
       </MapErrorBoundary>
     );
 
@@ -77,7 +77,7 @@ describe('MapErrorBoundary', () => {
   it('shows try again button that resets error boundary state', () => {
     render(
       <MapErrorBoundary>
-        <ThrowingComponent shouldThrow={true} />
+        <ThrowingComponent shouldThrow />
       </MapErrorBoundary>
     );
 
@@ -100,7 +100,7 @@ describe('MapErrorBoundary', () => {
 
     render(
       <MapErrorBoundary>
-        <ThrowingComponent shouldThrow={true} />
+        <ThrowingComponent shouldThrow />
       </MapErrorBoundary>
     );
 
@@ -118,7 +118,7 @@ describe('MapErrorBoundary', () => {
 
     render(
       <MapErrorBoundary>
-        <ThrowingComponent shouldThrow={true} />
+        <ThrowingComponent shouldThrow />
       </MapErrorBoundary>
     );
 
@@ -130,9 +130,9 @@ describe('MapErrorBoundary', () => {
   });
 
   it('handles error recovery when "Try Again" is clicked', () => {
-    const { rerender } = render(
+    render(
       <MapErrorBoundary>
-        <ThrowingComponent shouldThrow={true} />
+        <ThrowingComponent shouldThrow />
       </MapErrorBoundary>
     );
 
@@ -157,7 +157,7 @@ describe('MapErrorBoundary', () => {
   it('applies correct CSS classes for error UI styling', () => {
     render(
       <MapErrorBoundary>
-        <ThrowingComponent shouldThrow={true} />
+        <ThrowingComponent shouldThrow />
       </MapErrorBoundary>
     );
 

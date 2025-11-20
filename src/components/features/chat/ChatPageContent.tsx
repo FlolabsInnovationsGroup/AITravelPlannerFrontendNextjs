@@ -2,27 +2,23 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession, getLocationsBySession, getToken } from '@/lib/api';
+import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession, getLocationsBySession, getToken, transcribeAudio } from '@/lib/api';
 import { Send, Menu, Map, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Components } from 'react-markdown';
 import { LoadScript, LoadScriptProps } from '@react-google-maps/api';
 import { Location } from '@/types/map';
-import SmartSuggestionsComponent from './SmartSuggestionsComponent';
-import AudioRecorder from './AudioRecorder';
 import LeftMenuBar from '@/components/features/chat/LeftMenuBar';
 import LocationSuggestions from '@/components/features/map/LocationSuggestions';
 import dynamic from 'next/dynamic';
 import { useChatErrorHandler } from '@/hooks/useMessageRetry';
-import { ConnectionState } from '@/hooks/useEnhancedWebSocket';
 import { 
-  MessageStatusIndicator, 
   TypingIndicator, 
   ErrorMessage 
 } from '@/components/ui/ChatUIComponents';
+import { LocationExtractionService } from '@/services/LocationExtractionService';
+import { MapService } from '@/services/MapService';
+import BeautifulChatContainer from './BeautifulChatContainer';
 
 // Code splitting for heavy map component (Performance Audit Implementation)
 const RightMapPanel = dynamic(() => import('@/components/features/map/RightMapPanel'), {
@@ -30,33 +26,12 @@ const RightMapPanel = dynamic(() => import('@/components/features/map/RightMapPa
   loading: () => (
     <div className="h-full w-full flex items-center justify-center bg-gray-50">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto" />
         <p className="mt-4 text-gray-600">Loading map...</p>
       </div>
     </div>
   )
 });
-import { LocationExtractionService } from '@/services/LocationExtractionService';
-import { MapService } from '@/services/MapService';
-import BeautifulChatContainer from './BeautifulChatContainer';
-
-// Loader Component
-const MessageLoader = () => {
-    return (
-        <div className="flex justify-start items-center gap-2 mt-4">
-        <div className="flex space-x-1 bg-gray-200 rounded-full px-3 py-2">
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-150" />
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-300" />
-        </div>
-      </div>
-    );
-  };
-  
-
-interface CodeProps extends React.HTMLAttributes<HTMLElement> {
-    inline?: boolean;
-}
 
 interface Message {
     id: number;
@@ -70,26 +45,8 @@ interface ApiResponse {
     suggestions?: string[];
 }
 
+// Define libraries outside component to prevent LoadScript from reloading on every render
 const libraries: LoadScriptProps["libraries"] = ["places"];
-
-// Suggestions Component - moved outside to prevent re-renders
-const Suggestions = ({ suggestions, handleSendMessage }: { suggestions: string[]; handleSendMessage: (message: string) => void }) => (
-    <div className="mt-4">
-        <h3 className="text-lg font-semibold mb-2">Suggestions:</h3>
-        <div className="flex flex-wrap gap-2">
-            {suggestions.map((suggestion, index) => (
-                <button
-                    key={`suggestion-${index}`}
-                    type="button"
-                    onClick={() => handleSendMessage(suggestion)}
-                    className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
-                >
-                    {suggestion}
-                </button>
-            ))}
-        </div>
-    </div>
-);
 
 export default function ChatPageContent() {
     const [messages, setMessages] = useState<Message[]>([]);
@@ -100,11 +57,9 @@ export default function ChatPageContent() {
     const [displayPrompts, setDisplayPrompts] = useState(true);
     const [showChatHistory, setShowChatHistory] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [isInitialized, setIsInitialized] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [chatHistory, setChatHistory] = useState<Array<{ sessionId: string; title: string }>>([]);
     const [wsConnected, setWsConnected] = useState(false);
-    const [wsRetryCount, setWsRetryCount] = useState(0);
     const [showMap, setShowMap] = useState(false);
     const { currentUser } = useAuth();
     const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -115,15 +70,6 @@ export default function ChatPageContent() {
     
     // Enhanced error handling
     const { errorState, handleError, clearError } = useChatErrorHandler();
-    
-    // Simulate connection state for demo (in a real implementation, this would come from WebSocket)
-    const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.CONNECTED);
-    const [connectionMetrics, setConnectionMetrics] = useState({
-        connectionAttempts: 1,
-        totalReconnects: 0,
-        averageLatency: 45,
-        lastConnectedAt: new Date()
-    });
     
     // Context menu state
     const [contextMenu, setContextMenu] = useState<{
@@ -140,21 +86,318 @@ export default function ChatPageContent() {
     const mapServiceRef = useRef<MapService | null>(null);
     const wsReconnectTimerRef = useRef<NodeJS.Timeout>();
     const initializationRef = useRef<boolean>(false);
-    const MAX_WS_RETRIES = 3;
 
-    // Memoize token to prevent unnecessary re-renders of RightMapPanel
-    const currentUserToken = React.useMemo(() => {
-        const token = currentUser?.token || getToken();
-        console.log('🔑 Current token status:', token ? 'Present' : 'Missing');
-        return token;
-    }, [currentUser?.token]);
+    // ==================== HELPER FUNCTIONS (defined before useEffects to avoid no-use-before-define) ====================
+    
+    // Handle session connection (must be before handleReconnection to avoid use-before-define)
+    const connectToSession = async (sessionId: string) => {
+        try {
+            if (!mapServiceRef.current) {
+                return;
+            }
+
+            await mapServiceRef.current.connectWebSocket(sessionId);
+        } catch (error) {
+            console.error("❌ Error connecting to session:", error);
+            toast.error("Failed to connect to session");
+            // Forward reference to handleReconnection (defined below) - both functions reference each other
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            handleReconnection();
+        }
+    };
+
+    // Handle WebSocket reconnection (calls connectToSession defined above)
+    const handleReconnection = () => {
+        if (wsReconnectTimerRef.current) {
+            clearTimeout(wsReconnectTimerRef.current);
+        }
+
+        wsReconnectTimerRef.current = setTimeout(() => {
+            if (currentSession?.sessionId) {
+                connectToSession(currentSession.sessionId);
+            }
+        }, 3000);
+    };
+    
+    // Fetch chat history function
+    const fetchChatHistory = async () => {
+        if (!currentUser?.id) {
+            setChatHistory([]);
+            return;
+        }
+    
+        try {
+            const sessions = await getUserSessions(currentUser.id);
+            
+            if (Array.isArray(sessions)) {
+                setChatHistory(sessions);
+            } else {
+                setChatHistory([]);
+            }
+        } catch (error) {
+            console.error('❌ Error fetching chat history:', error);
+            setChatHistory([]);
+            // Only show toast if it's not a network/auth issue
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (!errorMessage.includes('Network Error') && !errorMessage.includes('401')) {
+                toast.error('Failed to load chat history');
+            }
+        }
+    };
+
+    // Generate session title from message
+    const generateSessionTitle = (message: string) => {
+        // Clean the message and remove emojis for better processing
+        const cleanMessage = message.replace(/[^\w\s]/gi, ' ').replace(/\s+/g, ' ').trim();
+        
+        // Travel-specific keywords to prioritize in titles
+        const travelKeywords = [
+            'Tokyo', 'Paris', 'London', 'New York', 'Rome', 'Barcelona', 'Amsterdam', 'Berlin',
+            'Bangkok', 'Singapore', 'Sydney', 'Dubai', 'Istanbul', 'Prague', 'Vienna',
+            'trip', 'travel', 'vacation', 'holiday', 'adventure', 'getaway', 'journey',
+            'itinerary', 'plan', 'visit', 'explore', 'discover', 'weekend', 'honeymoon',
+            'family', 'solo', 'budget', 'luxury', 'backpack', 'romantic', 'cultural'
+        ];
+
+        const words = cleanMessage.split(' ');
+        const importantWords: string[] = [];
+        const regularWords: string[] = [];
+
+        // Separate travel-related keywords from regular words
+        words.forEach(word => {
+            const lowerWord = word.toLowerCase();
+            if (travelKeywords.some(keyword => keyword.toLowerCase() === lowerWord)) {
+                importantWords.push(word);
+            } else if (word.length > 3) { // Only include words longer than 3 characters
+                regularWords.push(word);
+            }
+        });
+
+        // Combine important words with regular words (up to 5 words total)
+        const titleWords = [...importantWords, ...regularWords].slice(0, 5);
+        
+        // If we have a title, use it; otherwise, use first 5 words
+        const title = titleWords.length > 0 
+            ? titleWords.join(' ') 
+            : words.slice(0, 5).join(' ');
+        
+        // Fallback to "New Chat" if title is empty
+        return title.trim() || 'New Chat';
+    };
+
+    // Location service initialization (must be before processChatMessage)
+    const locationService = useRef<LocationExtractionService | null>(null);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && isGoogleMapsLoaded) {
+            locationService.current = new LocationExtractionService();
+        }
+    }, [isGoogleMapsLoaded]);
+
+    // Helper function to add location to map (must be before processChatMessage)
+    const addLocationToMap = async (location: Location) => {
+        try {
+            if (!mapServiceRef.current) {
+                console.error("MapService not initialized");
+                throw new Error("MapService not initialized");
+            }
+
+            if (!currentSession?.sessionId) {
+                console.log("🔄 No session found, creating new session for location operation...");
+                const newSession = await createSession('New Chat');
+                
+                if (!newSession || !newSession.sessionId) {
+                    throw new Error("Failed to create a new session for location operation");
+                }
+                
+                setCurrentSession(newSession);
+                
+                // Initialize WebSocket connection for the new session
+                if (mapServiceRef.current) {
+                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
+                }
+                
+                console.log("✅ Created new session for location:", newSession.sessionId);
+            }
+
+            // Validate location data before sending
+            if (!location.latitude || !location.longitude) {
+                console.error("❌ Invalid location coordinates:", location);
+                throw new Error("Location must have valid latitude and longitude coordinates");
+            }
+
+            if (!location.name || location.name.trim() === '') {
+                console.error("❌ Invalid location name:", location);
+                throw new Error("Location must have a valid name");
+            }
+
+            const locationToAdd = {
+                latitude: Number(location.latitude),
+                longitude: Number(location.longitude),
+                name: location.name.trim(),
+                type: location.type || 'attraction',
+                sessionId: currentSession?.sessionId || sessionStorage.getItem("chatSessionId") || "default"
+            };
+            
+
+
+            const addedLocation = await mapServiceRef.current.addLocation(locationToAdd);
+            
+
+            
+            // Dispatch event for map update
+            const event = new CustomEvent('newLocation', { 
+                detail: addedLocation
+            });
+            window.dispatchEvent(event);
+
+            
+            return addedLocation;
+        } catch (error) {
+            console.error("❌ Error adding location:", error);
+            console.error("❌ Location data:", location);
+            console.error("❌ Current session:", currentSession);
+            console.error("❌ Current user:", currentUser ? 'Available' : 'Not available');
+            
+            // Check if it's a validation error
+            if (error instanceof Error && error.message && error.message.includes('invalid characters')) {
+
+                throw new Error(`Location name "${location.name}" contains characters not supported by the server.`);
+            }
+            
+            throw error;
+        }
+    };
+
+    // Process chat message (separate function to avoid duplication)
+    const processChatMessage = async (message: string) => {
+        try {
+            let sessionId = currentSession?.sessionId;
+    
+            if (!sessionId) {
+                const newSession = await createSession('New Chat');
+    
+                if (!newSession || !newSession.sessionId) {
+                    throw new Error("Failed to create a new session.");
+                }
+    
+                sessionId = newSession.sessionId;
+                setCurrentSession(newSession);
+                if (mapServiceRef.current && newSession.sessionId) {
+                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
+                }
+                sessionStorage.setItem("chatSessionId", sessionId);
+            }
+    
+            const sessionIdToUse = sessionId;
+            
+            clearError();
+            setIsLoading(true);
+            setIsAITyping(true);
+    
+            const response = await sendMessagesEntity(message, sessionIdToUse);
+    
+            let aiResponse = '';
+            
+            if (typeof response === 'string') {
+                try {
+                    const parsedResponse = JSON.parse(response);
+                    if (parsedResponse.message && typeof parsedResponse.message === 'string') {
+                        aiResponse = parsedResponse.message;
+                    } else {
+                        aiResponse = response;
+                    }
+                } catch {
+                    aiResponse = response;
+                }
+            } else if (response && typeof response === 'object' && 'message' in response) {
+                aiResponse = (response as ApiResponse).message;
+                
+                if ((response as ApiResponse).suggestions) {
+                    setSuggestions((response as ApiResponse).suggestions || []);
+                }
+            } else {
+                aiResponse = "I received your message but couldn't process the response properly.";
+            }
+    
+            if (aiResponse) {
+                setMessages(prev => [...prev, { 
+                    id: Date.now(), 
+                    messageType: 'ASSISTANT', 
+                    content: aiResponse 
+                }]);
+                setDisplayPrompts(false);
+                
+                // Extract and process locations from AI response
+                if (locationService.current && isGoogleMapsLoaded) {
+                    try {
+                        const locations = await locationService.current.extractLocationsFromText(aiResponse);
+                        
+                        if (locations.length > 0) {
+                            // Auto-add locations to map if they have valid coordinates
+                            await Promise.all(
+                                locations
+                                    .filter(loc => loc.latitude && loc.longitude)
+                                    .map(location => addLocationToMap(location))
+                            );
+                        } else {
+                            // TODO: Implement comprehensive error handling for location processing
+                        }
+                    } catch (error) {
+                        // TODO: Implement comprehensive error handling for location processing
+                        console.error("Location processing error:", error);
+                    }
+                }
+
+                // Update session title if this is the first conversation
+                if (messages.length === 2 && currentUser?.id && sessionIdToUse && currentSession?.title === 'New Chat') {
+                    const newTitle = generateSessionTitle(message);
+                    
+                    try {
+                        await updateSession(sessionIdToUse, newTitle, currentUser.id);
+                        setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
+                        await fetchChatHistory();
+                    } catch (error) {
+                        console.error('❌ Failed to update session title:', error);
+                        // Still update local state even if API call fails
+                        setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
+                    }
+                }
+            }
+        } catch (error: any) {
+            console.error("❌ Error processing chat message:", error);
+            
+            handleError(error, {
+                action: () => processChatMessage(message),
+                maxRetries: 3
+            });
+            
+            if (error.response?.status === 401) {
+                toast.error('Session expired. Please sign in again.');
+                authSignOut();
+                return;
+            }
+            
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            setMessages(prev => [...prev, { 
+                id: Date.now(), 
+                messageType: 'ASSISTANT', 
+                content: `❌ Error: ${errorMessage}` 
+            }]);
+        } finally {
+            setIsLoading(false);
+            setIsAITyping(false);
+        }
+    };
+
+    // ==================== END HELPER FUNCTIONS ====================
 
     // Initialize MapService only once when user token is available
     useEffect(() => {
         const token = currentUser?.token || getToken();
         if (!token) {
 
-            return;
+            return undefined;
         }
         
         // Initialize MapService if not exists
@@ -166,7 +409,6 @@ export default function ChatPageContent() {
             mapServiceRef.current.onConnect = () => {
 
                 setWsConnected(true);
-                setWsRetryCount(0);
                 if (wsReconnectTimerRef.current) {
                     clearTimeout(wsReconnectTimerRef.current);
                 }
@@ -184,48 +426,6 @@ export default function ChatPageContent() {
                 handleReconnection();
             };
         }
-
-        // Handle WebSocket reconnection (moved outside to avoid closure issues)
-        const handleReconnection = () => {
-            setWsRetryCount(prev => {
-                const newRetryCount = prev + 1;
-                
-                if (newRetryCount > MAX_WS_RETRIES) {
-                    console.error("🚫 Max WebSocket retry attempts reached");
-                    toast.error("Unable to establish connection. Please refresh the page.");
-                    return prev;
-                }
-
-                if (wsReconnectTimerRef.current) {
-                    clearTimeout(wsReconnectTimerRef.current);
-                }
-
-                wsReconnectTimerRef.current = setTimeout(() => {
-                    if (currentSession?.sessionId) {
-
-                        connectToSession(currentSession.sessionId);
-                    }
-                }, Math.min(1000 * (2 ** prev), 10000)); // Exponential backoff, max 10s
-                
-                return newRetryCount;
-            });
-        };
-
-        // Handle session connection
-        const connectToSession = async (sessionId: string) => {
-            try {
-                if (!mapServiceRef.current) {
-                    return;
-                }
-
-
-                await mapServiceRef.current.connectWebSocket(sessionId);
-            } catch (error) {
-                console.error("❌ Error connecting to session:", error);
-                toast.error("Failed to connect to session");
-                handleReconnection();
-            }
-        };
 
         // Cleanup function
         return () => {
@@ -247,16 +447,6 @@ export default function ChatPageContent() {
             return;
         }
 
-        const connectToSession = async (sessionId: string) => {
-            try {
-
-                await mapServiceRef.current!.connectWebSocket(sessionId);
-            } catch (error) {
-                console.error("❌ Error connecting to session:", error);
-                toast.error("Failed to connect to session");
-            }
-        };
-
         connectToSession(currentSession.sessionId);
     }, [currentSession?.sessionId, wsConnected]);
 
@@ -272,34 +462,7 @@ export default function ChatPageContent() {
         "🏖️ Plan the perfect beach-hopping Caribbean escape"
     ];
 
-    // Advanced persona-driven prompt categories (like Layla AI)
-    const personaPrompts = {
-        luxury: [
-            "Plan my luxury escape to the Maldives with private experiences",
-            "Design a high-end wine tour through Tuscany's finest vineyards",
-            "Create an exclusive cultural journey through Japan's premium experiences"
-        ],
-        adventure: [
-            "Plan my epic hiking adventure through Patagonia",
-            "Design an adrenaline-packed New Zealand road trip",
-            "Create a wild safari adventure across East Africa"
-        ],
-        romantic: [
-            "Plan the most romantic proposal trip to Santorini",
-            "Design a dreamy honeymoon in the French Riviera",
-            "Create an intimate couples' retreat in Bali"
-        ],
-        family: [
-            "Plan an educational family adventure through ancient Rome",
-            "Design a fun-packed Disney World alternative in Europe",
-            "Create a multi-generational family trip to Costa Rica"
-        ],
-        budget: [
-            "Show me how to backpack Southeast Asia on $30/day",
-            "Plan a budget-friendly European rail adventure",
-            "Design a cost-effective Central America exploration"
-        ]
-    };
+    // Advanced persona-driven prompt categories removed - not used in current implementation
 
     // Generate dynamic prompts based on context
     const generateDynamicPrompts = (context: string | undefined) => {
@@ -312,9 +475,9 @@ export default function ChatPageContent() {
     
         if (lowerCaseContext.includes("flight")) {
             return ["Book a flight", "Check flight prices", "View flight schedules", "Explore airline options"];
-        } else if (lowerCaseContext.includes("hotel")) {
+        } if (lowerCaseContext.includes("hotel")) {
             return ["Find nearby hotels", "Check hotel reviews", "View hotel deals", "Explore amenities"];
-        } else if (lowerCaseContext.includes("beach")) {
+        } if (lowerCaseContext.includes("beach")) {
             return ["Explore beach resorts", "Find snorkeling spots", "Plan a beach vacation", "Check weather for beaches"];
         }
     
@@ -422,89 +585,6 @@ export default function ChatPageContent() {
             toast.error('Failed to load chat messages');
         }
     };
-    
-    const locationService = useRef<LocationExtractionService | null>(null);
-
-    useEffect(() => {
-        if (typeof window !== 'undefined' && isGoogleMapsLoaded) {
-            locationService.current = new LocationExtractionService();
-        }
-    }, [isGoogleMapsLoaded]);
-
-    // Helper function to add location to map
-    const addLocationToMap = async (location: Location) => {
-        try {
-            if (!mapServiceRef.current) {
-                console.error("MapService not initialized");
-                throw new Error("MapService not initialized");
-            }
-
-            if (!currentSession?.sessionId) {
-                console.log("🔄 No session found, creating new session for location operation...");
-                const newSession = await createSession('New Chat');
-                
-                if (!newSession || !newSession.sessionId) {
-                    throw new Error("Failed to create a new session for location operation");
-                }
-                
-                setCurrentSession(newSession);
-                
-                // Initialize WebSocket connection for the new session
-                if (mapServiceRef.current) {
-                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
-                }
-                
-                console.log("✅ Created new session for location:", newSession.sessionId);
-            }
-
-            // Validate location data before sending
-            if (!location.latitude || !location.longitude) {
-                console.error("❌ Invalid location coordinates:", location);
-                throw new Error("Location must have valid latitude and longitude coordinates");
-            }
-
-            if (!location.name || location.name.trim() === '') {
-                console.error("❌ Invalid location name:", location);
-                throw new Error("Location must have a valid name");
-            }
-
-            const locationToAdd = {
-                latitude: Number(location.latitude),
-                longitude: Number(location.longitude),
-                name: location.name.trim(),
-                type: location.type || 'attraction',
-                sessionId: currentSession?.sessionId || sessionStorage.getItem("chatSessionId") || "default"
-            };
-            
-
-
-            const addedLocation = await mapServiceRef.current.addLocation(locationToAdd);
-            
-
-            
-            // Dispatch event for map update
-            const event = new CustomEvent('newLocation', { 
-                detail: addedLocation
-            });
-            window.dispatchEvent(event);
-
-            
-            return addedLocation;
-        } catch (error) {
-            console.error("❌ Error adding location:", error);
-            console.error("❌ Location data:", location);
-            console.error("❌ Current session:", currentSession);
-            console.error("❌ Current user:", currentUser ? 'Available' : 'Not available');
-            
-            // Check if it's a validation error
-            if (error instanceof Error && error.message && error.message.includes('invalid characters')) {
-
-                throw new Error(`Location name "${location.name}" contains characters not supported by the server.`);
-            }
-            
-            throw error;
-        }
-    };
 
     // Handler for when user selects a location from suggestions
     const handleLocationSelect = async (location: Location) => {
@@ -538,8 +618,6 @@ export default function ChatPageContent() {
                 
                 // Continue processing with enhanced message
                 await processChatMessage(enhancedMessage);
-            } else {
-
             }
         } catch (error) {
             console.error("❌ Error in handleLocationSelect:", error);
@@ -586,60 +664,6 @@ export default function ChatPageContent() {
         }
     };
 
-    // Separate function for processing chat message (user message should already be in UI)
-    const processChatMessage = async (message: string) => {
-        try {
-            let sessionId = currentSession?.sessionId;
-    
-            if (!sessionId) {
-
-                const newSession = await createSession('New Chat');
-    
-                if (!newSession || !newSession.sessionId) {
-                    throw new Error("Failed to create a new session.");
-                }
-    
-                sessionId = newSession.sessionId;
-                setCurrentSession(newSession);
-                if (mapServiceRef.current && newSession.sessionId) {
-                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
-                }
-            }
-    
-            // Send message to backend (user message should already be in chat UI)
-
-
-            
-            // Add timeout to prevent hanging
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('API call timeout after 30 seconds')), 30000);
-            });
-            
-            const response = await Promise.race([
-                sendMessagesEntity(message, sessionId) as Promise<ApiResponse>,
-                timeoutPromise
-            ]) as ApiResponse;
-            
-
-    
-            if (!response || typeof response.message !== "string") {
-                console.error("Invalid response format:", response);
-                throw new Error("Invalid response from API");
-            }
-
-            setMessages((prev) => [...prev, { 
-                id: Date.now() + 1, 
-                messageType: 'ASSISTANT', 
-                content: response.message,
-                timestamp: new Date() 
-            }]);
-            
-        } catch (error) {
-            console.error("❌ Error processing chat message:", error);
-            toast.error('Failed to send message');
-        }
-    };
-
     const handleSendMessage = async (message: string) => {
         if (!message.trim()) return;
     
@@ -662,7 +686,7 @@ export default function ChatPageContent() {
             // Check if the message mentions locations - expanded for travel terms
             const locationKeywords = [
                 'show', 'find', 'where', 'restaurant', 'place', 'location', 'near', 'at', 'in', 'visit',
-                'attractions', 'attraction', 'sights', 'things to do', 'destinations', 'travel', 'trip',
+                'attractions', 'attraction', 'sights', 'things to do', 'destinations', 'travel',
                 'hotel', 'hotels', 'cafe', 'cafes', 'museum', 'museums', 'park', 'parks',
                 'best', 'top', 'popular', 'famous', 'must-see', 'recommended', 'guide',
                 'paris', 'london', 'tokyo', 'new york', 'rome', 'barcelona', 'amsterdam' // common cities
@@ -671,12 +695,17 @@ export default function ChatPageContent() {
                 message.toLowerCase().includes(keyword)
             );
             
+            // Tour/itinerary requests should be handled by backend AI with addLocationFunction
+            const tourKeywords = ['tour', 'itinerary', 'plan', 'trip', 'journey', 'route', 'multi', 'cities'];
+            const isTourRequest = tourKeywords.some(keyword => message.toLowerCase().includes(keyword));
+            
 
 
 
             // Extract and add locations from the message if it contains location keywords
+            // Skip frontend extraction for tour requests - let AI backend handle multi-destination planning
             let locationsAdded = false;
-            if (hasLocationKeyword && locationService.current) {
+            if (hasLocationKeyword && !isTourRequest && locationService.current) {
 
                 try {
                     // First try to extract multiple locations (for AI responses with itineraries)
@@ -687,9 +716,9 @@ export default function ChatPageContent() {
 
                         
                         // Add all locations to the map
-                        for (const location of multipleLocations) {
-                            await addLocationToMap(location);
-                        }
+                        await Promise.all(
+                            multipleLocations.map(location => addLocationToMap(location))
+                        );
                         locationsAdded = true;
                         setLastLocationAlternatives([]);
                         // Continue to AI processing instead of returning early
@@ -712,16 +741,14 @@ export default function ChatPageContent() {
                             setLastLocationAlternatives([]);
                         }
                     } else if (locationResult.error) {
-
+                        // TODO: Handle location extraction errors with user feedback
                     } else {
-
+                        // TODO: Handle successful location extraction without alternatives
                     }
                 } catch (error) {
                     console.error("❌ Location extraction failed:", error);
                     // Continue with normal chat processing even if location extraction fails
                 }
-            } else {
-
             }
             
             // If locations were added, modify the message to provide context to the AI (internal only)
@@ -763,9 +790,9 @@ export default function ChatPageContent() {
 
 
             
-            // Add timeout to prevent hanging
+            // Add timeout to prevent hanging (90 seconds for AI processing)
             const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('API call timeout after 30 seconds')), 30000);
+                setTimeout(() => reject(new Error('API call timeout after 90 seconds')), 90000);
             });
             
             // Show AI typing indicator
@@ -826,19 +853,22 @@ export default function ChatPageContent() {
 
                             
                             // Add all locations found in the AI response
-                            for (const location of aiMultipleLocations) {
-                                try {
-                                    await addLocationToMap(location);
-
-                                } catch (locationError) {
-
-                                }
-                            }
+                            await Promise.all(
+                                aiMultipleLocations.map(async (location) => {
+                                    try {
+                                        await addLocationToMap(location);
+                                    } catch (locationError) {
+                                        // TODO: Handle location addition errors gracefully
+                                        console.error("Failed to add location to map:", locationError);
+                                    }
+                                })
+                            );
                         } else {
-
+                            // TODO: Handle case when location lacks required coordinates
                         }
                     } catch (error) {
-
+                        // TODO: Implement comprehensive error handling for location processing
+                        console.error("Location processing error:", error);
                     }
                 }
 
@@ -869,12 +899,12 @@ export default function ChatPageContent() {
                 }
 
                     // Check if the message might contain location data
-                const locationKeywords = ['show', 'find', 'where', 'restaurant', 'place', 'location', 'near', 'at', 'in'];
-                const hasLocationKeyword = locationKeywords.some(keyword => 
+                const innerLocationKeywords = ['show', 'find', 'where', 'restaurant', 'place', 'location', 'near', 'at', 'in'];
+                const hasInnerLocationKeyword = innerLocationKeywords.some(keyword => 
                     message.toLowerCase().includes(keyword)
                 );
 
-                if (hasLocationKeyword) {
+                if (hasInnerLocationKeyword) {
                     // Add a small delay to allow the backend to process locations
                     setTimeout(async () => {
                         try {
@@ -884,17 +914,14 @@ export default function ChatPageContent() {
                             if (locations && locations.length > 0) {
 
                                 toast.success(`Found ${locations.length} locations on the map`);
-                            } else {
-
+                            } else if (message.toLowerCase().includes('restaurant') || 
+                                message.toLowerCase().includes('place') ||
+                                message.toLowerCase().includes('where is')) {
                                 // Only show the message if it's likely we should have found locations
-                                if (message.toLowerCase().includes('restaurant') || 
-                                    message.toLowerCase().includes('place') ||
-                                    message.toLowerCase().includes('where is')) {
-                                    toast('No specific locations found for this request. Try being more specific with the location.', {
-                                        icon: '🗺️',
-                                        duration: 4000
-                                    });
-                                }
+                                toast('No specific locations found for this request. Try being more specific with the location.', {
+                                    icon: '🗺️',
+                                    duration: 4000
+                                });
                             }
                         } catch (error: any) {
                             console.error('❌ Error fetching locations:', error);
@@ -909,7 +936,7 @@ export default function ChatPageContent() {
             setDisplayPrompts(false);
         } catch (error: any) {
             // Use enhanced error handling
-            const { errorMessage, errorType, canRetry } = handleError(error, 'sendMessage');
+            const { errorMessage, canRetry } = handleError(error, 'sendMessage');
             
             setMessages((prev) => [...prev, {
                 id: Date.now(),
@@ -935,129 +962,9 @@ export default function ChatPageContent() {
     
     
     
-    const handlePromptClick = async (prompt: string) => {
-
-        
-        // Instead of navigating, directly send the message
-        setInputMessage(prompt);
-        await handleSendMessage(prompt);
-    };
-
-    // Handle suggestion clicks - convert suggestions to proper questions
-    const handleSuggestionClick = async (suggestion: string) => {
-
-        
-        // Convert suggestion into a proper question
-        let question = suggestion;
-        
-        // Transform common suggestion patterns into questions
-        if (suggestion.toLowerCase().startsWith('ask about')) {
-            question = suggestion.replace(/ask about/i, 'What can you tell me about') + '?';
-        } else if (suggestion.toLowerCase().startsWith('inquire about')) {
-            question = suggestion.replace(/inquire about/i, 'Can you provide information about') + '?';
-        } else if (suggestion.toLowerCase().startsWith('request tips')) {
-            question = suggestion.replace(/request tips/i, 'What tips do you have') + '?';
-        } else if (suggestion.toLowerCase().startsWith('seek advice')) {
-            question = suggestion.replace(/seek advice/i, 'What advice do you have') + '?';
-        } else if (suggestion.toLowerCase().startsWith('explore')) {
-            question = suggestion.replace(/explore/i, 'Tell me about') + '?';
-        } else if (suggestion.toLowerCase().includes('suggestions')) {
-            question = suggestion.replace(/suggestions/i, 'options') + '?';
-        } else if (!suggestion.endsWith('?') && !suggestion.endsWith('.')) {
-            // If it doesn't end with punctuation, make it a question
-            question = suggestion + '?';
-        }
-
-
-        
-        // Send the question directly without location extraction
-        await handleSuggestionMessage(question);
-    };
-
-    // Simplified message handler for suggestions that bypasses location extraction
-    const handleSuggestionMessage = async (question: string) => {
-        if (!question.trim()) return;
-    
-        setIsLoading(true);
-    
-        try {
-            // Add user's question to chat UI immediately
-            setMessages((prev) => {
-                // Prevent duplicate messages
-                if (prev.length > 0 && prev[prev.length - 1].content === question && prev[prev.length - 1].messageType === "USER") {
-
-                    return prev;
-                }
-
-                return [...prev, { id: Date.now(), messageType: 'USER', content: question }];
-            });
-
-
-            let sessionId = currentSession?.sessionId;
-    
-            if (!sessionId) {
-
-                const newSession = await createSession('New Chat');
-    
-                if (!newSession || !newSession.sessionId) {
-                    throw new Error("Failed to create a new session.");
-                }
-    
-                sessionId = newSession.sessionId;
-                setCurrentSession(newSession);
-                // Ensure WebSocket is connected after setting new session
-                if (mapServiceRef.current && newSession.sessionId) {
-                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
-                }
-            }
-    
-            // Send question directly to backend without location enhancement
-
-            
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('API call timeout after 30 seconds')), 30000);
-            });
-            
-            const response = await Promise.race([
-                sendMessagesEntity(question, sessionId) as Promise<ApiResponse>,
-                timeoutPromise
-            ]) as ApiResponse;
-
-    
-            if (!response || typeof response.message !== "string") {
-                console.error("Invalid response format:", response);
-    
-                setMessages((prev) => [...prev, {
-                    id: Date.now() + 1,
-                    messageType: 'ASSISTANT',
-                    content: "Something went wrong. Please try again.",
-                }]);
-            } else {
-                setMessages((prev) => [...prev, {
-                    id: Date.now() + 1,
-                    messageType: 'ASSISTANT',
-                    content: response.message,
-                }]);
-
-                // Set suggestions if available
-                if (response.suggestions && Array.isArray(response.suggestions)) {
-                    setSuggestions(response.suggestions);
-                }
-            }
-        } catch (error) {
-            console.error("❌ Error processing suggestion message:", error);
-            
-            setMessages((prev) => [...prev, {
-                id: Date.now() + 1,
-                messageType: 'ASSISTANT',
-                content: "I apologize, but I encountered an error processing your question. Please try again.",
-            }]);
-            
-            toast.error('Failed to send message');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    // handlePromptClick removed - BeautifulChatContainer handles prompt clicks internally
+    // handleSuggestionClick removed - ModernChatInput handles suggestions internally
+    // handleSuggestionMessage removed - was only used by handleSuggestionClick
     
     // Handle message click functionality
     const handleMessageClick = (message: Message) => {
@@ -1076,17 +983,7 @@ export default function ChatPageContent() {
         }
     };
 
-    // Handle right-click context menu
-    const handleContextMenu = (e: React.MouseEvent, message: Message) => {
-
-        e.preventDefault();
-        setContextMenu({
-            visible: true,
-            x: e.clientX,
-            y: e.clientY,
-            message
-        });
-    };
+    // Context menu functionality removed - not currently implemented in UI
 
     // Context menu actions
     const handleCopyMessage = () => {
@@ -1122,6 +1019,7 @@ export default function ChatPageContent() {
             document.addEventListener('click', handleClickOutside);
             return () => document.removeEventListener('click', handleClickOutside);
         }
+        return undefined;
     }, [contextMenu.visible]);
     
     
@@ -1131,106 +1029,14 @@ export default function ChatPageContent() {
         handleSendMessage(transcribedText); // ✅ Auto-send
     };
 
-
-    
-    
-    
-    const fetchChatHistory = async () => {
-        if (!currentUser?.id) {
-
-            setChatHistory([]);
-            return;
-        }
-    
-        try {
-
-            const sessions = await getUserSessions(currentUser.id);
-
-            
-            if (Array.isArray(sessions)) {
-                setChatHistory(sessions);
-            } else {
-
-                setChatHistory([]);
-            }
-        } catch (error) {
-            console.error('❌ Error fetching chat history:', error);
-            setChatHistory([]);
-            // Only show toast if it's not a network/auth issue
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            if (!errorMessage.includes('Network Error') && !errorMessage.includes('401')) {
-                toast.error('Failed to load chat history');
-            }
-        }
-    };
-    
     useEffect(() => {
         
         if (currentUser?.id && messages.length > 0) {
             fetchChatHistory();
         }
     }, [messages, currentUser?.id]);
-    
 
-    const generateSessionTitle = (message: string) => {
-        // Clean the message and remove emojis for better processing
-        const cleanMessage = message.replace(/[^\w\s]/gi, ' ').replace(/\s+/g, ' ').trim();
-        
-        // Travel-specific keywords to prioritize in titles
-        const travelKeywords = [
-            'Tokyo', 'Paris', 'London', 'New York', 'Rome', 'Barcelona', 'Amsterdam', 'Berlin',
-            'Bangkok', 'Singapore', 'Sydney', 'Dubai', 'Istanbul', 'Prague', 'Vienna',
-            'trip', 'travel', 'vacation', 'holiday', 'adventure', 'getaway', 'journey',
-            'itinerary', 'plan', 'visit', 'explore', 'discover', 'weekend', 'honeymoon',
-            'family', 'solo', 'budget', 'luxury', 'backpack', 'romantic', 'cultural'
-        ];
-
-        const words = cleanMessage.split(' ');
-        const importantWords: string[] = [];
-        const regularWords: string[] = [];
-
-        // Separate travel-related keywords from regular words
-        words.forEach(word => {
-            const lowerWord = word.toLowerCase();
-            if (travelKeywords.some(keyword => keyword.toLowerCase() === lowerWord)) {
-                importantWords.push(word);
-            } else {
-                regularWords.push(word);
-            }
-        });
-
-        // Build title prioritizing travel keywords
-        const prioritizedWords = [...importantWords, ...regularWords];
-        
-        let title = '';
-        for (const word of prioritizedWords) {
-            if ((title + word).length > 27) break;
-            title += `${title ? ' ' : ''}${word}`;
-        }
-
-        // If the original message is short enough, use it as-is
-        if (cleanMessage.length <= 30) {
-            return cleanMessage;
-        }
-
-        return title ? `${title}...` : 'Travel Chat';
-    };
-
-    const markdownComponents: Components = {
-        p: ({ ...props }) => <p className="mb-4 last:mb-0" {...props} />,
-        ul: ({ ...props }) => <ul className="list-disc ml-4 mb-4" {...props} />,
-        ol: ({ ...props }) => <ol className="list-decimal ml-4 mb-4" {...props} />,
-        li: ({ ...props }) => <li className="mb-2" {...props} />,
-        h1: ({ node, ...props }) => <h1 className="text-xl font-bold mb-4" {...props} />,
-        h2: ({ node, ...props }) => <h2 className="text-lg font-bold mb-3" {...props} />,
-        h3: ({ node, ...props }) => <h3 className="text-md font-bold mb-2" {...props} />,
-        code: ({ inline, ...props }: CodeProps) =>
-            inline ? (
-                <code className="bg-gray-100 px-1 py-0.5 rounded" {...props} />
-            ) : (
-                <code className="block bg-gray-100 p-4 rounded mb-4" {...props} />
-            ),
-    };
+    // Markdown components removed - EnhancedChatBubbles handles message rendering with its own markdown styling
 
     useEffect(() => {
         if (bottomRef.current && !inputMessage) {
@@ -1333,10 +1139,7 @@ export default function ChatPageContent() {
                             await updateSession(sessionId, newTitle, currentUser.id);
                             
                             // Update the current session title in local state immediately
-                            setCurrentSession(prev => {
-
-                                return prev ? { ...prev, title: newTitle } : null;
-                            });
+                            setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
                             
                             // Refresh chat history to update the sidebar
 
@@ -1345,10 +1148,7 @@ export default function ChatPageContent() {
                         } catch (error) {
                             console.error('❌ Failed to update session title:', error);
                             // Still update local state even if API call fails
-                            setCurrentSession(prev => {
-
-                                return prev ? { ...prev, title: newTitle } : null;
-                            });
+                            setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
                         }
                     } else {
                         console.warn('⚠️ Cannot update session title - missing requirements:', {
@@ -1396,9 +1196,22 @@ export default function ChatPageContent() {
 
     return (
         <LoadScript
-            googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}
+            googleMapsApiKey={(() => {
+                const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+                console.log('🔑 Google Maps API Key being used:', apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING');
+                console.log('🔑 Full key available:', !!apiKey, 'Length:', apiKey.length);
+                return apiKey;
+            })()}
             libraries={libraries}
-            onLoad={() => setIsGoogleMapsLoaded(true)}
+            onLoad={() => {
+                console.log('✅ Google Maps loaded successfully');
+                setIsGoogleMapsLoaded(true);
+            }}
+            onError={(error) => {
+                console.error('❌ Google Maps failed to load:', error);
+                toast.error('Google Maps failed to load. Please check your API key and billing settings.');
+            }}
+            loadingElement={<div>Loading Google Maps...</div>}
         >
         <div className="flex h-screen bg-gray-100">
             {/* Mobile slide-out menu */}
@@ -1499,7 +1312,7 @@ export default function ChatPageContent() {
                     {/* AI Typing Indicator */}
                     {isAITyping && (
                         <TypingIndicator 
-                            isTyping={true}
+                            isTyping
                             user="AI Assistant"
                             className="text-xs"
                         />
@@ -1538,9 +1351,18 @@ export default function ChatPageContent() {
                     suggestions={suggestions}
                     currentUser={currentUser}
                     showWelcome={displayPrompts && messages.length === 0}
-                    onVoiceRecord={(audioBlob) => {
-                        // Handle voice recording if needed
-
+                    onVoiceRecord={async (audioBlob) => {
+                        try {
+                            // Use centralized transcribeAudio function
+                            const transcribedText = await transcribeAudio(audioBlob);
+                            if (transcribedText) {
+                                // Use handleTranscription to set message and auto-send
+                                handleTranscription(transcribedText);
+                            }
+                        } catch (error) {
+                            console.error('Transcription error:', error);
+                            toast.error('Failed to transcribe audio. Please try again.');
+                        }
                     }}
                     onLocationRequest={() => {
                         // Handle location request if needed
@@ -1549,7 +1371,7 @@ export default function ChatPageContent() {
                 />
             </div>
 
-            {/* Right Map Panel (Desktop only)*/}
+            {/* Right Map Panel (Desktop only) */}
             <div className="hidden lg:block flex-[2.7] bg-white overflow-hidden p-4 h-full">
                 <RightMapPanel
                     currentSessionId={currentSession?.sessionId || null}

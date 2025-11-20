@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import LocationSuggestions from '../LocationSuggestions';
 import { Location } from '@/types/map';
+import LocationSuggestions from '../LocationSuggestions';
 
 describe('LocationSuggestions', () => {
   const mockSuggestions: Location[] = [

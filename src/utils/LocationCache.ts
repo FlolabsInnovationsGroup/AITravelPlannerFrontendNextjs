@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file */
 /**
  * Enhanced location caching system for improved performance
  * Best practices for travel apps with frequently accessed location data
@@ -17,7 +18,9 @@ export interface CacheOptions {
 
 export class LocationCache {
     private cache = new Map<string, CacheEntry<any>>();
+
     private options: CacheOptions;
+
     private cleanupTimer: NodeJS.Timeout | null = null;
 
     constructor(options: Partial<CacheOptions> = {}) {
@@ -96,11 +99,11 @@ export class LocationCache {
         const now = Date.now();
         const toDelete: string[] = [];
 
-        for (const [key, entry] of this.cache.entries()) {
+        Array.from(this.cache.entries()).forEach(([key, entry]) => {
             if (now > entry.expiry) {
                 toDelete.push(key);
             }
-        }
+        });
 
         toDelete.forEach(key => this.cache.delete(key));
 
@@ -110,19 +113,21 @@ export class LocationCache {
     }
 
     // Evict oldest entries when at max size
+    // eslint-disable-next-line class-methods-use-this
     private evictOldest(): void {
-        let oldestKey = '';
-        let oldestTime = Date.now();
+        const entries = Array.from(this.cache.entries());
+        const oldestEntry = entries.reduce<{ key: string; time: number } | null>(
+            (oldest, [key, entry]) => {
+                if (oldest === null || entry.timestamp < oldest.time) {
+                    return { key, time: entry.timestamp };
+                }
+                return oldest;
+            },
+            null
+        );
 
-        for (const [key, entry] of this.cache.entries()) {
-            if (entry.timestamp < oldestTime) {
-                oldestTime = entry.timestamp;
-                oldestKey = key;
-            }
-        }
-
-        if (oldestKey) {
-            this.cache.delete(oldestKey);
+        if (oldestEntry) {
+            this.cache.delete(oldestEntry.key);
         }
     }
 
@@ -139,29 +144,30 @@ export class LocationCache {
         }
     }
 
+    // eslint-disable-next-line class-methods-use-this
     private calculateHitRate(): number {
         // This would need to track hits/misses in a real implementation
         return 0; // Placeholder
     }
 
     private getOldestTimestamp(): number | null {
-        let oldest = null;
-        for (const entry of this.cache.values()) {
+        const entries = Array.from(this.cache.values());
+        return entries.reduce<number | null>((oldest, entry) => {
             if (oldest === null || entry.timestamp < oldest) {
-                oldest = entry.timestamp;
+                return entry.timestamp;
             }
-        }
-        return oldest;
+            return oldest;
+        }, null);
     }
 
     private getNewestTimestamp(): number | null {
-        let newest = null;
-        for (const entry of this.cache.values()) {
+        const entries = Array.from(this.cache.values());
+        return entries.reduce<number | null>((newest, entry) => {
             if (newest === null || entry.timestamp > newest) {
-                newest = entry.timestamp;
+                return entry.timestamp;
             }
-        }
-        return newest;
+            return newest;
+        }, null);
     }
 
     // Cleanup when cache is no longer needed
@@ -174,7 +180,9 @@ export class LocationCache {
 // Specialized cache for different types of location data
 export class LocationDataCache {
     private sessionCache = new LocationCache({ defaultTTL: 10 * 60 * 1000 }); // 10 min for sessions
+
     private placeDetailsCache = new LocationCache({ defaultTTL: 60 * 60 * 1000 }); // 1 hour for place details
+
     private geocodingCache = new LocationCache({ defaultTTL: 24 * 60 * 60 * 1000 }); // 24 hours for geocoding
 
     // Cache session locations

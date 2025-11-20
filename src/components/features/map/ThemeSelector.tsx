@@ -41,6 +41,14 @@ const ThemeSelector: React.FC<ThemeSelectorProps> = ({
           <div 
             className="fixed inset-0 z-10" 
             onClick={() => setIsOpen(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setIsOpen(false);
+              }
+            }}
+            role="button"
+            tabIndex={-1}
+            aria-label="Close theme selector"
           />
           
           {/* Theme Options */}
@@ -61,15 +69,13 @@ const ThemeSelector: React.FC<ThemeSelectorProps> = ({
                   <div 
                     className="w-full h-full"
                     style={{
-                      background: theme.name === 'dark' 
-                        ? 'linear-gradient(135deg, #242f3e 0%, #263c3f 50%, #17263c 100%)'
-                        : theme.name === 'ocean'
-                        ? 'linear-gradient(135deg, #b9d3c2 0%, #dfd2ae 50%, #f5f1e6 100%)'
-                        : theme.name === 'vibrant'
-                        ? 'linear-gradient(135deg, #4285F4 0%, #FBBC04 50%, #e0efef 100%)'
-                        : theme.name === 'minimalist'
-                        ? 'linear-gradient(135deg, #f5f5f5 0%, #e9e9e9 50%, #dedede 100%)'
-                        : 'linear-gradient(135deg, #f5f5f5 0%, #e9e9e9 50%, #ffffff 100%)'
+                      background: (() => {
+                        if (theme.name === 'dark') return 'linear-gradient(135deg, #242f3e 0%, #263c3f 50%, #17263c 100%)';
+                        if (theme.name === 'ocean') return 'linear-gradient(135deg, #b9d3c2 0%, #dfd2ae 50%, #f5f1e6 100%)';
+                        if (theme.name === 'vibrant') return 'linear-gradient(135deg, #4285F4 0%, #FBBC04 50%, #e0efef 100%)';
+                        if (theme.name === 'minimalist') return 'linear-gradient(135deg, #f5f5f5 0%, #e9e9e9 50%, #dedede 100%)';
+                        return 'linear-gradient(135deg, #f5f5f5 0%, #e9e9e9 50%, #ffffff 100%)';
+                      })()
                     }}
                   />
                 </div>

@@ -1,4 +1,5 @@
 // Enhanced loading states and animations
+
 'use client';
 
 import React from 'react';

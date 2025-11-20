@@ -15,7 +15,7 @@ const mockGoogleMaps = {
           if (query.includes('not a location') || query === 'this is not a location query') {
             // Return no results for non-location queries
             return { suggestions: [] };
-          } else {
+          } 
             // Return mock location for valid queries
             return {
               suggestions: [{
@@ -26,7 +26,7 @@ const mockGoogleMaps = {
                 }
               }]
             };
-          }
+          
         })
       },
       PlacesService: jest.fn().mockImplementation(() => ({
@@ -55,7 +55,7 @@ const mockGoogleMaps = {
         if (query.includes('not a location') || query === 'this is not a location query') {
           // Return no results for non-location queries
           return Promise.resolve({ results: [] });
-        } else {
+        } 
           // Return mock geocode result
           return Promise.resolve({
             results: [
@@ -72,7 +72,7 @@ const mockGoogleMaps = {
             }
             ]
           });
-        }
+        
       })
     })),
     GeocoderStatus: {
@@ -123,15 +123,15 @@ describe('Map System Integration Tests', () => {
 
     it('should handle multiple locations in travel planning', async () => {
       // Extract multiple locations
-      const locations: Location[] = [];
       const queries = ['Show me the Eiffel Tower', 'Add Louvre Museum', 'Include Notre Dame Cathedral'];
 
-      for (const query of queries) {
-        const result = await extractionService.extractLocationFromMessage(query);
-        if (result.extractedLocation) {
-          locations.push(result.extractedLocation);
-        }
-      }
+      const results = await Promise.all(
+        queries.map(query => extractionService.extractLocationFromMessage(query))
+      );
+      
+      const locations = results
+        .filter(result => result.extractedLocation)
+        .map(result => result.extractedLocation!);
 
       expect(locations.length).toBeGreaterThan(0);
 

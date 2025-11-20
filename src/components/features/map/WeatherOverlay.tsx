@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Location } from '@/types/map';
 import { weatherService, WeatherData } from '@/services/WeatherService';
-import { Cloud, CloudRain, Sun, Wind, Droplets, Thermometer, Eye, EyeOff } from 'lucide-react';
+import { Cloud, CloudRain, Sun, Wind, Droplets, Thermometer } from 'lucide-react';
 
 interface WeatherOverlayProps {
     locations: Location[];
@@ -14,112 +14,9 @@ interface WeatherLocation extends Location {
     isLoading?: boolean;
 }
 
-const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ 
-    locations, 
-    isVisible, 
-    onToggleVisibility 
-}) => {
-    const [weatherLocations, setWeatherLocations] = useState<WeatherLocation[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-
-    // Fetch weather data for all locations
-    const fetchWeatherData = useCallback(async () => {
-        if (!locations.length) {
-            setWeatherLocations([]);
-            return;
-        }
-
-        setIsLoading(true);
-        
-        try {
-            // Mark all locations as loading
-            setWeatherLocations(locations.map(loc => ({ ...loc, isLoading: true })));
-
-            // Fetch weather for all locations
-            const weatherPromises = locations.map(async (location) => {
-                try {
-                    const weather = await weatherService.getWeatherData(
-                        location.latitude, 
-                        location.longitude, 
-                        location.name
-                    );
-                    return { ...location, weather: weather || undefined, isLoading: false };
-                } catch (error) {
-                    console.error(`Failed to fetch weather for ${location.name}:`, error);
-                    return { ...location, weather: undefined, isLoading: false };
-                }
-            });
-
-            const results = await Promise.all(weatherPromises);
-            setWeatherLocations(results);
-        } catch (error) {
-            console.error('Error fetching weather data:', error);
-            setWeatherLocations(locations.map(loc => ({ ...loc, isLoading: false })));
-        } finally {
-            setIsLoading(false);
-        }
-    }, [locations]);
-
-    // Fetch weather when locations change and overlay is visible
-    useEffect(() => {
-        if (isVisible && locations.length > 0) {
-            fetchWeatherData();
-        }
-    }, [locations, isVisible, fetchWeatherData]);
-
-    // Get weather icon component
-    const getWeatherIcon = (icon: string, size = 20) => {
-        const iconProps = { size, className: "text-blue-600" };
-        
-        if (icon.includes('01')) return <Sun {...iconProps} className="text-yellow-500" />;
-        if (icon.includes('02') || icon.includes('03') || icon.includes('04')) return <Cloud {...iconProps} />;
-        if (icon.includes('09') || icon.includes('10') || icon.includes('11')) return <CloudRain {...iconProps} />;
-        return <Cloud {...iconProps} />;
-    };
-
-    // Format temperature
-    const formatTemp = (temp: number) => `${temp}°C`;
-
-    if (!isVisible) {
-        return null;
-    }
-
-    return (
-        <div className="absolute top-20 right-16 z-10">{/* Aligned with MapControls to avoid overlap */}
-
-            {/* Weather Cards */}
-            {weatherLocations.length > 0 && (
-                <div className="bg-white rounded-lg shadow-lg max-h-96 overflow-y-auto">
-                    <div className="p-2 space-y-2">
-                        {weatherLocations.map((location, index) => (
-                            <WeatherCard key={location.id || index} location={location} />
-                        ))}
-                    </div>
-                    
-                    {isLoading && (
-                        <div className="px-3 py-2 text-center text-sm text-gray-500 border-t">
-                            Loading weather data...
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Empty State */}
-            {weatherLocations.length === 0 && !isLoading && (
-                <div className="bg-white rounded-lg shadow-lg p-4 text-center">
-                    <Cloud size={24} className="text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">
-                        No locations to show weather for
-                    </p>
-                </div>
-            )}
-        </div>
-    );
-};
-
-// Individual Weather Card Component
+// ==================== HELPER COMPONENTS ====================
 const WeatherCard: React.FC<{ location: WeatherLocation }> = ({ location }) => {
-    const weather = location.weather;
+    const {weather} = location;
     
     if (location.isLoading) {
         return (
@@ -127,7 +24,7 @@ const WeatherCard: React.FC<{ location: WeatherLocation }> = ({ location }) => {
                 <div className="font-medium text-sm text-gray-900 mb-1">
                     {location.name || 'Loading...'}
                 </div>
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/4" />
             </div>
         );
     }
@@ -193,8 +90,8 @@ const WeatherCard: React.FC<{ location: WeatherLocation }> = ({ location }) => {
                 <div className="mt-3 pt-2 border-t border-blue-200">
                     <div className="text-xs font-medium text-gray-700 mb-1">Next 2 Days</div>
                     <div className="grid grid-cols-2 gap-2">
-                        {weather.forecast.slice(0, 2).map((day, index) => (
-                            <div key={index} className="text-xs text-gray-600">
+                        {weather.forecast.slice(0, 2).map((day) => (
+                            <div key={day.date} className="text-xs text-gray-600">
                                 <div className="flex items-center gap-1 mb-1">
                                     {getWeatherIcon(day.icon, 12)}
                                     <span className="font-medium">
@@ -205,6 +102,111 @@ const WeatherCard: React.FC<{ location: WeatherLocation }> = ({ location }) => {
                             </div>
                         ))}
                     </div>
+                </div>
+            )}
+        </div>
+    );
+};
+// ==================== END HELPER COMPONENTS ====================
+
+const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ 
+    locations, 
+    isVisible, 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onToggleVisibility, 
+}) => {
+    const [weatherLocations, setWeatherLocations] = useState<WeatherLocation[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Fetch weather data for all locations
+    const fetchWeatherData = useCallback(async () => {
+        if (!locations.length) {
+            setWeatherLocations([]);
+            return;
+        }
+
+        setIsLoading(true);
+        
+        try {
+            // Mark all locations as loading
+            setWeatherLocations(locations.map(loc => ({ ...loc, isLoading: true })));
+
+            // Fetch weather for all locations
+            const weatherPromises = locations.map(async (location) => {
+                try {
+                    const weather = await weatherService.getWeatherData(
+                        location.latitude, 
+                        location.longitude, 
+                        location.name
+                    );
+                    return { ...location, weather: weather || undefined, isLoading: false };
+                } catch (error) {
+                    console.error(`Failed to fetch weather for ${location.name}:`, error);
+                    return { ...location, weather: undefined, isLoading: false };
+                }
+            });
+
+            const results = await Promise.all(weatherPromises);
+            setWeatherLocations(results);
+        } catch (error) {
+            console.error('Error fetching weather data:', error);
+            setWeatherLocations(locations.map(loc => ({ ...loc, isLoading: false })));
+        } finally {
+            setIsLoading(false);
+        }
+    }, [locations]);
+
+    // Fetch weather when locations change and overlay is visible
+    useEffect(() => {
+        if (isVisible && locations.length > 0) {
+            fetchWeatherData();
+        }
+    }, [locations, isVisible, fetchWeatherData]);
+
+    // Get weather icon component - unused function
+    // const getWeatherIcon = (icon: string, size = 20) => {
+    //     const iconProps = { size, className: "text-blue-600" };
+    //     
+    //     if (icon.includes('01')) return <Sun {...iconProps} className="text-yellow-500" />;
+    //     if (icon.includes('02') || icon.includes('03') || icon.includes('04')) return <Cloud {...iconProps} />;
+    //     if (icon.includes('09') || icon.includes('10') || icon.includes('11')) return <CloudRain {...iconProps} />;
+    //     return <Cloud {...iconProps} />;
+    // };
+
+    // Format temperature - unused function
+    // const formatTemp = (temp: number) => `${temp}°C`;
+
+    if (!isVisible) {
+        return null;
+    }
+
+    return (
+        <div className="absolute top-20 right-16 z-10">{/* Aligned with MapControls to avoid overlap */}
+
+            {/* Weather Cards */}
+            {weatherLocations.length > 0 && (
+                <div className="bg-white rounded-lg shadow-lg max-h-96 overflow-y-auto">
+                    <div className="p-2 space-y-2">
+                        {weatherLocations.map((location, index) => (
+                            <WeatherCard key={location.id || index} location={location} />
+                        ))}
+                    </div>
+                    
+                    {isLoading && (
+                        <div className="px-3 py-2 text-center text-sm text-gray-500 border-t">
+                            Loading weather data...
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Empty State */}
+            {weatherLocations.length === 0 && !isLoading && (
+                <div className="bg-white rounded-lg shadow-lg p-4 text-center">
+                    <Cloud size={24} className="text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">
+                        No locations to show weather for
+                    </p>
                 </div>
             )}
         </div>

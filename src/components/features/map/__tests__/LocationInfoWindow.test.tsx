@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import LocationInfoWindow from '../LocationInfoWindow';
 import { Location } from '@/types/map';
+import LocationInfoWindow from '../LocationInfoWindow';
 
 describe('LocationInfoWindow', () => {
   const mockLocation: Location = {
@@ -112,7 +112,8 @@ describe('LocationInfoWindow', () => {
     render(<LocationInfoWindow {...defaultProps} />);
 
     const photo = screen.getByRole('img', { name: 'Test Restaurant' });
-    expect(photo).toHaveAttribute('src', 'https://example.com/photo1.jpg');
+    // Next.js Image component optimizes the URL
+    expect(photo.getAttribute('src')).toContain('example.com%2Fphoto1.jpg');
     expect(photo).toHaveClass('w-full', 'h-full', 'object-cover');
   });
 

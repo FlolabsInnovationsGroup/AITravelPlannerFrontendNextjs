@@ -1,18 +1,17 @@
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, LoadScript, OverlayView } from '@react-google-maps/api';
 import { Location } from '@/types/map';
-import ProfessionalMarker from './ProfessionalMarker';
+import { Layers, Sun, Moon, Navigation, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { 
   professionalMapStyles, 
   professionalMapStylesDark, 
-  professionalMapOptions,
-  clusterStyles 
+  professionalMapOptions
+  // clusterStyles // Unused import
 } from './ProfessionalMapStyles';
-import { MarkerClusterer } from '@googlemaps/markerclusterer';
-import { Layers, Sun, Moon, Navigation, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import ProfessionalMarker from './ProfessionalMarker';
 
 interface EnhancedMapProps {
   locations: Location[];
@@ -37,9 +36,9 @@ const EnhancedMap: React.FC<EnhancedMapProps> = ({
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(darkMode);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
-  const [showMapControls, setShowMapControls] = useState(true);
+  // const [showMapControls, setShowMapControls] = useState(true); // Unused variable
   const mapRef = useRef<HTMLDivElement>(null);
-  const clustererRef = useRef<MarkerClusterer | null>(null);
+  // const clustererRef = useRef<MarkerClusterer | null>(null); // Unused variable
 
   // Map configuration
   const mapOptions = {
@@ -159,6 +158,7 @@ const EnhancedMap: React.FC<EnhancedMapProps> = ({
       }, 500);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [locations, fitMapToLocations]);
 
   return (

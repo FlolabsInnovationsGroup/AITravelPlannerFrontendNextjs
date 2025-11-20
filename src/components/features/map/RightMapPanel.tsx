@@ -1,18 +1,18 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { getLocationsBySession } from '@/lib/api';
-import GoogleMapComponent from './GoogleMapComponent';
-import EnhancedGoogleMap from './EnhancedGoogleMap';
 import { Location, LocationType, WebSocketEvent } from '@/types/map';
 import { toast } from 'react-hot-toast';
 import { MapService } from '@/services/MapService';
 import Image from 'next/image';
+import { Route, Filter, X, Settings, Trash2 } from 'lucide-react';
+// import GoogleMapComponent from './GoogleMapComponent'; // Unused import
+import EnhancedGoogleMap from './EnhancedGoogleMap';
 import MapFilters, { MapFilterState } from './MapFilters';
 import ThemeSelector from './ThemeSelector';
-import { MapTheme, DEFAULT_THEME, MAP_THEMES } from './MapThemes';
+// import { DEFAULT_THEME } from './MapThemes'; // Unused import
 import ItineraryVisualizer from './ItineraryVisualizer';
-import { MapPin, Route, Filter, X, Eye, EyeOff, Settings, Trash2 } from 'lucide-react';
 
 // Development-only logging utility
 const devLog = (message: string, data?: any) => {
@@ -37,9 +37,6 @@ const calculateHaversineDistance = (lat1: number, lng1: number, lat2: number, ln
     return R * c; // Distance in meters
 };
 
-// Memoized EnhancedGoogleMap to prevent unnecessary re-renders
-const MemoizedEnhancedGoogleMap = React.memo(EnhancedGoogleMap);
-
 // Helper function to convert API location type to our LocationType
 const convertLocationType = (type: string | undefined): LocationType | undefined => {
     if (!type) return undefined;
@@ -57,7 +54,6 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
     const [locations, setLocations] = useState<Location[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [showMap, setShowMap] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [showItinerary, setShowItinerary] = useState(false);
     const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
@@ -106,8 +102,8 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
             } else {
                 throw new Error(`Failed to clear locations: ${response.statusText}`);
             }
-        } catch (error) {
-            console.error('❌ Error clearing locations:', error);
+        } catch (clearError) {
+            console.error('❌ Error clearing locations:', clearError);
             toast.error('Failed to clear map locations');
         } finally {
             setIsLoading(false);
@@ -124,7 +120,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
 
     // Initialize MapService when token is available
     useEffect(() => {
-        if (!currentUserToken) return;
+        if (!currentUserToken) return undefined;
 
         // Create new MapService instance
         const mapService = new MapService(currentUserToken);
@@ -133,7 +129,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
         // Set up WebSocket message handler
         const messageHandler = (event: WebSocketEvent<any>) => {
             switch (event.type) {
-                case 'LOCATION_ADDED':
+                case 'LOCATION_ADDED': {
                     const newLocation = event.payload as Location;
                     devLog('🎯 RightMapPanel: LOCATION_ADDED WebSocket event received:', {
                         locationName: newLocation.name,
@@ -175,12 +171,14 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                     });
                     toast.success("New location added to map");
                     break;
-                case 'LOCATION_REMOVED':
+                }
+                case 'LOCATION_REMOVED': {
                     const { locationId } = event.payload as { locationId: string };
                     setLocations(prev => prev.filter(loc => loc.id !== locationId));
                     toast.success("Location removed from map");
                     break;
-                case 'MAP_CLEARED':
+                }
+                case 'MAP_CLEARED': {
                     devLog('🧹 RightMapPanel: MAP_CLEARED WebSocket event received');
                     devLog('📍 RightMapPanel: Current locations before clearing:', locations.length);
                     setLocations([]);
@@ -189,14 +187,19 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                     devLog('✅ RightMapPanel: Map cleared via WebSocket - locations and markers removed');
                     toast.success("Map has been cleared");
                     break;
+                }
+                default:
+                    // Unknown event type - log but don't error
+                    devLog('⚠️ RightMapPanel: Unknown WebSocket event type:', event.type);
+                    break;
             }
         };
             
         // Set up all handlers
         mapService.addMessageHandler(messageHandler);
         
-        mapService.onError = (error: Error) => {
-            console.error("❌ WebSocket error:", error);
+        mapService.onError = (wsError: Error) => {
+            console.error("❌ WebSocket error:", wsError);
             toast.error("Connection error. Some map features may be limited.");
         };
 
@@ -259,8 +262,8 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                         // No existing locations found, which is normal for new sessions
                         console.log(`📍 No existing locations found for session ${currentSessionId}`);
                     }
-                } catch (error) {
-                    console.warn("⚠️ Could not fetch existing locations (may not exist yet):", error);
+                } catch (fetchError) {
+                    console.warn("⚠️ Could not fetch existing locations (may not exist yet):", fetchError);
                     // Don't show user error - this is expected for new sessions
                 } finally {
                     setIsLoading(false);
@@ -272,8 +275,8 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
             // Connecting WebSocket for session
             try {
                 service.connectWebSocket(currentSessionId);
-            } catch (error) {
-                console.error("❌ WebSocket connection error:", error);
+            } catch (wsError) {
+                console.error("❌ WebSocket connection error:", wsError);
                 toast.error("Failed to establish real-time connection");
             }
         } else if (!currentSessionId) {
@@ -324,12 +327,6 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
             return;
         }
 
-        // In test environment, skip loading state 
-        if (process.env.NODE_ENV === 'test') {
-            setIsLoading(false);
-            return;
-        }
-
         setIsLoading(true);
         setError(null);
 
@@ -347,8 +344,8 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
             setLocations(convertedLocations);
             // Notify parent component of location updates
             onLocationUpdate?.(convertedLocations);
-        } catch (error) {
-            console.error("❌ Error fetching locations:", error);
+        } catch (loadError) {
+            console.error("❌ Error fetching locations:", loadError);
             setError("Failed to load locations");
             toast.error("Failed to load map locations");
         } finally {
@@ -360,13 +357,6 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
     useEffect(() => {
         fetchLocations();
     }, [fetchLocations]);
-
-    // Show map when locations exist or when we want to allow interaction
-    useEffect(() => {
-        // Always show the map to allow for interaction and location adding
-        setShowMap(true);
-        devLog('📍 Map visibility set to true - locations:', locations.length);
-    }, [locations]);
 
     // Listen for new location events
     useEffect(() => {
@@ -426,13 +416,13 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
             toast.success("Location added to map");
 
             setLocations(prev => [...prev, addedLocation]);
-        } catch (error) {
-            console.error("❌ Error adding location:", error);
+        } catch (addError) {
+            console.error("❌ Error adding location:", addError);
             toast.error("Failed to add location to map");
         }
     };
 
-    const handleLocationSelect = (location: Location) => {
+    const handleLocationSelect = () => {
         // Location selected
         // Implement any additional functionality for location selection
     };
@@ -443,6 +433,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                 <div className="text-center">
                     <p className="text-red-600 mb-2">{error}</p>
                     <button 
+                        type="button"
                         onClick={fetchLocations}
                         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
                     >
@@ -459,7 +450,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
         <div className="h-full relative">
             {isLoading && (
                 <div className="absolute inset-0 bg-white bg-opacity-75 z-10 flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500" data-testid="loading-spinner"></div>
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500" data-testid="loading-spinner" />
                 </div>
             )}
             
@@ -469,6 +460,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                     <div className="text-center">
                         <div className="text-red-500 text-lg mb-4">Failed to load locations</div>
                         <button
+                            type="button"
                             onClick={fetchLocations}
                             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                             aria-label="Retry loading locations"
@@ -526,6 +518,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <button
+                                        type="button"
                                         onClick={() => setShowFilters(!showFilters)}
                                         className={`p-1.5 rounded-md transition-colors ${
                                             showFilters 
@@ -537,6 +530,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                                         <Filter size={16} />
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => setShowItinerary(!showItinerary)}
                                         className={`p-1.5 rounded-md transition-colors ${
                                             showItinerary 
@@ -548,6 +542,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                                         <Route size={16} />
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => setShowThemeSelector(!showThemeSelector)}
                                         className={`p-1.5 rounded-md transition-colors ${
                                             showThemeSelector 
@@ -559,6 +554,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                                         <Settings size={16} />
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={handleClearAllLocations}
                                         disabled={isLoading}
                                         className={`p-1.5 rounded-md transition-colors ${
@@ -579,9 +575,10 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                     {showFilters && locations.length > 0 && (
                         <div className="absolute top-2 left-2 z-10 max-w-sm">
                             <div className="bg-white rounded-lg shadow-lg border border-gray-200">
-                                <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+                                <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-blue-50 rounded-t-lg">
                                     <h3 className="text-sm font-medium text-gray-700">Map Filters</h3>
                                     <button
+                                        type="button"
                                         onClick={() => setShowFilters(false)}
                                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                                         title="Close Filters"
@@ -607,6 +604,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                                 <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-purple-50 rounded-t-lg">
                                     <h3 className="text-sm font-medium text-gray-700">Map Themes</h3>
                                     <button
+                                        type="button"
                                         onClick={() => setShowThemeSelector(false)}
                                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                                         title="Close Themes"
@@ -636,6 +634,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                                         Travel Itinerary
                                     </h3>
                                     <button
+                                        type="button"
                                         onClick={() => setShowItinerary(false)}
                                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                                         title="Close Itinerary"
@@ -666,10 +665,10 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
 }
 
 // Memoize the component to prevent re-renders when chat input changes
-export default React.memo(RightMapPanel, (prevProps, nextProps) => {
+export default React.memo(RightMapPanel, (prevProps, nextProps) => 
     // Only re-render if the props that actually matter have changed
-    return (
+     (
         prevProps.currentSessionId === nextProps.currentSessionId &&
         prevProps.currentUserToken === nextProps.currentUserToken
-    );
-});
+    )
+);

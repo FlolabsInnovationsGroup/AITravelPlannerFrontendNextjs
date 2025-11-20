@@ -8,6 +8,8 @@ const nextConfig = {
     NEXT_PUBLIC_API_URL: process.env.NODE_ENV === 'production' 
       ? process.env.NEXT_PUBLIC_API_URL || 'https://api.flomadtravel.com'
       : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+    // Explicitly expose Google Maps API key to client
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
   },
   // Image configuration for Next.js 15
   images: {

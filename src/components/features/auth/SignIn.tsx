@@ -1,16 +1,17 @@
 "use client"
+
 import Image from "next/image"
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { signIn } from '@/lib/api'
-import { useEffect, useState } from 'react'
+import { useEffect, useState , Suspense } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'react-hot-toast'
-import { Suspense } from 'react'
+
 import { LinkedInLogoIcon } from "@radix-ui/react-icons"
-import { Facebook, Linkedin } from 'lucide-react'
+import { Facebook } from 'lucide-react'
 
 
 
@@ -80,7 +81,7 @@ function SignInContent() {
         </button>
 
         <div className="flex items-center mb-6">
-          <Image src="/logo.png" alt="Travel Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} />
+          <Image src="/logo.svg" alt="Travel Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} />
           <span className="ml-2 text-xl font-semibold">travel planner</span>
         </div>
 
@@ -121,7 +122,7 @@ function SignInContent() {
 
         <div className="relative mb-4">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
+            <div className="w-full border-t border-gray-300" />
           </div>
           <div className="relative flex justify-center text-sm">
             <span className="px-2 bg-white text-gray-500">or</span>

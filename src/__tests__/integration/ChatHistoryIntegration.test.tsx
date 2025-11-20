@@ -4,20 +4,18 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import React from 'react';
 import * as api from '@/lib/api';
 
+import ChatPageContent from '@/components/features/chat/ChatPageContent';
+
 // Mock AudioRecorder to avoid react-markdown import issues
-jest.mock('@/components/features/chat/AudioRecorder', () => {
-  return function MockAudioRecorder() {
+jest.mock('@/components/features/chat/AudioRecorder', () => function MockAudioRecorder() {
     return <div data-testid="audio-recorder">Mock Audio Recorder</div>;
-  };
-});
+  });
 
 // Mock ChatPageContent to avoid complex dependencies
-jest.mock('@/components/features/chat/ChatPageContent', () => {
-  return function MockChatPageContent() {
+jest.mock('@/components/features/chat/ChatPageContent', () => function MockChatPageContent() {
     const [messages, setMessages] = React.useState([
       'Hello, I want to plan a trip to Paris',
       "I'd be happy to help you plan your trip to Paris! Paris is a wonderful destination.",
@@ -39,8 +37,8 @@ jest.mock('@/components/features/chat/ChatPageContent', () => {
     return (
       <div data-testid="chat-page-content">
         <div data-testid="messages-container">
-          {messages.map((msg, index) => (
-            <div key={index}>{msg}</div>
+          {messages.map((msg) => (
+            <div key={msg}>{msg}</div>
           ))}
         </div>
         <div>
@@ -53,10 +51,7 @@ jest.mock('@/components/features/chat/ChatPageContent', () => {
         </div>
       </div>
     );
-  };
-});
-
-import ChatPageContent from '@/components/features/chat/ChatPageContent';
+  });
 
 // Create a mock AuthContext
 const AuthContext = React.createContext({
@@ -347,12 +342,12 @@ describe.skip('Chat History Integration Tests', () => {
   test('should show loading state while messages are being saved', async () => {
     // Mock delayed API response
     mockedApi.sendMessagesEntity.mockImplementation(() => 
-      new Promise(resolve => 
+      new Promise(resolve => {
         setTimeout(() => resolve({
           message: 'Response after delay',
           suggestions: []
-        }), 1000)
-      )
+        }), 1000);
+      })
     );
 
     render(

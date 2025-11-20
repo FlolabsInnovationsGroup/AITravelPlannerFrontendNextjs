@@ -1,8 +1,9 @@
 // Mobile-optimized responsive layout for chat and map
+
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { MessageSquare, Map, Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { MessageSquare, Map, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -45,8 +46,8 @@ export default function ResponsiveChatLayout({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Mobile view switcher
-  const MobileViewSwitcher = () => (
+  // Mobile view switcher - memoized JSX to prevent re-creation on every render
+  const mobileViewSwitcher = useMemo(() => (
     <div className="flex bg-white border-t border-gray-200 md:hidden">
       <button
         type="button"
@@ -76,10 +77,10 @@ export default function ResponsiveChatLayout({
         Map
       </button>
     </div>
-  );
+  ), [viewMode]);
 
-  // Desktop view controls
-  const DesktopControls = () => (
+  // Desktop view controls - memoized JSX to prevent re-creation on every render
+  const desktopControls = useMemo(() => (
     <div className="hidden md:flex items-center gap-2 p-2 bg-gray-50 border-b border-gray-200">
       <div className="flex bg-white rounded-md p-1 shadow-sm">
         <button
@@ -134,12 +135,12 @@ export default function ResponsiveChatLayout({
         </Button>
       )}
     </div>
-  );
+  ), [viewMode, isCollapsed]);
 
   return (
     <div className={cn("flex flex-col h-screen bg-gray-100", className)}>
       {/* Desktop Controls */}
-      <DesktopControls />
+      {desktopControls}
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
@@ -167,8 +168,11 @@ export default function ResponsiveChatLayout({
             {(viewMode === 'chat' || viewMode === 'split') && (
               <div className={cn(
                 "flex flex-col bg-white border-r border-gray-200 transition-all duration-300",
-                viewMode === 'chat' ? "flex-1" : 
-                viewMode === 'split' ? (isCollapsed ? "w-16" : "w-1/2 min-w-[400px]") : "hidden"
+                (() => {
+                  if (viewMode === 'chat') return "flex-1";
+                  if (viewMode === 'split') return isCollapsed ? "w-16" : "w-1/2 min-w-[400px]";
+                  return "hidden";
+                })()
               )}>
                 {isCollapsed ? (
                   <div className="flex items-center justify-center h-full">
@@ -190,8 +194,11 @@ export default function ResponsiveChatLayout({
             {(viewMode === 'map' || viewMode === 'split') && (
               <div className={cn(
                 "flex flex-col transition-all duration-300",
-                viewMode === 'map' ? "flex-1" : 
-                viewMode === 'split' ? (isCollapsed ? "flex-1" : "flex-1 min-w-[400px]") : "hidden"
+                (() => {
+                  if (viewMode === 'map') return "flex-1";
+                  if (viewMode === 'split') return isCollapsed ? "flex-1" : "flex-1 min-w-[400px]";
+                  return "hidden";
+                })()
               )}>
                 {mapPanel}
               </div>
@@ -201,7 +208,7 @@ export default function ResponsiveChatLayout({
       </div>
 
       {/* Mobile View Switcher */}
-      <MobileViewSwitcher />
+      {mobileViewSwitcher}
 
       {/* Quick Action Fab (Mobile) */}
       {breakpoint === 'mobile' && (
@@ -216,23 +223,25 @@ export default function ResponsiveChatLayout({
       )}
 
       {/* Responsive Styles */}
-      <style jsx>{`
-        @media (max-width: 768px) {
-          .mobile-optimized {
-            padding: 0.75rem;
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @media (max-width: 768px) {
+            .mobile-optimized {
+              padding: 0.75rem;
+            }
+            
+            .mobile-input {
+              font-size: 16px; /* Prevents zoom on iOS */
+            }
           }
           
-          .mobile-input {
-            font-size: 16px; /* Prevents zoom on iOS */
+          @media (max-width: 480px) {
+            .ultra-mobile {
+              padding: 0.5rem;
+            }
           }
-        }
-        
-        @media (max-width: 480px) {
-          .ultra-mobile {
-            padding: 0.5rem;
-          }
-        }
-      `}</style>
+        `
+      }} />
     </div>
   );
 }

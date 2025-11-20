@@ -10,22 +10,20 @@ jest.mock('@/components/ui/input', () => ({
 }));
 
 // Mock lodash debounce
-jest.mock('lodash/debounce', () => {
-  return jest.fn((fn) => {
+jest.mock('lodash/debounce', () => jest.fn((fn) => {
     const mockDebounced = (...args: any[]) => fn(...args);
     mockDebounced.cancel = jest.fn();
     return mockDebounced;
-  });
-});
+  }));
 
 // Complete Google Maps mock with event system
 const setupGoogleMapsMock = () => {
   // Mock Autocomplete instance with all required methods
   const mockAutocompleteInstance = {
-    addListener: jest.fn((event, callback) => {
+    addListener: jest.fn(() => 
       // Return a listener object with remove method
-      return { remove: jest.fn() };
-    }),
+       ({ remove: jest.fn() })
+    ),
     removeListener: jest.fn(),
     setOptions: jest.fn(),
     getPlace: jest.fn(() => ({
@@ -78,9 +76,7 @@ const setupGoogleMapsMock = () => {
       },
       event: {
         clearInstanceListeners: jest.fn(),
-        addListener: jest.fn((instance, event, callback) => {
-          return { remove: jest.fn() };
-        }),
+        addListener: jest.fn(() => ({ remove: jest.fn() })),
         removeListener: jest.fn(),
         clearListeners: jest.fn(),
         trigger: jest.fn()
@@ -318,7 +314,7 @@ describe('SearchBox Component - Core Functionality', () => {
       const { rerender } = render(<SearchBox onPlaceSelected={mockOnPlaceSelected} />);
       
       // Multiple re-renders shouldn't cause errors
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 5; i += 1) {
         rerender(<SearchBox onPlaceSelected={mockOnPlaceSelected} key={i} />);
       }
       
@@ -367,7 +363,7 @@ describe('SearchBox Component - Core Functionality', () => {
       const input = screen.getByRole('textbox');
       
       // Rapid focus/blur cycles
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 10; i += 1) {
         fireEvent.focus(input);
         fireEvent.blur(input);
       }
@@ -382,7 +378,7 @@ describe('SearchBox Component - Core Functionality', () => {
       const start = Date.now();
       
       // Simulate rapid typing
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 50; i += 1) {
         fireEvent.change(input, { target: { value: `test${i}` } });
       }
       

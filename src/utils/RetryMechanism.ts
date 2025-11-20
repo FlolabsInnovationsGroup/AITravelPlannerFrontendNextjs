@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file */
 /**
  * Enhanced retry mechanism for API calls and WebSocket connections
  * Best practices for travel app reliability
@@ -27,6 +28,7 @@ export class RetryMechanism {
         const config = { ...DEFAULT_RETRY_OPTIONS, ...options };
         let lastError: Error;
 
+        /* eslint-disable no-plusplus, no-await-in-loop */
         for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
             try {
                 return await operation();
@@ -39,18 +41,19 @@ export class RetryMechanism {
 
                 // Calculate delay with exponential backoff and jitter
                 let delay = Math.min(
-                    config.baseDelay * Math.pow(config.backoffFactor, attempt - 1),
+                    config.baseDelay * config.backoffFactor**(attempt - 1),
                     config.maxDelay
                 );
 
                 if (config.jitter) {
-                    delay = delay * (0.5 + Math.random() * 0.5); // Add 0-50% jitter
+                    delay *= (0.5 + Math.random() * 0.5); // Add 0-50% jitter
                 }
 
                 // Operation failed, retrying with backoff
-                await new Promise(resolve => setTimeout(resolve, delay));
+                await new Promise(resolve => { setTimeout(resolve, delay); });
             }
         }
+        /* eslint-enable no-plusplus, no-await-in-loop */
 
         throw lastError!;
     }
@@ -84,7 +87,9 @@ export class RetryMechanism {
 // Specialized retry for WebSocket connections
 export class WebSocketRetryManager {
     private retryCount = 0;
+
     private maxRetries: number;
+
     private baseDelay: number;
     
     constructor(maxRetries = 5, baseDelay = 1000) {
@@ -97,10 +102,10 @@ export class WebSocketRetryManager {
             return false;
         }
 
-        const delay = this.baseDelay * Math.pow(2, this.retryCount);
+        const delay = this.baseDelay * 2**this.retryCount;
         
-        await new Promise(resolve => setTimeout(resolve, delay));
-        this.retryCount++;
+        await new Promise(resolve => { setTimeout(resolve, delay); });
+        this.retryCount += 1;
         return true;
     }
 

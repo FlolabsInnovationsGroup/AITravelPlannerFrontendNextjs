@@ -1,22 +1,9 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import ReactMarkdown, { Components } from 'react-markdown';
-import { 
-  User,
-  Bot,
-  Sparkles,
-  MapPin,
-  Utensils,
-  Calendar,
-  DollarSign,
-  Clock,
-  Info,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Check
-} from 'lucide-react';
+import { User, Sparkles } from 'lucide-react';
 
 interface Message {
   id: number;
@@ -27,20 +14,67 @@ interface Message {
 
 interface EnhancedChatBubblesProps {
   messages: Message[];
-  isLoading?: boolean;
-  onMessageAction?: (action: string, message: Message) => void;
   onContinueConversation?: (message: Message) => void;
   currentUser?: any;
 }
 
+// Define markdown components OUTSIDE the component to prevent re-creation on every render
+const markdownComponents: Components = {
+  p: ({ ...props }) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
+  ul: ({ ...props }) => <ul className="list-none ml-0 mb-3 space-y-2" {...props} />,
+  ol: ({ ...props }) => <ol className="list-decimal ml-5 mb-3 space-y-1" {...props} />,
+  li: ({ ...props }) => (
+    <li className="leading-relaxed flex items-start gap-2" {...props}>
+      <span className="text-blue-500 text-sm mt-1.5">•</span>
+      <span className="flex-1">{props.children}</span>
+    </li>
+  ),
+  h1: ({ children, ...props }) => <h1 className="text-xl font-bold mb-3 text-gray-900 flex items-center gap-2" {...props}>{children}</h1>,
+  h2: ({ children, ...props }) => <h2 className="text-lg font-semibold mb-2 text-gray-800 flex items-center gap-2" {...props}>{children}</h2>,
+  h3: ({ children, ...props }) => <h3 className="text-md font-medium mb-2 text-gray-700 flex items-center gap-2" {...props}>{children}</h3>,
+  strong: ({ ...props }) => <strong className="font-semibold text-gray-900 bg-yellow-100 px-1 py-0.5 rounded" {...props} />,
+  em: ({ ...props }) => <em className="italic text-blue-600" {...props} />,
+  code: ({ ...props }: any) =>
+    props.inline ? (
+      <code className="bg-blue-50 text-blue-800 px-2 py-1 rounded-md text-sm font-mono border border-blue-200" {...props} />
+    ) : (
+      <code className="block bg-gray-50 text-gray-800 p-4 rounded-lg mb-3 text-sm font-mono overflow-x-auto border border-gray-200" {...props} />
+    ),
+  blockquote: ({ ...props }) => (
+    <blockquote className="border-l-4 border-blue-500 bg-blue-50 pl-4 py-2 rounded-r-lg italic text-gray-700 my-3" {...props} />
+  ),
+};
+
+// Enhanced markdown components for travel responses with richer styling
+const enhancedMarkdownComponents: Components = {
+  ...markdownComponents,
+  p: ({ ...props }) => <p className="mb-4 last:mb-0 leading-relaxed text-gray-700" {...props} />,
+  h1: ({ children, ...props }) => <h1 className="text-lg font-bold mb-3 text-gray-900 flex items-center gap-2 border-b border-gray-200 pb-2" {...props}>{children}</h1>,
+  h2: ({ children, ...props }) => <h2 className="text-md font-semibold mb-3 text-gray-800 flex items-center gap-2 mt-4" {...props}>{children}</h2>,
+  h3: ({ children, ...props }) => <h3 className="text-sm font-medium mb-2 text-gray-700 flex items-center gap-2 mt-3" {...props}>{children}</h3>,
+  ul: ({ ...props }) => <ul className="list-none ml-0 mb-4 space-y-2" {...props} />,
+  ol: ({ ...props }) => <ol className="list-decimal ml-5 mb-4 space-y-2" {...props} />,
+  li: ({ ...props }) => (
+    <li className="leading-relaxed flex items-start gap-2 text-gray-700" {...props}>
+      <span className="text-blue-500 text-sm mt-1.5 flex-shrink-0">•</span>
+      <span className="flex-1">{props.children}</span>
+    </li>
+  ),
+  strong: ({ ...props }) => <strong className="font-semibold text-gray-900 bg-blue-50 px-1 py-0.5 rounded" {...props} />,
+  em: ({ ...props }) => <em className="italic text-blue-600" {...props} />,
+  blockquote: ({ ...props }) => (
+    <blockquote className="border-l-4 border-blue-500 bg-blue-50 pl-4 py-3 rounded-r-lg italic text-gray-700 my-4" {...props} />
+  ),
+};
+
 const EnhancedChatBubbles: React.FC<EnhancedChatBubblesProps> = ({
   messages,
-  isLoading = false,
-  onMessageAction,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onContinueConversation,
   currentUser
 }) => {
   const [expandedMessages, setExpandedMessages] = useState<Set<number>>(new Set());
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [copiedMessages, setCopiedMessages] = useState<Set<number>>(new Set());
 
 
@@ -57,6 +91,7 @@ const EnhancedChatBubbles: React.FC<EnhancedChatBubblesProps> = ({
     });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const copyToClipboard = async (text: string, messageId: number) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -74,53 +109,14 @@ const EnhancedChatBubbles: React.FC<EnhancedChatBubblesProps> = ({
   };
 
   // Clean up speech synthesis on unmount
-  useEffect(() => {
-    return () => {
+  useEffect(() => () => {
       speechSynthesis.cancel();
-    };
-  }, []);
+    }, []);
 
-  // Enhanced travel response formatting with better markdown parsing
-  const formatTravelResponse = (content: string, isUser: boolean): JSX.Element => {
-    if (isUser) {
-      return <p className="leading-relaxed">{content}</p>;
-    }
-
-    // Enhanced markdown parsing for better formatting
-    return (
-      <div className="prose prose-sm max-w-none text-gray-800">
-        <ReactMarkdown 
-          components={{
-            ...markdownComponents,
-            p: ({ ...props }) => <p className="mb-4 last:mb-0 leading-relaxed text-gray-700" {...props} />,
-            h1: ({ ...props }) => <h1 className="text-lg font-bold mb-3 text-gray-900 flex items-center gap-2 border-b border-gray-200 pb-2" {...props} />,
-            h2: ({ ...props }) => <h2 className="text-md font-semibold mb-3 text-gray-800 flex items-center gap-2 mt-4" {...props} />,
-            h3: ({ ...props }) => <h3 className="text-sm font-medium mb-2 text-gray-700 flex items-center gap-2 mt-3" {...props} />,
-            ul: ({ ...props }) => <ul className="list-none ml-0 mb-4 space-y-2" {...props} />,
-            ol: ({ ...props }) => <ol className="list-decimal ml-5 mb-4 space-y-2" {...props} />,
-            li: ({ ...props }) => (
-              <li className="leading-relaxed flex items-start gap-2 text-gray-700" {...props}>
-                <span className="text-blue-500 text-sm mt-1.5 flex-shrink-0">•</span>
-                <span className="flex-1">{props.children}</span>
-              </li>
-            ),
-            strong: ({ ...props }) => <strong className="font-semibold text-gray-900 bg-blue-50 px-1 py-0.5 rounded" {...props} />,
-            em: ({ ...props }) => <em className="italic text-blue-600" {...props} />,
-            blockquote: ({ ...props }) => (
-              <blockquote className="border-l-4 border-blue-500 bg-blue-50 pl-4 py-3 rounded-r-lg italic text-gray-700 my-4" {...props} />
-            ),
-          }}
-        >
-          {formatTextForMarkdown(content)}
-        </ReactMarkdown>
-      </div>
-    );
-  };
-
-  // Helper function to improve text formatting for markdown parsing
+  // Helper function to improve text formatting for markdown parsing (must be before formatTravelResponse)
   const formatTextForMarkdown = (content: string): string => {
     // Convert common patterns to markdown
-    let formatted = content
+    const formatted = content
       // Add line breaks for better paragraph separation
       .replace(/\. ([A-Z])/g, '.\n\n$1')
       // Convert numbered lists
@@ -137,30 +133,20 @@ const EnhancedChatBubbles: React.FC<EnhancedChatBubblesProps> = ({
     return formatted;
   };
 
-  const markdownComponents: Components = {
-    p: ({ ...props }) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
-    ul: ({ ...props }) => <ul className="list-none ml-0 mb-3 space-y-2" {...props} />,
-    ol: ({ ...props }) => <ol className="list-decimal ml-5 mb-3 space-y-1" {...props} />,
-    li: ({ ...props }) => (
-      <li className="leading-relaxed flex items-start gap-2" {...props}>
-        <span className="text-blue-500 text-sm mt-1.5">•</span>
-        <span className="flex-1">{props.children}</span>
-      </li>
-    ),
-    h1: ({ ...props }) => <h1 className="text-xl font-bold mb-3 text-gray-900 flex items-center gap-2" {...props} />,
-    h2: ({ ...props }) => <h2 className="text-lg font-semibold mb-2 text-gray-800 flex items-center gap-2" {...props} />,
-    h3: ({ ...props }) => <h3 className="text-md font-medium mb-2 text-gray-700 flex items-center gap-2" {...props} />,
-    strong: ({ ...props }) => <strong className="font-semibold text-gray-900 bg-yellow-100 px-1 py-0.5 rounded" {...props} />,
-    em: ({ ...props }) => <em className="italic text-blue-600" {...props} />,
-    code: ({ ...props }: any) =>
-      props.inline ? (
-        <code className="bg-blue-50 text-blue-800 px-2 py-1 rounded-md text-sm font-mono border border-blue-200" {...props} />
-      ) : (
-        <code className="block bg-gray-50 text-gray-800 p-4 rounded-lg mb-3 text-sm font-mono overflow-x-auto border border-gray-200" {...props} />
-      ),
-    blockquote: ({ ...props }) => (
-      <blockquote className="border-l-4 border-blue-500 bg-blue-50 pl-4 py-2 rounded-r-lg italic text-gray-700 my-3" {...props} />
-    ),
+  // Enhanced travel response formatting with better markdown parsing
+  const formatTravelResponse = (content: string, isUser: boolean): JSX.Element => {
+    if (isUser) {
+      return <p className="leading-relaxed">{content}</p>;
+    }
+
+    // Enhanced markdown parsing for better formatting
+    return (
+      <div className="prose prose-sm max-w-none text-gray-800">
+        <ReactMarkdown components={enhancedMarkdownComponents}>
+          {formatTextForMarkdown(content)}
+        </ReactMarkdown>
+      </div>
+    );
   };
 
   const formatTimestamp = (date?: Date) => {
@@ -178,9 +164,11 @@ const EnhancedChatBubbles: React.FC<EnhancedChatBubblesProps> = ({
   const getUserAvatar = () => {
     if (currentUser?.profileImage) {
       return (
-        <img 
+        <Image 
           src={currentUser.profileImage} 
-          alt="Your avatar" 
+          alt="Your avatar"
+          width={32}
+          height={32} 
           className="w-8 h-8 rounded-full object-cover"
         />
       );
@@ -200,13 +188,13 @@ const EnhancedChatBubbles: React.FC<EnhancedChatBubblesProps> = ({
 
   return (
     <div className="space-y-8">
-      {messages.map((message, index) => {
+      {messages.map((message) => {
         const isUser = message.messageType === 'USER';
         const isLongMessage = message.content.length > 300;
         const isExpanded = expandedMessages.has(message.id);
         const shouldTruncate = isLongMessage && !isExpanded;
         const displayContent = shouldTruncate 
-          ? message.content.substring(0, 300) + '...'
+          ? `${message.content.substring(0, 300)  }...`
           : message.content;
 
         return (

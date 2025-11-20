@@ -17,6 +17,7 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
+    // eslint-disable-next-line no-param-reassign
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -51,7 +52,9 @@ export interface MessagePersistenceDebug {
 
 export class ChatHistoryService {
   private static instance: ChatHistoryService;
+
   private messageCache = new Map<string, MessageHistory[]>();
+
   private persistenceVerificationEnabled = true;
 
   public static getInstance(): ChatHistoryService {
@@ -148,6 +151,7 @@ export class ChatHistoryService {
   /**
    * Get detailed debugging information about message persistence
    */
+  // eslint-disable-next-line class-methods-use-this
   async getMessagePersistenceDebug(sessionId: string): Promise<MessagePersistenceDebug> {
     try {
       const response = await apiClient.get(`/messages/debug/session/${sessionId}`);
@@ -244,10 +248,8 @@ export class ChatHistoryService {
    * Get memory usage statistics
    */
   getMemoryStats(): { sessionsInCache: number; totalMessages: number } {
-    let totalMessages = 0;
-    for (const messages of this.messageCache.values()) {
-      totalMessages += messages.length;
-    }
+    const totalMessages = Array.from(this.messageCache.values())
+      .reduce((sum, messages) => sum + messages.length, 0);
     
     return {
       sessionsInCache: this.messageCache.size,

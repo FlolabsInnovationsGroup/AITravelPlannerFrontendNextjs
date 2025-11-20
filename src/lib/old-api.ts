@@ -20,6 +20,7 @@ apiClient.interceptors.request.use(
           !config.url?.includes('/auth/login') &&
           !config.url?.includes('/learn-more')
         ) {
+          // eslint-disable-next-line no-param-reassign
           config.headers.Authorization = `Bearer ${token}`;
         }
       }

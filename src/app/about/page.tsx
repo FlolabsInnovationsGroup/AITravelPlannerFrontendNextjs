@@ -11,7 +11,7 @@ export default function AboutPage() {
   <nav className="flex justify-between items-center">
   <Link href="/" className="flex items-center">
       <Image
-        src="/logo.png"
+        src="/logo.svg"
         alt="Flomad Travel Logo"
         width={25}
         height={25}
@@ -42,7 +42,7 @@ export default function AboutPage() {
           </p>
           <p className="mt-4 text-lg text-gray-700">
             At <strong>Flomad Travel</strong>, we believe travel should be seamless, personalized, and stress-free.
-            Our AI-powered platform helps travelers plan, explore, and book journeys with ease. Whether you're a 
+            Our AI-powered platform helps travelers plan, explore, and book journeys with ease. Whether you&apos;re a 
             <strong> digital nomad, an adventure seeker, traveling for business, or vacation</strong>, our AI assistant provides 
             real-time recommendations, itinerary planning, and insider insights to enhance your experience.
           </p>
@@ -82,7 +82,7 @@ export default function AboutPage() {
 
         <h2 className="text-4xl font-semibold mt-14 text-[#0056b3] tracking-tight">Join the Flomad Community</h2>
         <p className="mt-4 text-lg text-gray-700">
-          Whether you're planning your next getaway or looking for inspiration, Flomad Travel is here to guide you.  
+          Whether you&apos;re planning your next getaway or looking for inspiration, Flomad Travel is here to guide you.  
         </p>
 
         <div className="flex justify-center mt-8">

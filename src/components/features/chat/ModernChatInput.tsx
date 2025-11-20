@@ -7,10 +7,9 @@ import {
   MicOff, 
   Smile, 
   MapPin, 
-  Camera,
-  Paperclip,
   Loader2,
-  X
+  X,
+  Paperclip
 } from 'lucide-react';
 
 interface ModernChatInputProps {
@@ -100,11 +99,18 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
     }
   };
 
+  const handleSuggestionSelect = (suggestion: string) => {
+    onChange(suggestion);
+    setShowSuggestions(false);
+    setSelectedSuggestionIndex(-1);
+    textareaRef.current?.focus();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       if (e.shiftKey) {
         // Allow new line with Shift+Enter
-        return;
+        
       } else if (showSuggestions && selectedSuggestionIndex >= 0) {
         // Select suggestion with Enter
         e.preventDefault();
@@ -128,13 +134,6 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
       setShowSuggestions(false);
       setSelectedSuggestionIndex(-1);
     }
-  };
-
-  const handleSuggestionSelect = (suggestion: string) => {
-    onChange(suggestion);
-    setShowSuggestions(false);
-    setSelectedSuggestionIndex(-1);
-    textareaRef.current?.focus();
   };
 
   const startRecording = async () => {
@@ -187,7 +186,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
         errorMessage += 'Please check your microphone and try again.';
       }
       
-      alert(errorMessage);
+      console.error('Microphone error:', errorMessage);
     }
   };
 
@@ -220,7 +219,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
             <div className="text-xs text-gray-500 mb-2 px-2">Suggestions</div>
             {filteredSuggestions.map((suggestion, index) => (
               <button
-                key={index}
+                key={suggestion}
                 type="button"
                 onClick={() => handleSuggestionSelect(suggestion)}
                 className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
@@ -252,7 +251,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
           <div className="absolute -top-12 left-4 right-4 bg-red-500 text-white px-3 py-2 rounded-lg shadow-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                 <span className="text-sm font-medium">Recording...</span>
                 <span className="text-sm">{formatRecordingTime(recordingDuration)}</span>
               </div>

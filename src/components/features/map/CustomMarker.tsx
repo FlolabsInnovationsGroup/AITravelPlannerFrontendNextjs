@@ -115,12 +115,20 @@ export const CustomMarker: React.FC<CustomMarkerProps> = ({ location, onClick, i
     <div
       style={getMarkerStyle(location.type)}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = isSelected ? 'scale(1.1)' : 'scale(1.05)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = isSelected ? 'scale(1.1)' : 'scale(1)';
       }}
+      role="button"
+      tabIndex={0}
       title={location.name || 'Location'}
     >
       {getMarkerIcon(location.type)}
@@ -128,37 +136,7 @@ export const CustomMarker: React.FC<CustomMarkerProps> = ({ location, onClick, i
   );
 };
 
-// Enhanced marker renderer for Google Maps
-export const createCustomMarkerElement = (location: Location, isSelected: boolean = false) => {
-  const markerDiv = document.createElement('div');
-  markerDiv.innerHTML = `
-    <div style="
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border: ${isSelected ? '3px solid #ffffff' : '2px solid #ffffff'};
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      color: #ffffff;
-      font-weight: bold;
-      cursor: pointer;
-      background-color: ${getMarkerBackgroundColor(location.type)};
-      box-shadow: ${isSelected 
-        ? '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 4px rgba(74, 144, 226, 0.3)' 
-        : '0 2px 8px rgba(0, 0, 0, 0.2)'};
-      transform: ${isSelected ? 'scale(1.1)' : 'scale(1)'};
-      transition: all 0.2s ease-in-out;
-      position: relative;
-      z-index: ${isSelected ? '1000' : '100'};
-    ">
-      ${getMarkerEmoji(location.type)}
-    </div>
-  `;
-  return markerDiv;
-};
-
+// ==================== HELPER FUNCTIONS ====================
 function getMarkerBackgroundColor(type?: LocationType): string {
   switch (type) {
     case 'hotel':
@@ -241,3 +219,35 @@ function getMarkerEmoji(type?: LocationType): string {
       return '📍';
   }
 }
+// ==================== END HELPER FUNCTIONS ====================
+
+// Enhanced marker renderer for Google Maps
+export const createCustomMarkerElement = (location: Location, isSelected: boolean = false) => {
+  const markerDiv = document.createElement('div');
+  markerDiv.innerHTML = `
+    <div style="
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: ${isSelected ? '3px solid #ffffff' : '2px solid #ffffff'};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      color: #ffffff;
+      font-weight: bold;
+      cursor: pointer;
+      background-color: ${getMarkerBackgroundColor(location.type)};
+      box-shadow: ${isSelected 
+        ? '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 4px rgba(74, 144, 226, 0.3)' 
+        : '0 2px 8px rgba(0, 0, 0, 0.2)'};
+      transform: ${isSelected ? 'scale(1.1)' : 'scale(1)'};
+      transition: all 0.2s ease-in-out;
+      position: relative;
+      z-index: ${isSelected ? '1000' : '100'};
+    ">
+      ${getMarkerEmoji(location.type)}
+    </div>
+  `;
+  return markerDiv;
+};

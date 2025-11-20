@@ -26,16 +26,16 @@ const defaultRetryOptions: Required<RetryOptions> = {
   baseDelay: 1000,
   maxDelay: 10000,
   backoffFactor: 2,
-  retryCondition: (error: any) => {
+  retryCondition: (error: any) => 
     // Retry on network errors, timeouts, and 5xx server errors
-    return (
+     (
       error.message?.includes('timeout') ||
       error.message?.includes('Network Error') ||
       error.code === 'NETWORK_ERROR' ||
       (error.response?.status >= 500 && error.response?.status < 600) ||
       error.response?.status === 429 // Rate limit - retry after delay
-    );
-  }
+    )
+  
 };
 
 export const useMessageRetry = (): UseMessageRetryResult => {
@@ -48,7 +48,7 @@ export const useMessageRetry = (): UseMessageRetryResult => {
   const isActiveRef = useRef(true);
 
   const calculateDelay = (attempt: number, baseDelay: number, maxDelay: number, backoffFactor: number): number => {
-    const delay = baseDelay * Math.pow(backoffFactor, attempt);
+    const delay = baseDelay * backoffFactor**attempt;
     return Math.min(delay, maxDelay);
   };
 
@@ -74,7 +74,10 @@ export const useMessageRetry = (): UseMessageRetryResult => {
       lastError: undefined
     });
 
-    for (let attempt = 0; attempt < opts.maxAttempts; attempt++) {
+    // Sequential retry attempts with exponential backoff
+    // eslint-disable-next-line no-plusplus
+    for (let attempt = 0; attempt < opts.maxAttempts; attempt += 1) {
+      // eslint-disable-next-line no-await-in-loop
       if (!isActiveRef.current) {
         throw new Error('Retry cancelled');
       }
@@ -91,6 +94,7 @@ export const useMessageRetry = (): UseMessageRetryResult => {
             id: 'message-retry'
           });
 
+          // eslint-disable-next-line no-await-in-loop
           await new Promise(resolve => {
             retryTimeoutRef.current = setTimeout(resolve, delay);
           });
@@ -100,6 +104,7 @@ export const useMessageRetry = (): UseMessageRetryResult => {
           }
         }
 
+        // eslint-disable-next-line no-await-in-loop
         const result = await operation();
         
         setRetryState(prev => ({ ...prev, isRetrying: false }));

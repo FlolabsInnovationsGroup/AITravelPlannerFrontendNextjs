@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file */
 import { Location } from '@/types/map';
 import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios';
 import { serviceConfig } from '@/config/service.config';
@@ -24,7 +25,9 @@ class LocationServiceError extends Error {
 
 export class LocationService {
     private static instance: LocationService;
+
     private readonly apiClient: AxiosInstance;
+
     private readonly retryConfig: RetryConfig;
 
     private constructor() {
@@ -57,6 +60,7 @@ export class LocationService {
         );
     }
 
+    // eslint-disable-next-line class-methods-use-this
     private logError(error: AxiosError): void {
         const status = error.response?.status;
         const method = error.config?.method?.toUpperCase();
@@ -86,9 +90,9 @@ export class LocationService {
                 retryAttempt < this.retryConfig.maxRetries &&
                 this.retryConfig.shouldRetry(error)
             ) {
-                const delay = this.retryConfig.initialDelay * Math.pow(2, retryAttempt);
+                const delay = this.retryConfig.initialDelay * 2**retryAttempt;
                 
-                await new Promise(resolve => setTimeout(resolve, delay));
+                await new Promise(resolve => { setTimeout(resolve, delay); });
                 return this.executeWithRetry(operation, retryAttempt + 1);
             }
 
@@ -100,6 +104,7 @@ export class LocationService {
         }
     }
 
+    // eslint-disable-next-line class-methods-use-this
     private getErrorMessage(error: AxiosError): string {
         if (!error.response) {
             return 'Network error occurred. Please check your connection.';
@@ -133,7 +138,7 @@ export class LocationService {
     public async addLocation(location: Omit<Location, 'id'>, sessionId: string): Promise<Location> {
         const locationData = {
             ...location,
-            sessionId: sessionId
+            sessionId
         };
         
         const result = await this.executeWithRetry(() => 
