@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { MarkerClusterer, SuperClusterAlgorithm } from "@googlemaps/markerclusterer";
 import { Location } from "@/types/map";
 import { 
   getMarkerConfig
@@ -33,6 +34,7 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement | google.maps.Marker>>(new Map());
+  const markerClustererRef = useRef<MarkerClusterer | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [hoveredLocation, setHoveredLocation] = useState<Location | null>(null);
@@ -85,6 +87,23 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       if (userInteractionTimeoutRef.current) {
         clearTimeout(userInteractionTimeoutRef.current);
       }
+      
+      // Cleanup marker clusterer
+      if (markerClustererRef.current) {
+        markerClustererRef.current.clearMarkers();
+        markerClustererRef.current.setMap(null);
+        markerClustererRef.current = null;
+      }
+      
+      // Cleanup markers - handle both AdvancedMarkerElement and Marker
+      markersRef.current.forEach(marker => {
+        if (marker instanceof google.maps.Marker) {
+          marker.setMap(null);
+        } else if (marker instanceof google.maps.marker.AdvancedMarkerElement) {
+          marker.map = null;
+        }
+      });
+      markersRef.current.clear();
     }, []);
 
   // Initialize map
@@ -276,21 +295,6 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
           confidence: validation.confidence,
           coordinates: `${location.latitude}, ${location.longitude}`
         });
-        
-        setLocationWarnings(prev => {
-          const existing = prev.find(w => w.location.id === location.id);
-          if (!existing) {
-            return [...prev, {
-              location,
-              issues: validation.issues,
-              confidence: validation.confidence
-            }];
-          }
-          return prev;
-        });
-      } else {
-        // Clear any existing warnings for valid locations
-        setLocationWarnings(prev => prev.filter(w => w.location.id !== location.id));
       }
 
       const config = getMarkerConfig(location.type, location);
@@ -439,10 +443,22 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
     markersRef.current.forEach((marker, id) => {
       if (!currentLocationIds.has(id)) {
         console.log('🗑️ Removing marker for location:', id);
-        marker.setMap(null); // Remove from map using setMap method
+        // Handle both AdvancedMarkerElement and Marker
+        if (marker instanceof google.maps.Marker) {
+          marker.setMap(null);
+        } else if (marker instanceof google.maps.marker.AdvancedMarkerElement) {
+          marker.map = null;
+        }
         markersRef.current.delete(id);
       }
     });
+
+    // Clear existing clusterer if it exists
+    if (markerClustererRef.current) {
+      markerClustererRef.current.clearMarkers();
+      markerClustererRef.current.setMap(null);
+      markerClustererRef.current = null;
+    }
 
     // Add or update markers for current locations
     locations.forEach(location => {
@@ -456,6 +472,50 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
         console.log('⚠️ Location missing ID:', location.name);
       }
     });
+
+    // Initialize marker clustering if we have multiple locations
+    if (locations.length > 5) {
+      const markers = Array.from(markersRef.current.values());
+      console.log(`🔷 Initializing marker clustering for ${markers.length} markers`);
+      
+      markerClustererRef.current = new MarkerClusterer({
+        map: mapInstanceRef.current,
+        markers: markers,
+        algorithm: new SuperClusterAlgorithm({
+          maxZoom: 15, // Cluster markers until zoom level 15
+          radius: 120, // Cluster radius in pixels
+        }),
+        renderer: {
+          render: ({ count, position }) => {
+            // Custom cluster styling to match app theme
+            const color = count > 10 ? '#3B82F6' : count > 5 ? '#60A5FA' : '#93C5FD';
+            const size = count > 10 ? 60 : count > 5 ? 50 : 40;
+            
+            return new google.maps.Marker({
+              position,
+              icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                fillColor: color,
+                fillOpacity: 0.9,
+                strokeColor: '#FFFFFF',
+                strokeWeight: 3,
+                scale: size / 2,
+              },
+              label: {
+                text: String(count),
+                color: '#FFFFFF',
+                fontSize: '14px',
+                fontWeight: 'bold',
+              },
+              title: `${count} locations`,
+              zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
+            });
+          },
+        },
+      });
+      
+      console.log('✅ Marker clustering initialized');
+    }
 
     // Smart bounds calculation with geographic clustering
     console.log(`🎯 FitBounds check: ${locations.length} locations, map ready: ${!!mapInstanceRef.current}`);
@@ -665,13 +725,18 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
           glyphText: config.emoji
         } as any);
 
-        // Create new marker to replace the old one
-        const currentMap = marker.map;
-        const currentPosition = marker.position;
-        const currentTitle = marker.title;
+        // Create new marker to replace the old one - handle both marker types
+        const rawMap = marker instanceof google.maps.Marker ? marker.getMap() : marker.map;
+        const currentMap = (rawMap instanceof google.maps.Map) ? rawMap : null;
+        const currentPosition = marker instanceof google.maps.Marker ? marker.getPosition() : marker.position;
+        const currentTitle = marker instanceof google.maps.Marker ? marker.getTitle() : marker.title;
         
         // Remove old marker and create new one with updated content
-        marker.setMap(null);
+        if (marker instanceof google.maps.Marker) {
+          marker.setMap(null);
+        } else if (marker instanceof google.maps.marker.AdvancedMarkerElement) {
+          marker.map = null;
+        }
         
         const newMarker = new google.maps.marker.AdvancedMarkerElement({
           map: currentMap,

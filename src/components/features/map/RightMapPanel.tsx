@@ -476,7 +476,6 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                     <div className="absolute inset-0">
                         <EnhancedGoogleMap
                             locations={showFilters && filteredLocations.length > 0 ? filteredLocations : locations}
-                            onLocationAdd={handleLocationAdd}
                             onLocationSelect={handleLocationSelect}
                             theme={currentTheme}
                             className="h-full w-full"

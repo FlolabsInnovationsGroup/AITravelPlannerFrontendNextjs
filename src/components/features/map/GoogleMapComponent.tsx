@@ -471,7 +471,6 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                 options={getMapOptions()}
             >
                 <SearchBox 
-                    map={map}
                     onPlaceSelected={(place) => {
                         if (onLocationAdd && place) {
                             onLocationAdd({

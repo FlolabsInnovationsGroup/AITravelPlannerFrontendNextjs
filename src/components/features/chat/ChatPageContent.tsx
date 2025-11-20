@@ -328,26 +328,9 @@ export default function ChatPageContent() {
                 }]);
                 setDisplayPrompts(false);
                 
-                // Extract and process locations from AI response
-                if (locationService.current && isGoogleMapsLoaded) {
-                    try {
-                        const locations = await locationService.current.extractLocationsFromText(aiResponse);
-                        
-                        if (locations.length > 0) {
-                            // Auto-add locations to map if they have valid coordinates
-                            await Promise.all(
-                                locations
-                                    .filter(loc => loc.latitude && loc.longitude)
-                                    .map(location => addLocationToMap(location))
-                            );
-                        } else {
-                            // TODO: Implement comprehensive error handling for location processing
-                        }
-                    } catch (error) {
-                        // TODO: Implement comprehensive error handling for location processing
-                        console.error("Location processing error:", error);
-                    }
-                }
+                // Location extraction is now handled automatically by the backend
+                // via autoLocationExtractionFunction for tour/itinerary requests
+                // Locations will be added via WebSocket updates from the backend
 
                 // Update session title if this is the first conversation
                 if (messages.length === 2 && currentUser?.id && sessionIdToUse && currentSession?.title === 'New Chat') {
@@ -366,11 +349,6 @@ export default function ChatPageContent() {
             }
         } catch (error: any) {
             console.error("❌ Error processing chat message:", error);
-            
-            handleError(error, {
-                action: () => processChatMessage(message),
-                maxRetries: 3
-            });
             
             if (error.response?.status === 401) {
                 toast.error('Session expired. Please sign in again.');
@@ -496,7 +474,6 @@ export default function ChatPageContent() {
         try {
             // Reset initialization state
             initializationRef.current = false;
-            setIsInitialized(false);
             
             // Clear locations from backend for current session before starting new one
             const currentSessionId = sessionStorage.getItem("chatSessionId");
@@ -522,7 +499,6 @@ export default function ChatPageContent() {
             setMessages([]);
             setDisplayPrompts(true);
             setWsConnected(false);
-            setWsRetryCount(0);
             
             // Clear session storage
             sessionStorage.removeItem("chatSessionId");
@@ -1110,7 +1086,6 @@ export default function ChatPageContent() {
                     if (sessionStorage.getItem("sentMessage") === decodedMessage) {
 
                         sessionStorage.removeItem("sentMessage"); // Clear it after sending once
-                        setIsInitialized(true);
                         return;
                     }
         
@@ -1178,8 +1153,6 @@ export default function ChatPageContent() {
                     toast.error("Failed to initialize chat session");
                 }
             }
-        
-            setIsInitialized(true);
         };
         
         initializeChat();
@@ -1363,10 +1336,6 @@ export default function ChatPageContent() {
                             console.error('Transcription error:', error);
                             toast.error('Failed to transcribe audio. Please try again.');
                         }
-                    }}
-                    onLocationRequest={() => {
-                        // Handle location request if needed
-
                     }}
                 />
             </div>

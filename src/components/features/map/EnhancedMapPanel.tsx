@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Location } from '@/types/map';
 import { Map, Search, MoreVertical, Route, Share } from 'lucide-react';
 import { Button } from '@/components/ui/button';

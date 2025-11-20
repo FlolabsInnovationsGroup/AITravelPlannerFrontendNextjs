@@ -3,7 +3,7 @@
  * Enhanced chat performance optimizations for better user experience
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { debounce } from 'lodash';
 
 // Message batching for better WebSocket performance

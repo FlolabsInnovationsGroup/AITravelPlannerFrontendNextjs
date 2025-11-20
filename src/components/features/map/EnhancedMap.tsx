@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleMap, LoadScript, OverlayView } from '@react-google-maps/api';
 import { Location } from '@/types/map';
 import { Layers, Sun, Moon, Navigation, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
@@ -36,7 +36,7 @@ const EnhancedMap: React.FC<EnhancedMapProps> = ({
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(darkMode);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
-  // const [showMapControls, setShowMapControls] = useState(true); // Unused variable
+  const [showMapControls, setShowMapControls] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
   // const clustererRef = useRef<MarkerClusterer | null>(null); // Unused variable
 

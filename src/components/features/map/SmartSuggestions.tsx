@@ -178,7 +178,7 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
                 lat: place.geometry?.location?.lat() || 0,
                 lng: place.geometry?.location?.lng() || 0
               },
-              reason: generateReasonText(place, timeContext, currentLocation),
+              reason: generateReasonText(place, timeContext),
               tags: generateTags(place, timeContext)
             };
           });

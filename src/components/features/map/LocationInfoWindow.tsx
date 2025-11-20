@@ -58,7 +58,7 @@ const LocationInfoWindow: React.FC<LocationInfoWindowProps> = ({
                 {location.photos && location.photos.length > 0 ? (
                     <Image 
                         src={location.photos[0]} 
-                        alt={location.name}
+                        alt={location.name || 'Location photo'}
                         width={320}
                         height={160}
                         className="w-full h-full object-cover"

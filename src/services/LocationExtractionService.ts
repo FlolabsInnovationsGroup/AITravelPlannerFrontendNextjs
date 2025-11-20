@@ -1,11 +1,10 @@
 import { Location, LocationType } from '@/types/map';
 
-// Unused interface - kept for reference
-// interface LocationExtractionResult {
-//     extractedLocation?: Location;
-//     error?: string;
-//     suggestedPlaces?: Location[];
-// }
+interface LocationExtractionResult {
+    extractedLocation?: Location;
+    error?: string;
+    suggestedPlaces?: Location[];
+}
 
 export class LocationExtractionService {
     private geocoder: google.maps.Geocoder | null = null;
@@ -146,7 +145,7 @@ export class LocationExtractionService {
 
             // Wait for all promises and filter out nulls
             const locationResults = await Promise.all(locationPromises);
-            const locations = locationResults.filter((loc): loc is Location => loc !== null);
+            const locations = locationResults.filter((loc: any) => loc !== null) as Location[];
 
             return locations;
         } catch (error) {
@@ -215,7 +214,7 @@ export class LocationExtractionService {
 
             // Convert city names to Location objects
             const locationResults = await Promise.all(
-                foundCities.map(async (cityName) => {
+                Array.from(foundCities).map(async (cityName) => {
                     try {
                         const cityCoords = this.#getCityCoordinates(cityName);
                         if (cityCoords) {
@@ -238,7 +237,7 @@ export class LocationExtractionService {
                 })
             );
             
-            const locations = locationResults.filter((loc): loc is Location => loc !== null);
+            const locations = locationResults.filter((loc: any) => loc !== null) as Location[];
 
             return locations;
         } catch (error) {
@@ -417,8 +416,6 @@ export class LocationExtractionService {
             return false; // Keep searching
         });
 
-        return cityName || null;
-        
         if (cityName) {
             return cityName;
         }
