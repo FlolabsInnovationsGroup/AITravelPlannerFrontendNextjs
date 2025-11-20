@@ -10,11 +10,20 @@ import {
 import { getMapTheme } from './MapThemes';
 import RichLocationPopup from './RichLocationPopup';
 
+export interface RouteData {
+  origin: google.maps.LatLngLiteral;
+  destination: google.maps.LatLngLiteral;
+  waypoints?: google.maps.DirectionsWaypoint[];
+  travelMode?: google.maps.TravelMode;
+}
+
 interface EnhancedGoogleMapProps {
   locations: Location[];
   onLocationSelect?: (location: Location) => void;
   className?: string;
   theme?: string;
+  routeData?: RouteData | null;
+  onRouteRendered?: (result: google.maps.DirectionsResult) => void;
 }
 
 // Unused interface
@@ -29,12 +38,16 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
   locations,
   onLocationSelect,
   className = "",
-  theme = "modern"
+  theme = "modern",
+  routeData = null,
+  onRouteRendered
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement | google.maps.Marker>>(new Map());
   const markerClustererRef = useRef<MarkerClusterer | null>(null);
+  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [hoveredLocation, setHoveredLocation] = useState<Location | null>(null);
@@ -86,6 +99,12 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
   useEffect(() => () => {
       if (userInteractionTimeoutRef.current) {
         clearTimeout(userInteractionTimeoutRef.current);
+      }
+      
+      // Cleanup directions renderer
+      if (directionsRendererRef.current) {
+        directionsRendererRef.current.setMap(null);
+        directionsRendererRef.current = null;
       }
       
       // Cleanup marker clusterer
@@ -699,6 +718,55 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       console.log('⏳ Map not ready - deferring marker update');
     }
   }, [locations, updateMarkers, isLoaded]);
+
+  // Render route when routeData changes
+  useEffect(() => {
+    if (!isLoaded || !mapInstanceRef.current || !routeData) {
+      // Clear existing route if no route data
+      if (directionsRendererRef.current) {
+        directionsRendererRef.current.setMap(null);
+        directionsRendererRef.current = null;
+      }
+      return;
+    }
+
+    // Initialize DirectionsService if needed
+    if (!directionsServiceRef.current) {
+      directionsServiceRef.current = new google.maps.DirectionsService();
+    }
+
+    // Initialize DirectionsRenderer if needed
+    if (!directionsRendererRef.current) {
+      directionsRendererRef.current = new google.maps.DirectionsRenderer({
+        map: mapInstanceRef.current,
+        suppressMarkers: false, // Show default markers for start/end
+        polylineOptions: {
+          strokeColor: '#4285F4',
+          strokeWeight: 5,
+          strokeOpacity: 0.8
+        }
+      });
+    }
+
+    // Request directions
+    const request: google.maps.DirectionsRequest = {
+      origin: routeData.origin,
+      destination: routeData.destination,
+      travelMode: routeData.travelMode || google.maps.TravelMode.DRIVING,
+      waypoints: routeData.waypoints || []
+    };
+
+    directionsServiceRef.current.route(request, (result, status) => {
+      if (status === google.maps.DirectionsStatus.OK && result) {
+        directionsRendererRef.current?.setDirections(result);
+        if (onRouteRendered) {
+          onRouteRendered(result);
+        }
+      } else {
+        console.error('Directions request failed:', status);
+      }
+    });
+  }, [isLoaded, routeData, onRouteRendered]);
 
   // Update marker styles when selection changes
   useEffect(() => {
