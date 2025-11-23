@@ -2,6 +2,8 @@ import withBundleAnalyzer from '@next/bundle-analyzer';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Turbopack configuration (empty to silence Next.js 16 warning)
+  turbopack: {},
   // Environment-specific configuration
   env: {
     // Ensure HTTPS API URL in production
