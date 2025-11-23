@@ -16,8 +16,8 @@ export function WeProvideBest() {
           planning your travels and guiding you through your travels.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {features.map((feature, index) => (
-            <Card key={index}>
+          {features.map((feature) => (
+            <Card key={feature.title}>
               <CardContent className="flex flex-col items-center p-6">
                 <div className="text-4xl mb-4">{feature.icon}</div>
                 <h3 className="text-xl font-semibold">{feature.title}</h3>

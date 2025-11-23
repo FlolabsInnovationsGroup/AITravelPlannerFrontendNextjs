@@ -1,14 +1,12 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import RichLocationPopup from './RichLocationPopup';
 import { Location } from '@/types/map';
+import RichLocationPopup from './RichLocationPopup';
 
 // Mock Next.js Image component
-jest.mock('next/image', () => {
-  return function MockImage({ src, alt, ...props }: any) {
+jest.mock('next/image', () => function MockImage({ src, alt, ...props }: any) {
     return <img src={src} alt={alt} {...props} />;
-  };
-});
+  });
 
 const mockLocation: Location = {
   id: 'test-location-1',

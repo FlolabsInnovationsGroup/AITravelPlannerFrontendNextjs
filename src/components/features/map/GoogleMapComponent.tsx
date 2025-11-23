@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { GoogleMap, LoadScript, LoadScriptProps } from "@react-google-maps/api";
+import { GoogleMap } from "@react-google-maps/api";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import { Location, LocationType } from "@/types/map";
 import SearchBox from "./SearchBox";
@@ -8,8 +8,8 @@ import LocationInfoWindow from "./LocationInfoWindow";
 import WeatherOverlay from "./WeatherOverlay";
 import RoutePanel from "./RoutePanel";
 import MapControls from "./MapControls";
-import { createCustomMarkerElement } from "./CustomMarker";
-import SmartSuggestions from "./SmartSuggestions";
+// import { createCustomMarkerElement } from "./CustomMarker";
+// import SmartSuggestions from "./SmartSuggestions"; // Unused import
 
 // Helper function to get marker color based on location type
 const getMarkerColor = (type?: LocationType): string => {
@@ -96,49 +96,6 @@ const getMarkerEmoji = (type?: LocationType): string => {
     }
 };
 
-// Helper function to get marker icon based on location type
-const getMarkerIcon = (type?: LocationType): string => {
-    const baseUrl = 'https://maps.google.com/mapfiles/ms/icons/';
-    switch (type) {
-        case 'hotel':
-        case 'accommodation':
-            return `${baseUrl}blue-dot.png`;
-        case 'restaurant':
-            return `${baseUrl}orange-dot.png`;
-        case 'cafe':
-            return `${baseUrl}green-dot.png`;
-        case 'airport':
-        case 'station':
-        case 'transport':
-            return `${baseUrl}purple-dot.png`;
-        case 'museum':
-            return `${baseUrl}pink-dot.png`;
-        case 'park':
-        case 'nature':
-            return `${baseUrl}ltblue-dot.png`;
-        case 'beach':
-            return `${baseUrl}ltblue-dot.png`;
-        case 'mountain':
-            return `${baseUrl}brown-dot.png`;
-        case 'shopping':
-            return `${baseUrl}yellow-dot.png`;
-        case 'entertainment':
-            return `${baseUrl}brown-dot.png`;
-        case 'landmark':
-        case 'viewpoint':
-            return `${baseUrl}red-dot.png`;
-        case 'religious':
-            return `${baseUrl}purple-dot.png`;
-        case 'hospital':
-            return `${baseUrl}red-dot.png`;
-        case 'sports':
-            return `${baseUrl}green-dot.png`;
-        case 'attraction':
-        default:
-            return `${baseUrl}red-dot.png`;
-    }
-};
-
 interface GoogleMapComponentProps {
     locations: Location[];
     onLocationAdd?: (location: Location) => void;
@@ -146,7 +103,7 @@ interface GoogleMapComponentProps {
 }
 
 // Define libraries array and ensure it has the correct types
-const libraries: LoadScriptProps["libraries"] = ["places", "geocoding"];
+// const libraries: LoadScriptProps["libraries"] = ["places", "geocoding"]; // Unused variable
 
 // Define map styles inspired by Mindtrip's clean design
 const mapContainerStyle = {
@@ -206,7 +163,7 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
 }) => {
     const [map, setMap] = useState<google.maps.Map | null>(null);
     const [isMapLoaded, setIsMapLoaded] = useState(false);
-    const [loadError, setLoadError] = useState<Error | null>(null);
+    const [loadError] = useState<Error | null>(null); // setLoadError unused
     const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
     const [isWeatherVisible, setIsWeatherVisible] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -340,7 +297,7 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
 
     // Update markers when locations change
     useEffect(() => {
-        if (!map || !locations) return;
+        if (!map || !locations) return undefined;
 
         cleanupMarkers();
 
@@ -361,19 +318,19 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
             bounds.extend(position);
 
             // Create custom marker element
-            const customMarkerElement = createCustomMarkerElement(location, selectedLocation?.id === location.id);
+            // const customMarkerElement = createCustomMarkerElement(location, selectedLocation?.id === location.id);
             
             const marker = new google.maps.Marker({
                 position,
                 map,
                 title: location.name,
                 icon: {
-                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                    url: `data:image/svg+xml;charset=UTF-8,${  encodeURIComponent(`
                         <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
                             <circle cx="20" cy="20" r="18" fill="${getMarkerColor(location.type)}" stroke="white" stroke-width="3"/>
                             <text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-family="Arial, sans-serif">${getMarkerEmoji(location.type)}</text>
                         </svg>
-                    `),
+                    `)}`,
                     scaledSize: new google.maps.Size(40, 40),
                     origin: new google.maps.Point(0, 0),
                     anchor: new google.maps.Point(20, 40)
@@ -435,8 +392,8 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
         };
     }, [map, locations, onLocationSelect, cleanupMarkers]);
 
-    const handleLoad = useCallback((map: google.maps.Map) => {
-        setMap(map);
+    const handleLoad = useCallback((loadedMap: google.maps.Map) => {
+        setMap(loadedMap);
         setIsMapLoaded(true);
     }, []);
 
@@ -471,12 +428,10 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
     }, [isFullscreen]);
 
     // Emergency cleanup on component unmount
-    useEffect(() => {
-        return () => {
+    useEffect(() => () => {
             document.body.style.overflow = '';
             document.body.style.position = '';
-        };
-    }, []);
+        }, []);
 
     if (loadError) {
         return (
@@ -491,7 +446,7 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
             {!isMapLoaded && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-75 backdrop-blur-sm z-10">
                     <div className="flex flex-col items-center space-y-2">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
                         <p className="text-sm text-gray-600">Loading Google Maps...</p>
                     </div>
                 </div>
@@ -516,7 +471,6 @@ const GoogleMapComponentBase: React.FC<GoogleMapComponentProps> = ({
                 options={getMapOptions()}
             >
                 <SearchBox 
-                    map={map}
                     onPlaceSelected={(place) => {
                         if (onLocationAdd && place) {
                             onLocationAdd({
@@ -580,7 +534,7 @@ const MemoizedGoogleMapComponentBase = React.memo(GoogleMapComponentBase, (prevP
     }
     
     // Compare each location by ID (assuming locations have stable IDs)
-    for (let i = 0; i < prevProps.locations.length; i++) {
+    for (let i = 0; i < prevProps.locations.length; i += 1) {
         if (prevProps.locations[i].id !== nextProps.locations[i].id ||
             prevProps.locations[i].latitude !== nextProps.locations[i].latitude ||
             prevProps.locations[i].longitude !== nextProps.locations[i].longitude) {

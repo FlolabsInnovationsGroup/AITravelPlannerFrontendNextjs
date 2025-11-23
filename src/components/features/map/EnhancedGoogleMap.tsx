@@ -1,49 +1,56 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { Location, LocationType } from "@/types/map";
+import { MarkerClusterer, SuperClusterAlgorithm } from "@googlemaps/markerclusterer";
+import { Location } from "@/types/map";
 import { 
-  getMarkerConfig, 
-  createProfessionalMarker, 
-  CLUSTER_STYLES,
-  PROFESSIONAL_MAP_STYLES 
+  getMarkerConfig
+  // PROFESSIONAL_MAP_STYLES // Unused import
 } from "./ProfessionalMapMarkers";
-import { MAP_THEMES, DEFAULT_THEME, getMapTheme } from './MapThemes';
+import { getMapTheme } from './MapThemes';
 import RichLocationPopup from './RichLocationPopup';
+
+export interface RouteData {
+  origin: google.maps.LatLngLiteral;
+  destination: google.maps.LatLngLiteral;
+  waypoints?: google.maps.DirectionsWaypoint[];
+  travelMode?: google.maps.TravelMode;
+}
 
 interface EnhancedGoogleMapProps {
   locations: Location[];
-  onLocationAdd?: (location: Location) => void;
   onLocationSelect?: (location: Location) => void;
   className?: string;
   theme?: string;
+  routeData?: RouteData | null;
+  onRouteRendered?: (result: google.maps.DirectionsResult) => void;
 }
 
-interface GoogleMapsLibraries {
-  Map: typeof google.maps.Map;
-  AdvancedMarkerElement: typeof google.maps.marker.AdvancedMarkerElement;
-  PinElement: typeof google.maps.marker.PinElement;
-  places?: any;
-}
+// Unused interface
+// interface GoogleMapsLibraries {
+//   Map: typeof google.maps.Map;
+//   AdvancedMarkerElement: typeof google.maps.marker.AdvancedMarkerElement;
+//   PinElement: typeof google.maps.marker.PinElement;
+//   places?: any;
+// }
 
 const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
   locations,
-  onLocationAdd,
   onLocationSelect,
   className = "",
-  theme = "modern"
+  theme = "modern",
+  routeData = null,
+  onRouteRendered
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement>>(new Map());
+  const markersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement | google.maps.Marker>>(new Map());
+  const markerClustererRef = useRef<MarkerClusterer | null>(null);
+  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [hoveredLocation, setHoveredLocation] = useState<Location | null>(null);
-  const [locationWarnings, setLocationWarnings] = useState<Array<{
-    location: Location;
-    issues: string[];
-    confidence: number;
-  }>>([]);
   const [filteredLocationCount, setFilteredLocationCount] = useState(0);
   
   // Track user interaction to prevent auto-fitting when user is manually controlling zoom
@@ -59,7 +66,7 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
     if (typeof google !== 'undefined' && google.maps) {
       console.log('✅ Google Maps API already loaded');
       setIsLoaded(true);
-      return;
+      return undefined;
     }
 
     console.log('📥 Loading Google Maps API...');
@@ -89,13 +96,34 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
   }, []);
 
   // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
+  useEffect(() => () => {
       if (userInteractionTimeoutRef.current) {
         clearTimeout(userInteractionTimeoutRef.current);
       }
-    };
-  }, []);
+      
+      // Cleanup directions renderer
+      if (directionsRendererRef.current) {
+        directionsRendererRef.current.setMap(null);
+        directionsRendererRef.current = null;
+      }
+      
+      // Cleanup marker clusterer
+      if (markerClustererRef.current) {
+        markerClustererRef.current.clearMarkers();
+        markerClustererRef.current.setMap(null);
+        markerClustererRef.current = null;
+      }
+      
+      // Cleanup markers - handle both AdvancedMarkerElement and Marker
+      markersRef.current.forEach(marker => {
+        if (marker instanceof google.maps.Marker) {
+          marker.setMap(null);
+        } else if (marker instanceof google.maps.marker.AdvancedMarkerElement) {
+          marker.map = null;
+        }
+      });
+      markersRef.current.clear();
+    }, []);
 
   // Initialize map
   const initializeMap = useCallback(async () => {
@@ -134,11 +162,14 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
         gestureHandling: 'greedy',
       };
 
-      // Only set mapId if we have a real one, and only add styles if no mapId is present
-      if (mapId && mapId !== 'DEMO_MAP_ID') {
+      // Only set mapId if we have a valid one (required for Advanced Markers)
+      // Without a valid Map ID, we'll fall back to standard markers
+      if (mapId && mapId !== 'DEMO_MAP_ID' && mapId.trim() !== '') {
         mapConfig.mapId = mapId;
+        console.log('✅ Using Map ID for Advanced Markers:', mapId);
       } else {
-        // No mapId set, so we can use custom styles
+        console.log('⚠️ No valid Map ID - will use standard markers');
+        // Add custom styles when not using a Map ID
         const selectedMapTheme = getMapTheme(theme);
         mapConfig.styles = selectedMapTheme.styles;
       }
@@ -186,10 +217,14 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       // Trigger marker updates for any pending locations
       if (locations.length > 0) {
         console.log('🎯 Map initialized - creating markers for', locations.length, 'pending locations');
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
         setTimeout(() => updateMarkers(), 100); // Small delay to ensure map is fully ready
       }
 
-      // Add click listener for adding new locations
+      // Add click listener for adding new locations (disabled to prevent accidental pin adding)
+      // Users should add locations through chat or search instead
+      // Uncomment if you want to enable click-to-add functionality:
+      /*
       map.addListener('click', async (event: google.maps.MapMouseEvent) => {
         if (event.latLng && onLocationAdd) {
           const lat = event.latLng.lat();
@@ -220,6 +255,7 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
           }
         }
       });
+      */
 
       // Auto-fit bounds if locations exist (only on initial load, not when user is interacting)
       if (locations.length > 0 && !userInteracting && (Date.now() - lastUserInteraction > 3000)) {
@@ -278,21 +314,6 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
           confidence: validation.confidence,
           coordinates: `${location.latitude}, ${location.longitude}`
         });
-        
-        setLocationWarnings(prev => {
-          const existing = prev.find(w => w.location.id === location.id);
-          if (!existing) {
-            return [...prev, {
-              location,
-              issues: validation.issues,
-              confidence: validation.confidence
-            }];
-          }
-          return prev;
-        });
-      } else {
-        // Clear any existing warnings for valid locations
-        setLocationWarnings(prev => prev.filter(w => w.location.id !== location.id));
       }
 
       const config = getMarkerConfig(location.type, location);
@@ -303,7 +324,7 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       const lat = Number(location.latitude);
       const lng = Number(location.longitude);
       
-      if (isNaN(lat) || isNaN(lng)) {
+      if (Number.isNaN(lat) || Number.isNaN(lng)) {
         console.error('❌ Invalid coordinates for location:', location.name, { lat: location.latitude, lng: location.longitude });
         return;
       }
@@ -313,9 +334,9 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
         return;
       }
 
-      // Check if we have a valid Map ID for Advanced Markers
+      // Check if we have a valid Map ID for Advanced Markers (must match the map initialization check)
       const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
-      const hasValidMapId = mapId && mapId !== 'DEMO_MAP_ID';
+      const hasValidMapId = mapId && mapId !== 'DEMO_MAP_ID' && mapId.trim() !== '';
 
       let marker: google.maps.marker.AdvancedMarkerElement | google.maps.Marker;
 
@@ -325,14 +346,23 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
         const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker") as google.maps.MarkerLibrary;
         console.log('✅ Advanced marker library imported');
 
-        // Create professional pin element
+        // Create professional pin element with modern styling
         console.log('🎨 Creating PinElement with config:', config);
+        let pinScaleMultiplier: number;
+        if (isSelected) {
+          pinScaleMultiplier = 1.4;
+        } else if (isHovered) {
+          pinScaleMultiplier = 1.15;
+        } else {
+          pinScaleMultiplier = 1.0;
+        }
+        
         const pinElement = new PinElement({
-          background: config.background,
-          borderColor: config.borderColor,
-          glyphColor: config.glyphColor,
-          scale: config.scale * (isSelected ? 1.3 : isHovered ? 1.1 : 1.0),
-          glyphText: config.emoji
+          background: isSelected ? '#0066FF' : (isHovered ? '#0080FF' : config.background),
+          borderColor: isSelected ? '#FFFFFF' : (isHovered ? '#FFFFFF' : config.borderColor),
+          glyphColor: '#FFFFFF',
+          scale: config.scale * pinScaleMultiplier
+          // No glyphText for cleaner, modern look like Mindtrip/Layla
         } as any);
         console.log('✅ PinElement created:', pinElement);
 
@@ -342,6 +372,8 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
           position: { lat, lng },
           content: pinElement.element,
           title: location.name,
+          zIndex: isSelected ? 1000 : (isHovered ? 900 : 100),
+          gmpClickable: true,
         });
         console.log('✅ AdvancedMarkerElement created');
       } else {
@@ -349,14 +381,27 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
         console.log('📥 Using regular Marker (no Map ID available)');
         
         // Create custom icon for regular marker
-        const markerIcon: google.maps.Symbol = {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10 * (isSelected ? 1.3 : isHovered ? 1.1 : 1.0),
-          fillColor: config.background,
-          fillOpacity: 0.8,
-          strokeColor: config.borderColor,
-          strokeWeight: 2,
-          strokeOpacity: 1.0
+        let markerScaleMultiplier: number;
+        if (isSelected) {
+          markerScaleMultiplier = 1.3;
+        } else if (isHovered) {
+          markerScaleMultiplier = 1.1;
+        } else {
+          markerScaleMultiplier = 1.0;
+        }
+        // Use Google's built-in marker icon with custom color
+        const markerIcon: google.maps.Icon = {
+          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="48" viewBox="0 0 32 48">
+              <path d="M16 0C7.2 0 0 7.2 0 16c0 13.6 16 32 16 32s16-18.4 16-32c0-8.8-7.2-16-16-16z" 
+                    fill="${config.background}" 
+                    stroke="${config.borderColor}" 
+                    stroke-width="2"/>
+              <circle cx="16" cy="16" r="6" fill="${config.glyphColor || '#fff'}"/>
+            </svg>
+          `)}`,
+          scaledSize: new google.maps.Size(32 * markerScaleMultiplier, 48 * markerScaleMultiplier),
+          anchor: new google.maps.Point(16 * markerScaleMultiplier, 48 * markerScaleMultiplier)
         };
 
         console.log('📍 Creating regular Marker with position:', { lat, lng });
@@ -365,7 +410,10 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
           position: { lat, lng },
           title: location.name,
           icon: markerIcon,
-          clickable: true
+          clickable: true,
+          zIndex: isSelected ? 1000 : (isHovered ? 900 : 100),
+          visible: true,
+          optimized: false
         });
         console.log('✅ Regular Marker created');
       }
@@ -385,8 +433,8 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
         setHoveredLocation(null);
       });
 
-      // Store marker (using any to avoid TypeScript union type issues)
-      markersRef.current.set(location.id!, marker as any);
+      // Store marker
+      markersRef.current.set(location.id!, marker);
       console.log('✅ Marker created successfully for:', location.name, 'Total markers:', markersRef.current.size);
 
     } catch (error) {
@@ -414,10 +462,22 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
     markersRef.current.forEach((marker, id) => {
       if (!currentLocationIds.has(id)) {
         console.log('🗑️ Removing marker for location:', id);
-        marker.map = null; // Remove from map
+        // Handle both AdvancedMarkerElement and Marker
+        if (marker instanceof google.maps.Marker) {
+          marker.setMap(null);
+        } else if (marker instanceof google.maps.marker.AdvancedMarkerElement) {
+          marker.map = null;
+        }
         markersRef.current.delete(id);
       }
     });
+
+    // Clear existing clusterer if it exists
+    if (markerClustererRef.current) {
+      markerClustererRef.current.clearMarkers();
+      markerClustererRef.current.setMap(null);
+      markerClustererRef.current = null;
+    }
 
     // Add or update markers for current locations
     locations.forEach(location => {
@@ -431,6 +491,50 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
         console.log('⚠️ Location missing ID:', location.name);
       }
     });
+
+    // Initialize marker clustering if we have multiple locations
+    if (locations.length > 5) {
+      const markers = Array.from(markersRef.current.values());
+      console.log(`🔷 Initializing marker clustering for ${markers.length} markers`);
+      
+      markerClustererRef.current = new MarkerClusterer({
+        map: mapInstanceRef.current,
+        markers: markers,
+        algorithm: new SuperClusterAlgorithm({
+          maxZoom: 15, // Cluster markers until zoom level 15
+          radius: 120, // Cluster radius in pixels
+        }),
+        renderer: {
+          render: ({ count, position }) => {
+            // Custom cluster styling to match app theme
+            const color = count > 10 ? '#3B82F6' : count > 5 ? '#60A5FA' : '#93C5FD';
+            const size = count > 10 ? 60 : count > 5 ? 50 : 40;
+            
+            return new google.maps.Marker({
+              position,
+              icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                fillColor: color,
+                fillOpacity: 0.9,
+                strokeColor: '#FFFFFF',
+                strokeWeight: 3,
+                scale: size / 2,
+              },
+              label: {
+                text: String(count),
+                color: '#FFFFFF',
+                fontSize: '14px',
+                fontWeight: 'bold',
+              },
+              title: `${count} locations`,
+              zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
+            });
+          },
+        },
+      });
+      
+      console.log('✅ Marker clustering initialized');
+    }
 
     // Smart bounds calculation with geographic clustering
     console.log(`🎯 FitBounds check: ${locations.length} locations, map ready: ${!!mapInstanceRef.current}`);
@@ -471,7 +575,8 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       const now = Date.now();
       const timeSinceLastInteraction = now - lastUserInteraction;
       
-      if (userInteracting || timeSinceLastInteraction < 3000) {
+      // Increased timeout to 10 seconds to allow auto-fit when adding first location
+      if (userInteracting || (timeSinceLastInteraction < 10000 && locations.length > 1)) {
         console.log(`🙋‍♂️ User is interacting with map (${timeSinceLastInteraction}ms ago) - skipping auto-fit bounds`);
         return; // Skip bounds fitting to preserve user's zoom/position
       }
@@ -487,8 +592,8 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       // Calculate maximum distance from center
       const maxDistance = filteredLocations.reduce((max, location) => {
         const distance = Math.sqrt(
-          Math.pow(location.latitude - centerLat, 2) + 
-          Math.pow(location.longitude - centerLng, 2)
+          (location.latitude - centerLat)**2 + 
+          (location.longitude - centerLng)**2
         );
         return Math.max(max, distance);
       }, 0);
@@ -514,8 +619,8 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
             if (processed.has(otherIndex)) return;
             
             const distance = Math.sqrt(
-              Math.pow(location.latitude - otherLocation.latitude, 2) + 
-              Math.pow(location.longitude - otherLocation.longitude, 2)
+              (location.latitude - otherLocation.latitude)**2 + 
+              (location.longitude - otherLocation.longitude)**2
             );
             
             if (distance < 0.2) { // Within ~20km for tight city clustering
@@ -535,7 +640,7 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
         console.log(`🎯 Using tightest cluster of ${largestCluster.length} locations for city-level bounds`);
         
         const bounds = new google.maps.LatLngBounds();
-        largestCluster.forEach((location: Location, index: number) => {
+        largestCluster.forEach((location: Location) => {
           const coords = { lat: location.latitude, lng: location.longitude };
           bounds.extend(coords);
           console.log(`📍 Cluster bounds extended with: ${location.name} at ${coords.lat}, ${coords.lng}`);
@@ -560,7 +665,7 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       console.log(`✅ Smart bounds applied successfully`);
       
       // Ensure reasonable zoom levels
-      const listener = google.maps.event.addListenerOnce(mapInstanceRef.current, 'bounds_changed', () => {
+      google.maps.event.addListenerOnce(mapInstanceRef.current, 'bounds_changed', () => {
         const zoom = mapInstanceRef.current!.getZoom();
         console.log(`🔍 Zoom after fitBounds: ${zoom}`);
         
@@ -614,6 +719,55 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
     }
   }, [locations, updateMarkers, isLoaded]);
 
+  // Render route when routeData changes
+  useEffect(() => {
+    if (!isLoaded || !mapInstanceRef.current || !routeData) {
+      // Clear existing route if no route data
+      if (directionsRendererRef.current) {
+        directionsRendererRef.current.setMap(null);
+        directionsRendererRef.current = null;
+      }
+      return;
+    }
+
+    // Initialize DirectionsService if needed
+    if (!directionsServiceRef.current) {
+      directionsServiceRef.current = new google.maps.DirectionsService();
+    }
+
+    // Initialize DirectionsRenderer if needed
+    if (!directionsRendererRef.current) {
+      directionsRendererRef.current = new google.maps.DirectionsRenderer({
+        map: mapInstanceRef.current,
+        suppressMarkers: false, // Show default markers for start/end
+        polylineOptions: {
+          strokeColor: '#4285F4',
+          strokeWeight: 5,
+          strokeOpacity: 0.8
+        }
+      });
+    }
+
+    // Request directions
+    const request: google.maps.DirectionsRequest = {
+      origin: routeData.origin,
+      destination: routeData.destination,
+      travelMode: routeData.travelMode || google.maps.TravelMode.DRIVING,
+      waypoints: routeData.waypoints || []
+    };
+
+    directionsServiceRef.current.route(request, (result, status) => {
+      if (status === google.maps.DirectionsStatus.OK && result) {
+        directionsRendererRef.current?.setDirections(result);
+        if (onRouteRendered) {
+          onRouteRendered(result);
+        }
+      } else {
+        console.error('Directions request failed:', status);
+      }
+    });
+  }, [isLoaded, routeData, onRouteRendered]);
+
   // Update marker styles when selection changes
   useEffect(() => {
     markersRef.current.forEach(async (marker, locationId) => {
@@ -631,11 +785,37 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
           background: config.background,
           borderColor: config.borderColor,
           glyphColor: config.glyphColor,
-          scale: config.scale * (isSelected ? 1.3 : isHovered ? 1.1 : 1.0),
+          scale: config.scale * (() => {
+            if (isSelected) return 1.3;
+            if (isHovered) return 1.1;
+            return 1.0;
+          })(),
           glyphText: config.emoji
         } as any);
 
-        marker.content = pinElement.element;
+        // Create new marker to replace the old one - handle both marker types
+        const rawMap = marker instanceof google.maps.Marker ? marker.getMap() : marker.map;
+        const currentMap = (rawMap instanceof google.maps.Map) ? rawMap : null;
+        const currentPosition = marker instanceof google.maps.Marker ? marker.getPosition() : marker.position;
+        const currentTitle = marker instanceof google.maps.Marker ? marker.getTitle() : marker.title;
+        
+        // Remove old marker and create new one with updated content
+        if (marker instanceof google.maps.Marker) {
+          marker.setMap(null);
+        } else if (marker instanceof google.maps.marker.AdvancedMarkerElement) {
+          marker.map = null;
+        }
+        
+        const newMarker = new google.maps.marker.AdvancedMarkerElement({
+          map: currentMap,
+          position: currentPosition,
+          content: pinElement.element,
+          title: currentTitle
+        });
+        
+        // Update the marker reference in the map
+        markersRef.current.set(locationId, newMarker);
+        
       } catch (error) {
         console.error('Failed to update marker style:', error);
       }
@@ -664,7 +844,7 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       {!isLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2" />
             <div className="text-gray-600">Loading professional map...</div>
           </div>
         </div>
@@ -690,6 +870,7 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
               </div>
             </div>
             <button
+              type="button"
               onClick={() => setFilteredLocationCount(0)}
               className="ml-2 text-orange-700 hover:text-orange-900 text-xs font-bold"
               title="Dismiss notification"

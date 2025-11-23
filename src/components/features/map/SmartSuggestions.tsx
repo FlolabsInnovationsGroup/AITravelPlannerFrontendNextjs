@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { Location, LocationType } from '@/types/map';
-import { MapPin, Clock, Star, Users, Camera, Navigation, X, Plus, Sparkles } from 'lucide-react';
+import { MapPin, Clock, Star, Camera, X, Plus, Sparkles } from 'lucide-react';
 
 interface SmartSuggestionsProps {
   currentLocation?: Location;
@@ -45,79 +46,38 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
     { id: 'entertainment', name: 'Fun', icon: '🎭' }
   ];
 
-  // Smart suggestion algorithm inspired by Mindtrip's AI recommendations
-  const generateSmartSuggestions = useCallback(async () => {
-    if (!currentLocation || !map) return;
+  // ==================== HELPER FUNCTIONS ====================
+  // These must be defined before generateSmartSuggestions uses them
+  
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c * 1000; // Convert to meters
+  };
 
-    setIsLoading(true);
-
-    try {
-      // Get Places service
-      const placesService = new google.maps.places.PlacesService(map);
-      
-      // Define search parameters based on current location and user context
-      const searchParams = {
-        location: new google.maps.LatLng(currentLocation.latitude, currentLocation.longitude),
-        radius: 2000, // 2km radius
-        types: ['tourist_attraction', 'restaurant', 'cafe', 'museum', 'park', 'shopping_mall'],
-        openNow: undefined as boolean | undefined
-      };
-
-      // Get time of day for context-aware suggestions
-      const hour = new Date().getHours();
-      const timeContext = hour < 11 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
-
-      // Adjust search based on time context
-      if (timeContext === 'morning') {
-        searchParams.types = ['cafe', 'park', 'tourist_attraction', 'museum'];
-      } else if (timeContext === 'evening') {
-        searchParams.types = ['restaurant', 'bar', 'night_club', 'entertainment'];
-        searchParams.openNow = true;
-      }
-
-      // Perform nearby search
-      placesService.nearbySearch(searchParams, (results, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          const suggestions = results.slice(0, 8).map((place, index): SuggestionCard => {
-            const distance = calculateDistance(
-              currentLocation.latitude,
-              currentLocation.longitude,
-              place.geometry?.location?.lat() || 0,
-              place.geometry?.location?.lng() || 0
-            );
-
-            return {
-              id: place.place_id || `suggestion-${index}`,
-              name: place.name || 'Unknown Place',
-              category: mapGoogleTypeToOurType(place.types?.[0] || 'establishment'),
-              rating: place.rating,
-              priceLevel: place.price_level as 1 | 2 | 3 | 4,
-              distance: Math.round(distance),
-              travelTime: `${Math.round(distance / 80)} min walk`, // Rough walking time
-              imageUrl: place.photos?.[0]?.getUrl({ maxWidth: 300, maxHeight: 200 }),
-              isOpen: place.opening_hours?.isOpen(),
-              position: {
-                lat: place.geometry?.location?.lat() || 0,
-                lng: place.geometry?.location?.lng() || 0
-              },
-              reason: generateReasonText(place, timeContext, currentLocation),
-              tags: generateTags(place, timeContext)
-            };
-          });
-
-          setSuggestions(suggestions);
-        }
-        setIsLoading(false);
-      });
-
-    } catch (error) {
-      console.error('Error generating smart suggestions:', error);
-      setIsLoading(false);
-    }
-  }, [currentLocation, map]);
+  const mapGoogleTypeToOurType = (googleType: string): LocationType => {
+    const typeMap: { [key: string]: LocationType } = {
+      'tourist_attraction': 'attraction',
+      'restaurant': 'restaurant',
+      'lodging': 'hotel',
+      'cafe': 'cafe',
+      'museum': 'museum',
+      'park': 'park',
+      'shopping_mall': 'shopping',
+      'night_club': 'entertainment',
+      'bar': 'entertainment'
+    };
+    return typeMap[googleType] || 'attraction';
+  };
 
   // Generate AI-like reason text for suggestions
-  const generateReasonText = (place: google.maps.places.PlaceResult, timeContext: string, currentLocation: Location): string => {
+  const generateReasonText = (place: google.maps.places.PlaceResult, timeContext: string): string => {
     const reasons = {
       morning: [
         'Perfect for your morning exploration',
@@ -154,33 +114,85 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
     return tags.slice(0, 2); // Limit to 2 tags
   };
 
-  // Helper functions
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Earth's radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c * 1000; // Convert to meters
-  };
+  // ==================== END HELPER FUNCTIONS ====================
 
-  const mapGoogleTypeToOurType = (googleType: string): LocationType => {
-    const typeMap: { [key: string]: LocationType } = {
-      'tourist_attraction': 'attraction',
-      'restaurant': 'restaurant',
-      'lodging': 'hotel',
-      'cafe': 'cafe',
-      'museum': 'museum',
-      'park': 'park',
-      'shopping_mall': 'shopping',
-      'night_club': 'entertainment',
-      'bar': 'entertainment'
-    };
-    return typeMap[googleType] || 'attraction';
-  };
+  // Smart suggestion algorithm inspired by Mindtrip's AI recommendations
+  const generateSmartSuggestions = useCallback(async () => {
+    if (!currentLocation || !map) return;
+
+    setIsLoading(true);
+
+    try {
+      // Get Places service
+      const placesService = new google.maps.places.PlacesService(map);
+      
+      // Define search parameters based on current location and user context
+      const searchParams = {
+        location: new google.maps.LatLng(currentLocation.latitude, currentLocation.longitude),
+        radius: 2000, // 2km radius
+        types: ['tourist_attraction', 'restaurant', 'cafe', 'museum', 'park', 'shopping_mall'],
+        openNow: undefined as boolean | undefined
+      };
+
+      // Get time of day for context-aware suggestions
+      const hour = new Date().getHours();
+      let timeContext: string;
+      if (hour < 11) {
+        timeContext = 'morning';
+      } else if (hour < 17) {
+        timeContext = 'afternoon';
+      } else {
+        timeContext = 'evening';
+      }
+
+      // Adjust search based on time context
+      if (timeContext === 'morning') {
+        searchParams.types = ['cafe', 'park', 'tourist_attraction', 'museum'];
+      } else if (timeContext === 'evening') {
+        searchParams.types = ['restaurant', 'bar', 'night_club', 'entertainment'];
+        searchParams.openNow = true;
+      }
+
+      // Perform nearby search
+      placesService.nearbySearch(searchParams, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          const nearbySuggestions = results.slice(0, 8).map((place, index): SuggestionCard => {
+            const distance = calculateDistance(
+              currentLocation.latitude,
+              currentLocation.longitude,
+              place.geometry?.location?.lat() || 0,
+              place.geometry?.location?.lng() || 0
+            );
+
+            return {
+              id: place.place_id || `suggestion-${index}`,
+              name: place.name || 'Unknown Place',
+              category: mapGoogleTypeToOurType(place.types?.[0] || 'establishment'),
+              rating: place.rating,
+              priceLevel: place.price_level as 1 | 2 | 3 | 4,
+              distance: Math.round(distance),
+              travelTime: `${Math.round(distance / 80)} min walk`, // Rough walking time
+              imageUrl: place.photos?.[0]?.getUrl({ maxWidth: 300, maxHeight: 200 }),
+              isOpen: place.opening_hours?.isOpen(),
+              position: {
+                lat: place.geometry?.location?.lat() || 0,
+                lng: place.geometry?.location?.lng() || 0
+              },
+              reason: generateReasonText(place, timeContext),
+              tags: generateTags(place, timeContext)
+            };
+          });
+
+          setSuggestions(nearbySuggestions);
+        }
+        setIsLoading(false);
+      });
+
+    } catch (error) {
+      console.error('Error generating smart suggestions:', error);
+      setIsLoading(false);
+    }
+  }, [currentLocation, map]);
 
   // Generate suggestions when location changes
   useEffect(() => {
@@ -212,6 +224,7 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => setIsExpanded(!isExpanded)}
               className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
             >
@@ -224,6 +237,7 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
         <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
           {categories.map(category => (
             <button
+              type="button"
               key={category.id}
               onClick={() => setSelectedCategory(category.id)}
               className={`flex items-center gap-1 px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
@@ -243,7 +257,7 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
       <div className={`${isExpanded ? 'max-h-96' : 'max-h-48'} overflow-y-auto`}>
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600" />
           </div>
         ) : (
           <div className="p-4 space-y-3">
@@ -262,13 +276,34 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString()
                 })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onLocationSelect({
+                      id: suggestion.id,
+                      name: suggestion.name,
+                      latitude: suggestion.position.lat,
+                      longitude: suggestion.position.lng,
+                      type: suggestion.category,
+                      rating: suggestion.rating,
+                      priceLevel: suggestion.priceLevel as 1 | 2 | 3 | 4 | undefined,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString()
+                    });
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Select ${suggestion.name}`}
               >
                 {/* Image/Icon */}
                 <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-500 rounded-lg flex items-center justify-center text-white text-lg flex-shrink-0">
                   {suggestion.imageUrl ? (
-                    <img 
+                    <Image 
                       src={suggestion.imageUrl} 
                       alt={suggestion.name}
+                      width={48}
+                      height={48}
                       className="w-full h-full object-cover rounded-lg"
                     />
                   ) : (
@@ -281,6 +316,7 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
                   <div className="flex items-start justify-between">
                     <h4 className="font-semibold text-sm text-gray-900 truncate">{suggestion.name}</h4>
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onAddToTrip({

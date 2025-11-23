@@ -10,8 +10,6 @@ import {
     Navigation, 
     Settings, 
     X,
-    ChevronDown,
-    ChevronUp,
     Loader2
 } from 'lucide-react';
 
@@ -22,7 +20,13 @@ interface RoutePanelProps {
     map?: google.maps.Map | null;
 }
 
-const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLocationAdd, map }) => {
+const RoutePanel: React.FC<RoutePanelProps> = ({ 
+    locations, 
+    onRouteChange, 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onLocationAdd, 
+    map 
+}) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [optimizedRoute, setOptimizedRoute] = useState<OptimizedRoute | null>(null);
@@ -56,6 +60,7 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
                 renderer.setMap(null);
             };
         }
+        return undefined;
     }, [map]);
 
     // Optimize route when locations or options change
@@ -161,6 +166,7 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
             {/* Toggle Button */}
             {!isOpen && (
                 <button
+                    type="button"
                     onClick={() => setIsOpen(true)}
                     className="bg-blue-600 text-white rounded-lg shadow-lg p-3 hover:bg-blue-700 transition-colors flex items-center gap-2"
                     title="Optimize Route"
@@ -180,6 +186,7 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
                             <h3 className="font-semibold text-gray-900">Route Optimization</h3>
                         </div>
                         <button
+                            type="button"
                             onClick={() => setIsOpen(false)}
                             className="text-gray-400 hover:text-gray-600"
                         >
@@ -191,9 +198,9 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
                     <div className="p-4 space-y-4">
                         {/* Travel Mode Selection */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <div className="block text-sm font-medium text-gray-700 mb-2">
                                 Travel Mode
-                            </label>
+                            </div>
                             <div className="grid grid-cols-2 gap-2">
                                 {[
                                     { mode: google.maps?.TravelMode?.DRIVING || 'DRIVING' as google.maps.TravelMode, label: 'Driving' },
@@ -202,6 +209,7 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
                                     { mode: google.maps?.TravelMode?.TRANSIT || 'TRANSIT' as google.maps.TravelMode, label: 'Transit' }
                                 ].map(({ mode, label }) => (
                                     <button
+                                        type="button"
                                         key={mode}
                                         onClick={() => setOptions(prev => ({ ...prev, travelMode: mode }))}
                                         className={`flex items-center gap-2 p-2 rounded-md text-sm font-medium transition-colors ${
@@ -219,13 +227,14 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
 
                         {/* Options */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <div className="block text-sm font-medium text-gray-700 mb-2">
                                 <Settings size={16} className="inline mr-1" />
                                 Options
-                            </label>
+                            </div>
                             <div className="space-y-2">
-                                <label className="flex items-center">
+                                <div className="flex items-center">
                                     <input
+                                        id="optimize-waypoints"
                                         type="checkbox"
                                         checked={options.optimizeWaypoints}
                                         onChange={(e) => setOptions(prev => ({ 
@@ -234,13 +243,14 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
                                         }))}
                                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                     />
-                                    <span className="ml-2 text-sm text-gray-700">Optimize waypoint order</span>
-                                </label>
+                                    <label htmlFor="optimize-waypoints" className="ml-2 text-sm text-gray-700">Optimize waypoint order</label>
+                                </div>
                                 
                                 {options.travelMode === google.maps?.TravelMode?.DRIVING && (
                                     <>
-                                        <label className="flex items-center">
+                                        <div className="flex items-center">
                                             <input
+                                                id="avoid-highways"
                                                 type="checkbox"
                                                 checked={options.avoidHighways}
                                                 onChange={(e) => setOptions(prev => ({ 
@@ -249,11 +259,12 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
                                                 }))}
                                                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                             />
-                                            <span className="ml-2 text-sm text-gray-700">Avoid highways</span>
-                                        </label>
+                                            <label htmlFor="avoid-highways" className="ml-2 text-sm text-gray-700">Avoid highways</label>
+                                        </div>
                                         
-                                        <label className="flex items-center">
+                                        <div className="flex items-center">
                                             <input
+                                                id="avoid-tolls"
                                                 type="checkbox"
                                                 checked={options.avoidTolls}
                                                 onChange={(e) => setOptions(prev => ({ 
@@ -262,8 +273,8 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
                                                 }))}
                                                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                             />
-                                            <span className="ml-2 text-sm text-gray-700">Avoid tolls</span>
-                                        </label>
+                                            <label htmlFor="avoid-tolls" className="ml-2 text-sm text-gray-700">Avoid tolls</label>
+                                        </div>
                                     </>
                                 )}
                             </div>
@@ -271,6 +282,7 @@ const RoutePanel: React.FC<RoutePanelProps> = ({ locations, onRouteChange, onLoc
 
                         {/* Optimize Button */}
                         <button
+                            type="button"
                             onClick={optimizeRoute}
                             disabled={isLoading}
                             className="w-full bg-blue-600 text-white px-4 py-2 rounded-md font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"

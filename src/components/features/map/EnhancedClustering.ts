@@ -63,7 +63,7 @@ const createClusterIcon = (
     </svg>
   `;
   
-  return 'data:image/svg+xml,' + encodeURIComponent(svg);
+  return `data:image/svg+xml,${  encodeURIComponent(svg)}`;
 };
 
 // Professional cluster styles for different sizes and densities
@@ -123,6 +123,7 @@ export const ENHANCED_CLUSTER_CONFIG: ClusterConfig = {
 // Smart clustering algorithm that considers location types
 export class SmartLocationClusterer {
   private clusterer: MarkerClusterer | null = null;
+
   private map: google.maps.Map | null = null;
 
   constructor(map: google.maps.Map) {
@@ -146,17 +147,17 @@ export class SmartLocationClusterer {
 
           // Dynamic sizing based on count and zoom level
           if (count < 10) {
-            style = ENHANCED_CLUSTER_STYLES[0];
-            color = MARKER_COLORS.primary;
+            [style] = ENHANCED_CLUSTER_STYLES;
+            ({ primary: color } = MARKER_COLORS);
           } else if (count < 100) {
-            style = ENHANCED_CLUSTER_STYLES[1];
-            color = MARKER_COLORS.warning;
+            [, style] = ENHANCED_CLUSTER_STYLES;
+            ({ warning: color } = MARKER_COLORS);
           } else if (count < 1000) {
-            style = ENHANCED_CLUSTER_STYLES[2];
-            color = MARKER_COLORS.danger;
+            [, , style] = ENHANCED_CLUSTER_STYLES;
+            ({ danger: color } = MARKER_COLORS);
           } else {
-            style = ENHANCED_CLUSTER_STYLES[3];
-            color = MARKER_COLORS.secondary;
+            [, , , style] = ENHANCED_CLUSTER_STYLES;
+            ({ secondary: color } = MARKER_COLORS);
           }
 
           // Adjust size based on zoom level (smaller at higher zoom)
@@ -197,7 +198,7 @@ export class SmartLocationClusterer {
 
           // Add click handler to zoom into cluster
           clusterElement.addEventListener('click', () => {
-            const bounds = new google.maps.LatLngBounds();
+            // const bounds = new google.maps.LatLngBounds();
             
             // Get all markers in this cluster and fit bounds
             // Note: This would need access to the actual markers in the cluster
@@ -235,7 +236,7 @@ export class SmartLocationClusterer {
   }
 
   // Update cluster configuration
-  updateConfig(config: Partial<ClusterConfig>) {
+  updateConfig(/* config: Partial<ClusterConfig> */) {
     // Reinitialize clusterer with new config if needed
     this.initializeClusterer();
   }

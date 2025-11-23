@@ -1,12 +1,3 @@
-import Image from "next/legacy/image"
-
-const partners = [
-  { name: "Amadeus", logo: "/images/amadeus-logo.png" },
-  { name: "Booking", logo: "/images/booking-logo.png" },
-  { name: "Trivago", logo: "/images/trivago-logo.png" },
-  { name: "Airbnb", logo: "/images/airbnb-logo.png" },
-]
-
 export function TourPartners() {
   return (
     <section className="py-16 bg-gray-100">

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React from 'react';
 import { Loader2, AlertCircle, Wifi, WifiOff, Clock, CheckCircle2, Circle, RotateCcw, X } from 'lucide-react';
 import { ConnectionState } from '@/hooks/useEnhancedWebSocket';
 
@@ -155,6 +155,7 @@ export const MessageStatusIndicator: React.FC<MessageStatusIndicatorProps> = ({
       
       {showRetryButton && (
         <button
+          type="button"
           onClick={() => onRetry(status.id)}
           className="inline-flex items-center space-x-1 px-2 py-1 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
         >
@@ -165,6 +166,7 @@ export const MessageStatusIndicator: React.FC<MessageStatusIndicatorProps> = ({
       
       {showCancelButton && (
         <button
+          type="button"
           onClick={() => onCancel(status.id)}
           className="inline-flex items-center space-x-1 px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
         >
@@ -269,6 +271,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
       
       {canCancel && onCancel && (
         <button
+          type="button"
           onClick={onCancel}
           className="ml-4 px-3 py-1 text-sm text-red-600 bg-red-100 rounded hover:bg-red-200 transition-colors"
         >
@@ -334,6 +337,7 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = ({
         <div className="ml-4 flex space-x-2">
           {canRetry && onRetry && (
             <button
+              type="button"
               onClick={onRetry}
               className="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
             >
@@ -343,6 +347,7 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = ({
           
           {canDismiss && onDismiss && (
             <button
+              type="button"
               onClick={onDismiss}
               className="p-1 hover:bg-white rounded transition-colors"
             >

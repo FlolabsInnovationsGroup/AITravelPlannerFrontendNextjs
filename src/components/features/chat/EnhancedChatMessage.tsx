@@ -1,11 +1,12 @@
 // Enhanced Chat Message Component with better UX
+
 'use client';
 
 import React from 'react';
 import { Message } from '@/types/chat';
 import { User, Bot, Copy, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { Components } from 'react-markdown';
 
 interface EnhancedChatMessageProps {
   message: Message;
@@ -13,6 +14,14 @@ interface EnhancedChatMessageProps {
   onFeedback?: (messageId: number, type: 'like' | 'dislike') => void;
   onCopy?: (content: string) => void;
 }
+
+// Define markdown components OUTSIDE the component to prevent re-creation on every render
+const markdownComponents: Components = {
+  p: ({ children }) => <p className="mb-2 leading-relaxed">{children}</p>,
+  ul: ({ children }) => <ul className="list-disc ml-4 mb-2 space-y-1">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal ml-4 mb-2 space-y-1">{children}</ol>,
+  strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+};
 
 export default function EnhancedChatMessage({ 
   message, 
@@ -73,12 +82,7 @@ export default function EnhancedChatMessage({
           ) : (
             <ReactMarkdown 
               className="markdown-content"
-              components={{
-                p: ({ children }) => <p className="mb-2 leading-relaxed">{children}</p>,
-                ul: ({ children }) => <ul className="list-disc ml-4 mb-2 space-y-1">{children}</ul>,
-                ol: ({ children }) => <ol className="list-decimal ml-4 mb-2 space-y-1">{children}</ol>,
-                strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
-              }}
+              components={markdownComponents}
             >
               {message.content}
             </ReactMarkdown>

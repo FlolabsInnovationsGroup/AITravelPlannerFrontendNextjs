@@ -1,8 +1,9 @@
 // Enhanced loading states and animations
+
 'use client';
 
 import React from 'react';
-import { MessageSquare, Map, Loader2, Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import { MessageSquare, Map, Loader2, WifiOff, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LoadingStateProps {
@@ -280,6 +281,7 @@ export function ErrorState({
 
       {onRetry && (
         <button
+          type="button"
           onClick={onRetry}
           className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
         >

@@ -1,5 +1,10 @@
 // jest.setup.ts
 import '@testing-library/jest-dom'
+import { TextEncoder, TextDecoder } from 'util'
+
+// Polyfill TextEncoder/TextDecoder for streaming tests
+global.TextEncoder = TextEncoder as any
+global.TextDecoder = TextDecoder as any
 
 // Mock fetch globally for all tests
 global.fetch = jest.fn()

@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import MapControls from '../MapControls';
 import { Location } from '@/types/map';
+import MapControls from '../MapControls';
 
 describe('MapControls', () => {
   const mockLocations: Location[] = [
@@ -43,7 +43,7 @@ describe('MapControls', () => {
   });
 
   it('displays correct fullscreen button state when fullscreen', () => {
-    render(<MapControls {...defaultProps} isFullscreen={true} />);
+    render(<MapControls {...defaultProps} isFullscreen />);
 
     const fullscreenButton = screen.getByRole('button', { name: /fullscreen/i });
     expect(fullscreenButton).toHaveAttribute('title', 'Exit Fullscreen (ESC)');
@@ -57,7 +57,7 @@ describe('MapControls', () => {
   });
 
   it('displays correct weather button state when weather is shown', () => {
-    render(<MapControls {...defaultProps} isWeatherVisible={true} />);
+    render(<MapControls {...defaultProps} isWeatherVisible />);
 
     const weatherButton = screen.getByRole('button', { name: /weather/i });
     expect(weatherButton).toHaveAttribute('title', 'Hide Weather');
@@ -146,8 +146,8 @@ describe('MapControls', () => {
 
     rerender(
       <MapControls 
-        isFullscreen={true}
-        isWeatherVisible={true}
+        isFullscreen
+        isWeatherVisible
         onToggleFullscreen={jest.fn()}
         onToggleWeather={jest.fn()}
         locations={mockLocations}
@@ -245,7 +245,7 @@ describe('MapControls', () => {
     expect(weatherButton.querySelector('svg')).toBeInTheDocument();
 
     rerender(
-      <MapControls {...defaultProps} isWeatherVisible={true} />
+      <MapControls {...defaultProps} isWeatherVisible />
     );
 
     // When weather is visible, should show "hide weather" icon  

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { useMessageRetry, useChatErrorHandler } from './useMessageRetry';
 import { MessageStatus } from '@/components/ui/ChatUIComponents';
+import { useMessageRetry, useChatErrorHandler } from './useMessageRetry';
 
 interface Message {
   id: number;
@@ -34,8 +34,7 @@ interface UseEnhancedMessagingResult {
 }
 
 export const useEnhancedMessaging = (
-  sendMessageApi: (message: string) => Promise<any>,
-  sessionId?: string
+  sendMessageApi: (message: string) => Promise<any>
 ): UseEnhancedMessagingResult => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +46,8 @@ export const useEnhancedMessaging = (
   const messageIdCounterRef = useRef(0);
 
   const generateMessageId = useCallback(() => {
-    return ++messageIdCounterRef.current;
+    messageIdCounterRef.current += 1;
+    return messageIdCounterRef.current;
   }, []);
 
   const updateMessageStatus = useCallback((messageId: number, statusUpdate: Partial<MessageStatus>) => {
@@ -77,15 +77,7 @@ export const useEnhancedMessaging = (
     return newMessage.id;
   }, [generateMessageId]);
 
-  const updateMessage = useCallback((messageId: number, updates: Partial<Message>) => {
-    setMessages(prev => prev.map(msg => 
-      msg.id === messageId ? { ...msg, ...updates } : msg
-    ));
-  }, []);
 
-  const removeMessage = useCallback((messageId: number) => {
-    setMessages(prev => prev.filter(msg => msg.id !== messageId));
-  }, []);
 
   const createAbortableOperation = useCallback(<T,>(
     messageId: number,
@@ -143,7 +135,7 @@ export const useEnhancedMessaging = (
     } catch (error: any) {
       if (signal?.aborted || error.message === 'Operation cancelled') {
         updateMessageStatus(messageId, { status: 'failed', error: 'Cancelled' });
-        return;
+        return undefined;
       }
 
       const { errorMessage } = handleError(error, 'sendMessage');
@@ -278,29 +270,25 @@ export const useEnhancedMessaging = (
     setIsLoading(false);
   }, []);
 
-  const getFailedMessages = useCallback(() => {
-    return messages.filter(msg => msg.status?.status === 'failed');
-  }, [messages]);
+  const getFailedMessages = useCallback(() => messages.filter(msg => msg.status?.status === 'failed'), [messages]);
 
   const retryAllFailed = useCallback(async () => {
     const failedMessages = getFailedMessages();
     
-    for (const message of failedMessages) {
-      if (message.originalMessage) {
-        await retryMessage(message.id);
-      }
-    }
+    await Promise.all(
+      failedMessages
+        .filter(message => message.originalMessage)
+        .map(message => retryMessage(message.id))
+    );
   }, [getFailedMessages, retryMessage]);
 
   // Memoize computed values
-  const computedIsLoading = useMemo(() => {
-    return isLoading || 
+  const computedIsLoading = useMemo(() => isLoading || 
            messages.some(msg => 
              msg.status?.status === 'sending' || 
              msg.status?.status === 'retrying'
            ) ||
-           retryState.isRetrying;
-  }, [isLoading, messages, retryState.isRetrying]);
+           retryState.isRetrying, [isLoading, messages, retryState.isRetrying]);
 
   return {
     messages,

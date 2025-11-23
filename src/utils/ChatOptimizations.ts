@@ -1,15 +1,19 @@
+/* eslint-disable max-classes-per-file */
 /**
  * Enhanced chat performance optimizations for better user experience
  */
 
-import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { debounce } from 'lodash';
 
 // Message batching for better WebSocket performance
 export class MessageBatcher {
     private batchQueue: any[] = [];
+
     private batchTimeout: NodeJS.Timeout | null = null;
+
     private readonly batchDelay = 100; // 100ms batch window
+
     private readonly maxBatchSize = 10;
 
     constructor(private sendBatch: (messages: any[]) => void) {}
@@ -89,7 +93,7 @@ export const useChatVirtualization = (messages: any[], containerHeight: number) 
 // Optimized typing indicator
 export const useTypingIndicator = (isTyping: boolean, delay: number = 300) => {
     const [showIndicator, setShowIndicator] = useState(false);
-    const timeoutRef = useRef<NodeJS.Timeout>();
+    // const timeoutRef = useRef<NodeJS.Timeout>();
 
     const debouncedSetTyping = useMemo(
         () => debounce((typing: boolean) => {
@@ -112,7 +116,9 @@ export const useTypingIndicator = (isTyping: boolean, delay: number = 300) => {
 // Message deduplication
 export class MessageDeduplicator {
     private recentMessages = new Set<string>();
+
     private readonly maxRecentMessages = 100;
+
     private readonly messageTtl = 30000; // 30 seconds
 
     addMessage(messageId: string, content: string): boolean {
@@ -149,6 +155,7 @@ export class MessageDeduplicator {
 // Connection quality monitoring
 export class ConnectionQualityMonitor {
     private latencyHistory: number[] = [];
+
     private readonly maxHistoryLength = 10;
     
     recordLatency(latency: number) {
@@ -182,6 +189,7 @@ export class ConnectionQualityMonitor {
             case 'good': return '#84cc16'; // lime
             case 'fair': return '#f59e0b'; // amber
             case 'poor': return '#ef4444'; // red
+            default: return '#6b7280'; // gray fallback
         }
     }
 }

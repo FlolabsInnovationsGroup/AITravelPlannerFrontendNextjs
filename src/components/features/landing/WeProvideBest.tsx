@@ -15,9 +15,9 @@ export function WeProvideBest() {
           The best AI travel system is here to assist you in everything when it comes to planning your trips.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {features.map((feature, index) => (
+          {features.map((feature) => (
             <Card 
-              key={index} 
+              key={feature.title} 
               className="p-6 border border-gray-200 rounded-lg shadow-md bg-white hover:shadow-lg transition-shadow duration-300"
             >
               <CardContent className="flex flex-col items-center p-6">

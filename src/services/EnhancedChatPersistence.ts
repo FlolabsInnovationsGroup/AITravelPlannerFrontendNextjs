@@ -26,7 +26,9 @@ export class EnhancedChatPersistence {
   };
 
   private static readonly MAX_SESSIONS = 50;
+
   private static readonly MAX_MESSAGES_PER_SESSION = 500;
+
   private static readonly CLEANUP_THRESHOLD_DAYS = 30;
 
   // Session Management
@@ -216,7 +218,7 @@ export class EnhancedChatPersistence {
           searchTerms.forEach(term => {
             const index = content.indexOf(term);
             if (index >= 0) {
-              matchCount++;
+              matchCount += 1;
               if (firstMatchIndex === -1) firstMatchIndex = index;
             }
           });
@@ -246,7 +248,7 @@ export class EnhancedChatPersistence {
       const sessions = this.getAllSessions();
       return JSON.stringify({
         exportDate: new Date().toISOString(),
-        sessions: sessions,
+        sessions,
         version: '1.0'
       }, null, 2);
     } catch (error) {

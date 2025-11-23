@@ -5,45 +5,92 @@ import Image from 'next/image';
 import { Sparkles, MessageCircle, ArrowDown, Heart, Waves, Utensils, Backpack } from 'lucide-react';
 import EnhancedChatBubbles from './EnhancedChatBubbles';
 import ModernChatInput from './ModernChatInput';
-
-interface Message {
-  id: number;
-  messageType: 'USER' | 'ASSISTANT';
-  content: string;
-  timestamp?: Date;
-}
+import { useStreamingChat } from '@/hooks/useStreamingChat';
+import type { Message } from '@/types/chat';
 
 interface BeautifulChatContainerProps {
-  messages: Message[];
-  inputValue: string;
-  onInputChange: (value: string) => void;
-  onSendMessage: (message: string) => void;
+  /** Optional external message control - if not provided, uses internal streaming state */
+  messages?: Message[];
+  inputValue?: string;
+  onInputChange?: (value: string) => void;
+  onSendMessage?: (message: string) => void;
   isLoading?: boolean;
   suggestions?: string[];
   currentUser?: any;
   showWelcome?: boolean;
   onVoiceRecord?: (audioBlob: Blob) => void;
-  onLocationRequest?: () => void;
+  /** Enable streaming mode (default: true) */
+  useStreaming?: boolean;
+  /** Session ID for conversation persistence */
+  sessionId?: string;
 }
 
 const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
-  messages,
-  inputValue,
-  onInputChange,
-  onSendMessage,
-  isLoading = false,
-  suggestions = [],
+  messages: externalMessages,
+  inputValue: externalInputValue,
+  onInputChange: externalOnInputChange,
+  onSendMessage: externalOnSendMessage,
+  isLoading: externalIsLoading = false,
+  suggestions: externalSuggestions = [],
   currentUser,
   showWelcome = true,
   onVoiceRecord,
-  onLocationRequest
+  useStreaming = true,
+  sessionId
 }) => {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(true);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [logoError, setLogoError] = useState(false);
+  const [localInputValue, setLocalInputValue] = useState(''); // Local input state for streaming mode
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Streaming chat integration
+  const {
+    messages: streamMessages,
+    sendMessage: sendStreamMessage,
+    isStreaming,
+    cancelStream,
+    clearMessages: clearStreamMessages
+  } = useStreamingChat({
+    apiUrl: process.env.NEXT_PUBLIC_API_URL + '/api/chat/stream' || 'http://localhost:8080/api/chat/stream',
+    sessionId: sessionId || `session-${Date.now()}`,
+    onError: (error) => {
+      console.error('Streaming error:', error);
+    },
+    onComplete: () => {
+      console.log('✅ Stream completed');
+    }
+  });
+
+  // Use streaming state or external state based on useStreaming flag
+  const messages = useStreaming ? streamMessages : (externalMessages || []);
+  const inputValue = useStreaming ? localInputValue : (externalInputValue || '');
+  const isLoading = useStreaming ? isStreaming : externalIsLoading;
+  const suggestions = externalSuggestions; // TODO: Extract from AI responses
+
+  // Handle input changes
+  const handleInputChange = (value: string) => {
+    if (useStreaming) {
+      setLocalInputValue(value);
+    } else if (externalOnInputChange) {
+      externalOnInputChange(value);
+    }
+  };
+
+  // Handle sending messages
+  const handleSendMessage = async (message: string) => {
+    if (useStreaming) {
+      try {
+        await sendStreamMessage(message);
+        setLocalInputValue(''); // Clear input after sending
+      } catch (error) {
+        console.error('Failed to send streaming message:', error);
+      }
+    } else if (externalOnSendMessage) {
+      externalOnSendMessage(message);
+    }
+  };
 
   // Scroll to bottom smoothly
   const scrollToBottom = () => {
@@ -85,30 +132,42 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
 
   const handlePromptClick = (prompt: { icon: any, text: string, color: string } | string) => {
     const promptText = typeof prompt === 'string' ? prompt : prompt.text;
-    onInputChange(promptText);
-    onSendMessage(promptText);
+    handleInputChange(promptText);
+    handleSendMessage(promptText);
   };
 
   const handleMessageAction = (action: string, message: Message) => {
-    // Message action processed
-    // Handle message actions like copy, like, dislike
+    switch (action) {
+      case 'copy':
+        navigator.clipboard.writeText(message.content);
+        // Message copied to clipboard
+        break;
+      case 'like':
+      case 'dislike':
+        // Handle message feedback
+        // Could send to analytics or backend for AI improvement
+        break;
+      default:
+        // Unknown action
+        break;
+    }
   };
 
   const handleContinueConversation = (message: Message) => {
     if (message.messageType === 'USER') {
       // For user messages, copy to input for editing
-      onInputChange(message.content);
+      handleInputChange(message.content);
     } else {
       // For AI messages, create a continuation prompt
       const continuePrompt = `Continue from: "${message.content.substring(0, 100)}${message.content.length > 100 ? '...' : ''}"`;
-      onInputChange(continuePrompt);
+      handleInputChange(continuePrompt);
     }
   };
 
   // Enhanced location request handler with proper error handling
   const handleLocationRequest = async () => {
     if (!navigator.geolocation) {
-      alert('🚫 Geolocation is not supported by this browser. Please try using a modern browser like Chrome, Firefox, or Safari.');
+      console.error('Geolocation not supported by browser');
       return;
     }
 
@@ -140,15 +199,15 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
       
       // Add location to input with emoji for better UX
       if (inputValue) {
-        onInputChange(`${inputValue} 📍 My current location: ${locationText}`);
+        handleInputChange(`${inputValue} 📍 My current location: ${locationText}`);
       } else {
-        onInputChange(`📍 I'm currently at ${locationText}. What can you recommend near me?`);
+        handleInputChange(`📍 I'm currently at ${locationText}. What can you recommend near me?`);
       }
     };
 
     const error = (err: GeolocationPositionError) => {
       let message = '';
-      let title = '📍 Location Request Failed';
+      const title = '📍 Location Request Failed';
       
       switch (err.code) {
         case err.PERMISSION_DENIED:
@@ -165,8 +224,8 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
           break;
       }
       
-      // Use a more user-friendly alert with better formatting
-      alert(`${title}\n\n${message}`);
+      // Log error instead of using alert for production
+      console.error(`${title}: ${message}`);
     };
 
     navigator.geolocation.getCurrentPosition(success, error, options);
@@ -187,7 +246,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
         {messages.length === 0 && showWelcome && (
           <div className="h-full flex flex-col items-center p-4 py-6 overflow-y-auto">
             {/* Spacer for top alignment */}
-            <div className="flex-1 min-h-[2rem] max-h-[4rem]"></div>
+            <div className="flex-1 min-h-[2rem] max-h-[4rem]" />
             
             {/* Branded Logo - Enhanced professional branding with improved sizing */}
             <div className="mb-4 relative flex-shrink-0">
@@ -195,7 +254,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
                 <div className="relative w-16 h-16 transition-transform duration-500 group-hover:scale-105">
                   {!logoError ? (
                     <Image 
-                      src="/logo.png" 
+                      src="/logo.svg" 
                       alt="AI Travel Planner" 
                       width={64}
                       height={64}
@@ -216,7 +275,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
                 <MessageCircle className="w-3 h-3 text-white drop-shadow-sm" />
               </div>
               {/* Enhanced glow effect */}
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400/30 via-purple-400/30 to-indigo-400/30 blur-2xl -z-10 scale-125 opacity-70 animate-pulse"></div>
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400/30 via-purple-400/30 to-indigo-400/30 blur-2xl -z-10 scale-125 opacity-70 animate-pulse" />
             </div>
 
             {/* Enhanced Branded Welcome Text */}
@@ -231,11 +290,12 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
 
             {/* Example Prompts */}
             <div className="grid grid-cols-2 gap-3 w-full max-w-lg flex-shrink-0">
-              {welcomePrompts.map((prompt, index) => {
+              {welcomePrompts.map((prompt) => {
                 const IconComponent = prompt.icon;
                 return (
                   <button
-                    key={index}
+                    key={prompt.text}
+                    type="button"
                     onClick={() => handlePromptClick(prompt)}
                     className="group p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all duration-300 text-center transform hover:-translate-y-0.5"
                   >
@@ -260,7 +320,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
 
             
             {/* Bottom spacer */}
-            <div className="flex-1 min-h-[1rem] max-h-[3rem]"></div>
+            <div className="flex-1 min-h-[1rem] max-h-[3rem]" />
           </div>
         )}
 
@@ -280,8 +340,6 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
             {/* Messages */}
             <EnhancedChatBubbles
               messages={messages}
-              isLoading={isLoading}
-              onMessageAction={handleMessageAction}
               onContinueConversation={handleContinueConversation}
               currentUser={currentUser}
             />
@@ -295,6 +353,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
         {/* Scroll to Bottom Button */}
         {showScrollToBottom && (
           <button
+            type="button"
             onClick={scrollToBottom}
             className="absolute bottom-6 right-6 p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 transform hover:scale-110 z-10"
             title="Scroll to bottom"
@@ -307,18 +366,36 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
       {/* Input Section */}
       <div className="border-t bg-white/80 backdrop-blur-sm p-4 flex-shrink-0">
         <div className="max-w-4xl mx-auto">
+          {/* Streaming indicator */}
+          {useStreaming && isStreaming && (
+            <div className="mb-2 flex items-center gap-2 text-xs text-gray-600">
+              <div className="flex space-x-1">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+              <span>AI is typing...</span>
+              <button 
+                onClick={cancelStream}
+                className="ml-auto text-red-600 hover:text-red-800 underline text-xs font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
           <ModernChatInput
             value={inputValue}
-            onChange={onInputChange}
-            onSend={onSendMessage}
+            onChange={handleInputChange}
+            onSend={handleSendMessage}
             placeholder="Ask me anything about your travel plans..."
             disabled={isLoading}
             isLoading={isLoading}
             suggestions={suggestions}
             onVoiceRecord={onVoiceRecord}
             onLocationRequest={handleLocationRequest}
-            showVoice={true}
-            showLocation={true}
+            showVoice
+            showLocation
             showEmojiPicker={false} // Simplified for travel focus
           />
         </div>

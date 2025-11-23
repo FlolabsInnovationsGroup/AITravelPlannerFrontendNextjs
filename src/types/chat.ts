@@ -5,6 +5,8 @@ export interface Message {
   content: string;
   timestamp?: Date;
   sessionId?: string;
+  status?: 'sending' | 'sent' | 'delivered' | 'failed' | 'retrying';
+  retryCount?: number;
 }
 
 export interface ChatSession {

@@ -10,13 +10,13 @@ interface TravelItineraryProps {
     onOptimizeRoute?: (optimizedLocations: Location[]) => void;
 }
 
-// Remove duplicate interface
-interface ItineraryDay {
-    day: number;
-    locations: Location[];
-    totalDistance?: number;
-    estimatedTime?: number;
-}
+// Remove duplicate interface - unused
+// interface ItineraryDay {
+//     day: number;
+//     locations: Location[];
+//     totalDistance?: number;
+//     estimatedTime?: number;
+// }
 
 const getLocationTypeIcon = (type?: LocationType) => {
     switch (type) {
@@ -62,14 +62,10 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
     const [showAnalysis, setShowAnalysis] = useState(false);
 
     // Smart travel analysis
-    const travelAnalysis: TravelAnalysis = useMemo(() => {
-        return travelAnalyzer.analyzeTravelData(locations);
-    }, [locations]);
+    const travelAnalysis: TravelAnalysis = useMemo(() => travelAnalyzer.analyzeTravelData(locations), [locations]);
 
     // Use smart analysis instead of manual grouping
-    const itineraryDays = useMemo(() => {
-        return travelAnalysis.itineraryDays;
-    }, [travelAnalysis]);
+    const itineraryDays = useMemo(() => travelAnalysis.itineraryDays, [travelAnalysis]);
 
     const currentDayData = itineraryDays.find(day => day.day === selectedDay);
 
@@ -78,6 +74,15 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
             key={location.id || index}
             className="bg-white rounded-lg shadow-md p-4 mb-3 border-l-4 border-blue-500 hover:shadow-lg transition-shadow cursor-pointer"
             onClick={() => onLocationSelect?.(location)}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onLocationSelect?.(location);
+                }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label={`Select ${location.name || 'location'}`}
         >
             <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-3 flex-1">
@@ -151,6 +156,7 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
                                 </a>
                             )}
                             <button
+                                type="button"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     const url = `https://www.google.com/maps/dir/?api=1&destination=${location.latitude},${location.longitude}`;
@@ -168,6 +174,7 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
                 {/* Remove button */}
                 {onLocationRemove && location.id && (
                     <button
+                        type="button"
                         onClick={(e) => {
                             e.stopPropagation();
                             onLocationRemove(location.id!);
@@ -206,6 +213,7 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
                     <div className="flex space-x-2">
                         {onOptimizeRoute && (
                             <button
+                                type="button"
                                 onClick={() => {
                                     const optimizedItinerary = travelAnalyzer.createOptimizedItinerary(locations);
                                     const optimizedLocations = optimizedItinerary.flatMap(day => day.locations);
@@ -217,6 +225,7 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
                             </button>
                         )}
                         <button
+                            type="button"
                             onClick={() => setShowAnalysis(!showAnalysis)}
                             className={`px-3 py-1 rounded-md text-sm transition-colors ${
                                 showAnalysis 
@@ -235,6 +244,7 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
                     <span className="text-sm text-gray-600">Day:</span>
                     {itineraryDays.map((day) => (
                         <button
+                            type="button"
                             key={day.day}
                             onClick={() => setSelectedDay(day.day)}
                             className={`px-3 py-1 rounded-md text-sm transition-colors ${
@@ -315,12 +325,12 @@ const TravelItinerary: React.FC<TravelItineraryProps> = ({
                                 Travel Recommendations
                             </h4>
                             <div className="space-y-2">
-                                {travelAnalysis.recommendations.map((rec, index) => (
-                                    <div key={index} className={`p-2 rounded text-sm ${
-                                        rec.priority === 'high' ? 'bg-red-50 text-red-800' :
-                                        rec.priority === 'medium' ? 'bg-yellow-50 text-yellow-800' :
-                                        'bg-blue-50 text-blue-800'
-                                    }`}>
+                                {travelAnalysis.recommendations.map((rec) => (
+                                    <div key={`${rec.priority}-${rec.message}`} className={(() => {
+                                        if (rec.priority === 'high') return 'p-2 rounded text-sm bg-red-50 text-red-800';
+                                        if (rec.priority === 'medium') return 'p-2 rounded text-sm bg-yellow-50 text-yellow-800';
+                                        return 'p-2 rounded text-sm bg-blue-50 text-blue-800';
+                                    })()}>
                                         {rec.message}
                                     </div>
                                 ))}

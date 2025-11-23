@@ -7,6 +7,15 @@ import '@/styles/globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
+export const metadata = {
+  title: 'Flomad Travel - AI-Powered Travel Planning',
+  description: 'Plan your perfect trip with AI assistance',
+  icons: {
+    icon: '/favicon.svg',
+    apple: '/logo.svg',
+  },
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -17,7 +26,7 @@ export default function RootLayout({
     <head>
       {/* Google Analytics */}
       <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=G-0C5MC328H4`}
+        src="https://www.googletagmanager.com/gtag/js?id=G-0C5MC328H4"
         strategy="afterInteractive"
       />
       <Script id="google-analytics" strategy="afterInteractive">

@@ -1,5 +1,3 @@
-import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { sendMessage, ChatResponse } from '../../../../lib/api';
 
@@ -197,6 +195,8 @@ describe('Prompt System Frontend Tests', () => {
                 'What should I do?'
             ];
 
+            /* eslint-disable no-restricted-syntax, no-await-in-loop */
+            // eslint-disable-next-line no-restricted-syntax
             for (const query of ambiguousQueries) {
                 const mockResponse: ChatResponse = {
                     content: 'I\'d be happy to help! Could you please provide more details about what you\'re looking for?'
@@ -209,6 +209,7 @@ describe('Prompt System Frontend Tests', () => {
                 expect(response.content).toBeTruthy();
                 expect(response.content.toLowerCase()).toMatch(/help|details|more|specific|clarify/);
             }
+            /* eslint-enable no-restricted-syntax, no-await-in-loop */
         });
 
         it('should handle invalid or nonsensical queries', async () => {
@@ -219,6 +220,8 @@ describe('Prompt System Frontend Tests', () => {
                 '<script>alert("test")</script>'
             ];
 
+            /* eslint-disable no-restricted-syntax, no-await-in-loop */
+            // eslint-disable-next-line no-restricted-syntax
             for (const query of invalidQueries) {
                 const mockResponse: ChatResponse = {
                     content: 'I\'m sorry, I didn\'t understand that request. Could you please rephrase your travel question?'
@@ -231,6 +234,7 @@ describe('Prompt System Frontend Tests', () => {
                 expect(response.content).toBeTruthy();
                 expect(response.content.toLowerCase()).toMatch(/sorry|understand|rephrase|help|travel/);
             }
+            /* eslint-enable no-restricted-syntax, no-await-in-loop */
         });
 
         it('should maintain context across conversation', async () => {
@@ -263,7 +267,7 @@ describe('Prompt System Frontend Tests', () => {
             
             mockSendMessage.mockImplementation(async () => {
                 // Simulate network delay
-                await new Promise(resolve => setTimeout(resolve, 100));
+                await new Promise(resolve => { setTimeout(resolve, 100); });
                 return {
                     content: 'Quick response for your travel query.'
                 };
@@ -364,6 +368,8 @@ describe('Prompt System Frontend Tests', () => {
                 { query: 'Solo travel safety tips for women', keywords: ['solo', 'safety', 'women'] }
             ];
 
+            /* eslint-disable no-restricted-syntax, no-await-in-loop */
+            // eslint-disable-next-line no-restricted-syntax
             for (const testCase of queries) {
                 const mockResponse: ChatResponse = {
                     content: `Here are some great suggestions for your query about ${testCase.keywords.join(', ')}...`
@@ -380,6 +386,7 @@ describe('Prompt System Frontend Tests', () => {
                 );
                 expect(hasRelevantKeyword).toBe(true);
             }
+            /* eslint-enable no-restricted-syntax, no-await-in-loop */
         });
 
         it('should handle location-specific queries appropriately', async () => {
@@ -390,6 +397,8 @@ describe('Prompt System Frontend Tests', () => {
                 'Transportation in New York City'
             ];
 
+            /* eslint-disable no-restricted-syntax, no-await-in-loop */
+            // eslint-disable-next-line no-restricted-syntax
             for (const query of locationQueries) {
                 const locationMatch = query.match(/in (\w+(?:\s+\w+)*)|to (\w+(?:\s+\w+)*)/);
                 const location = locationMatch ? (locationMatch[1] || locationMatch[2]) : 'default location';
@@ -404,6 +413,7 @@ describe('Prompt System Frontend Tests', () => {
                 expect(response.content).toBeTruthy();
                 expect(response.content.toLowerCase()).toContain(location.toLowerCase().split(' ')[0]);
             }
+            /* eslint-enable no-restricted-syntax, no-await-in-loop */
         });
     });
 });

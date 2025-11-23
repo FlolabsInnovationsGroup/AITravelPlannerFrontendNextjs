@@ -22,6 +22,7 @@ export class LocationPermissionManager {
   /**
    * Request location permission with user-friendly messaging
    */
+  // eslint-disable-next-line class-methods-use-this
   public async requestLocationPermission(): Promise<LocationPermissionResult> {
     // Check if geolocation is supported
     if (!navigator.geolocation) {
@@ -59,7 +60,7 @@ export class LocationPermissionManager {
         (position) => {
           resolve({
             granted: true,
-            position: position
+            position
           });
         },
         (error) => {
@@ -74,6 +75,9 @@ export class LocationPermissionManager {
               break;
             case error.TIMEOUT:
               errorMessage = 'Location request timed out. You can still search for places manually.';
+              break;
+            default:
+              errorMessage = 'Unable to get your location. You can still search for places manually.';
               break;
           }
 
@@ -90,6 +94,7 @@ export class LocationPermissionManager {
   /**
    * Check if user has previously granted location permission
    */
+  // eslint-disable-next-line class-methods-use-this
   public async hasLocationPermission(): Promise<boolean> {
     if ('permissions' in navigator) {
       try {

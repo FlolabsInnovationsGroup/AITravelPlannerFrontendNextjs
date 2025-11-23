@@ -212,14 +212,14 @@ export function isPopularLocation(location: any): boolean {
 export function getMarkerConfig(type?: LocationType, location?: any): MarkerConfig {
   const baseConfig = MARKER_CONFIGS[type || 'default'];
   
-  // Enhance config for popular locations
+  // Enhance config for popular locations with modern professional styling
   if (location && isPopularLocation(location)) {
     return {
       ...baseConfig,
-      scale: baseConfig.scale * 1.2, // Make popular locations 20% larger
-      background: '#FF6B35', // Special orange color for popular places
-      borderColor: '#DC2626', // Red border for emphasis
-      emoji: '⭐' // Star emoji for popular places
+      scale: baseConfig.scale * 1.15, // Make popular locations slightly larger
+      background: '#0066FF', // Modern blue matching Mindtrip/Layla standards
+      borderColor: '#0052CC', // Darker blue border for depth
+      emoji: '' // No emoji for clean, professional look
     };
   }
   
@@ -233,7 +233,10 @@ export function createProfessionalMarker(
   isHovered: boolean = false
 ): HTMLElement {
   const config = getMarkerConfig(type);
-  const scale = config.scale * (isSelected ? 1.3 : isHovered ? 1.1 : 1.0);
+  let scaleMultiplier = 1.0;
+  if (isSelected) scaleMultiplier = 1.3;
+  else if (isHovered) scaleMultiplier = 1.1;
+  const scale = config.scale * scaleMultiplier;
   
   const markerElement = document.createElement('div');
   markerElement.className = 'professional-marker';
@@ -291,33 +294,33 @@ export const CLUSTER_STYLES = [
   {
     textColor: 'white',
     textSize: 12,
-    url: 'data:image/svg+xml,' + encodeURIComponent(`
+    url: `data:image/svg+xml,${  encodeURIComponent(`
       <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
         <circle cx="20" cy="20" r="18" fill="${MARKER_COLORS.primary}" stroke="white" stroke-width="2"/>
       </svg>
-    `),
+    `)}`,
     height: 40,
     width: 40,
   },
   {
     textColor: 'white',
     textSize: 14,
-    url: 'data:image/svg+xml,' + encodeURIComponent(`
+    url: `data:image/svg+xml,${  encodeURIComponent(`
       <svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
         <circle cx="25" cy="25" r="23" fill="${MARKER_COLORS.warning}" stroke="white" stroke-width="2"/>
       </svg>
-    `),
+    `)}`,
     height: 50,
     width: 50,
   },
   {
     textColor: 'white',
     textSize: 16,
-    url: 'data:image/svg+xml,' + encodeURIComponent(`
+    url: `data:image/svg+xml,${  encodeURIComponent(`
       <svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
         <circle cx="30" cy="30" r="28" fill="${MARKER_COLORS.danger}" stroke="white" stroke-width="2"/>
       </svg>
-    `),
+    `)}`,
     height: 60,
     width: 60,
   },

@@ -26,10 +26,7 @@ export function TopCities() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
-  useEffect(() => {
-    checkScroll();
-  }, []);
-
+  // ==================== HELPER FUNCTIONS ====================
   const checkScroll = () => {
     if (scrollRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
@@ -37,6 +34,11 @@ export function TopCities() {
       setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
     }
   };
+  // ==================== END HELPER FUNCTIONS ====================
+
+  useEffect(() => {
+    checkScroll();
+  }, []);
 
   const scroll = (direction: "left" | "right") => {
     if (scrollRef.current) {
@@ -58,7 +60,7 @@ export function TopCities() {
             className="flex overflow-x-auto space-x-6 no-scrollbar scroll-smooth"
             onScroll={checkScroll}
           >
-            {cities.map((city, index) => (
+            {cities.map((city) => (
               <div key={city.name} className="flex-none w-64">
                 <div className="relative aspect-[3/4] group overflow-hidden rounded-lg shadow-md transition-all duration-300 hover:shadow-xl">
                   <Image
@@ -69,7 +71,7 @@ export function TopCities() {
                     className="object-cover transition-all duration-300 brightness-90 group-hover:brightness-100"
                   />
                   {/* Full-width gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
                   {/* Full-width blurry text background */}
                   <div className="absolute inset-x-0 bottom-0 bg-black/20 backdrop-blur-sm p-3">

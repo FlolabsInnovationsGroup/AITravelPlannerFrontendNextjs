@@ -7,7 +7,6 @@ interface SearchBoxProps {
     placeholder?: string;
     onError?: (error: string) => void;
     onLoadingChange?: (isLoading: boolean) => void;
-    map?: google.maps.Map | null;
 }
 
 const MAX_RETRIES = 3;
@@ -48,9 +47,10 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                 setShowManualReset(true);
             }, 8000);
             return () => clearTimeout(resetTimeout);
-        } else {
+        } 
             setShowManualReset(false);
-        }
+            return undefined;
+        
     }, [isLoading]);
 
     const handleManualReset = useCallback(() => {
@@ -66,7 +66,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({
         if (retryAttempt >= MAX_RETRIES) {
             handleError('Failed to initialize location search after multiple attempts');
             handleLoadingChange(false); // Ensure loading stops on max retries
-            return;
+            return undefined;
         }
 
         if (!window.google?.maps?.places) {
@@ -77,7 +77,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                 handleLoadingChange(true); // Set loading for retry
                 initializeAutocomplete(retryAttempt + 1);
             }, RETRY_DELAY * (retryAttempt + 1));
-            return;
+            return undefined;
         }
 
         if (inputRef.current && !autocompleteRef.current) {
@@ -114,8 +114,8 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                         } else {
                             throw new Error('No location details available');
                         }
-                    } catch (error) {
-                        handleError(error instanceof Error ? error.message : 'Failed to get place details');
+                    } catch (placeError) {
+                        handleError(placeError instanceof Error ? placeError.message : 'Failed to get place details');
                     } finally {
                         clearTimeout(loadingTimeout);
                         handleLoadingChange(false);
@@ -165,8 +165,8 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                             console.warn('New Places API not available, using fallback');
                             setSuggestions([]);
                         }
-                    } catch (error) {
-                        console.error('Error fetching autocomplete suggestions:', error);
+                    } catch (fetchError) {
+                        console.error('Error fetching autocomplete suggestions:', fetchError);
                         setSuggestions([]);
                         if (input.length > 2) {
                             handleError('Error searching for locations');
@@ -175,7 +175,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                 }, 300);
 
                 const handleInput = (e: Event) => {
-                    const value = (e.target as HTMLInputElement).value;
+                    const {value} = (e.target as HTMLInputElement);
                     debouncedFetchPredictions(value);
                     // Clear error when user starts typing again
                     if (error) setError(null);
@@ -204,8 +204,8 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                 handleLoadingChange(false);
                 setRetryCount(0);
                 return cleanup;
-            } catch (error) {
-                console.error('Error initializing autocomplete:', error);
+            } catch (initError) {
+                console.error('Error initializing autocomplete:', initError);
                 handleError('Failed to initialize location search');
                 handleLoadingChange(false); // Reset loading state on error
                 setRetryCount(retryAttempt + 1);
@@ -213,10 +213,14 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                     handleLoadingChange(true); // Set loading for retry
                     initializeAutocomplete(retryAttempt + 1);
                 }, RETRY_DELAY * (retryAttempt + 1));
+                // No cleanup function to return in error case
+                return undefined;
             }
         } else {
             // If input doesn't exist or autocomplete already exists, stop loading
             handleLoadingChange(false);
+            // No cleanup needed in this case
+            return undefined;
         }
     }, [handleError, handleLoadingChange, onPlaceSelected, error, handleManualReset]);
 
@@ -228,8 +232,8 @@ const SearchBox: React.FC<SearchBoxProps> = ({
         const initAndSetupCleanup = async () => {
             try {
                 cleanup = await initializeAutocomplete();
-            } catch (error) {
-                console.error('Failed to initialize autocomplete:', error);
+            } catch (setupError) {
+                console.error('Failed to initialize autocomplete:', setupError);
                 if (mounted) {
                     handleLoadingChange(false); // Ensure loading stops on error
                     handleError('Failed to initialize location search');
@@ -330,6 +334,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({
                 <div className="bg-white shadow-lg rounded-md overflow-hidden backdrop-blur-sm bg-white/90">
                     {suggestions.map((suggestion) => (
                         <button
+                            type="button"
                             key={suggestion.place_id}
                             className="w-full px-4 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors duration-150 ease-in-out"
                             onClick={() => {

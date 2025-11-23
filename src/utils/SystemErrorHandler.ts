@@ -23,8 +23,11 @@ export interface ErrorResponse {
 
 export class SystemErrorHandler {
   private static instance: SystemErrorHandler;
+
   private errorQueue: Array<{ context: ErrorContext; error: Error }> = [];
+
   private readonly maxRetries = 3;
+
   private readonly baseRetryDelay = 1000; // 1 second
 
   static getInstance(): SystemErrorHandler {
@@ -225,7 +228,7 @@ export class SystemErrorHandler {
    * Calculate exponential backoff delay
    */
   private calculateRetryDelay(attempt: number): number {
-    return Math.min(this.baseRetryDelay * Math.pow(2, attempt - 1), 30000); // Max 30 seconds
+    return Math.min(this.baseRetryDelay * 2**(attempt - 1), 30000); // Max 30 seconds
   }
 
   /**

@@ -321,36 +321,36 @@ export const professionalMapStylesDark = [
 export const clusterStyles = [
   {
     textColor: 'white',
-    url: 'data:image/svg+xml;base64,' + btoa(`
+    url: `data:image/svg+xml;base64,${  btoa(`
       <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
         <circle cx="20" cy="20" r="18" fill="#3B82F6" stroke="white" stroke-width="2"/>
         <circle cx="20" cy="20" r="12" fill="rgba(255,255,255,0.3)"/>
       </svg>
-    `),
+    `)}`,
     height: 40,
     width: 40,
     textSize: 12
   },
   {
     textColor: 'white',
-    url: 'data:image/svg+xml;base64,' + btoa(`
+    url: `data:image/svg+xml;base64,${  btoa(`
       <svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
         <circle cx="25" cy="25" r="23" fill="#DC2626" stroke="white" stroke-width="2"/>
         <circle cx="25" cy="25" r="15" fill="rgba(255,255,255,0.3)"/>
       </svg>
-    `),
+    `)}`,
     height: 50,
     width: 50,
     textSize: 14
   },
   {
     textColor: 'white',
-    url: 'data:image/svg+xml;base64=' + btoa(`
+    url: `data:image/svg+xml;base64=${  btoa(`
       <svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
         <circle cx="30" cy="30" r="28" fill="#7C3AED" stroke="white" stroke-width="2"/>
         <circle cx="30" cy="30" r="18" fill="rgba(255,255,255,0.3)"/>
       </svg>
-    `),
+    `)}`,
     height: 60,
     width: 60,
     textSize: 16

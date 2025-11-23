@@ -15,9 +15,6 @@ import { Menu, X } from 'lucide-react'
 const WeProvideBest = dynamic(() => import('@/components/features/landing/WeProvideBest').then(mod => mod.WeProvideBest))
 const FeaturedTourPlaces = dynamic(() => import('@/components/features/landing/FeaturedTourPlaces').then(mod => mod.FeaturedTourPlaces))
 const TopCities = dynamic(() => import('@/components/features/landing/TopCities').then(mod => mod.TopCities))
-const ExploreSection = dynamic(() => import('@/components/features/landing/ExploreSection').then(mod => mod.ExploreSection))
-const TourPartners = dynamic(() => import('@/components/features/landing/TourPartners').then(mod => mod.TourPartners))
-const Testimonials = dynamic(() => import('@/components/features/landing/Testimonials').then(mod => mod.Testimonials))
 const Footer = dynamic(() => import('@/components/features/landing/Footer').then(mod => mod.default))
 
 const backgroundImages = [
@@ -93,11 +90,11 @@ export default function LandingPage() {
           <nav className="flex justify-between items-center">
             <div className="flex items-center">
               <Image
-                src="/image/logowhite.png"
+                src="/logo.svg"
                 alt="Travel Logo"
-                width={20}
-                height={25}
-                style={{ width: 'auto', height: 'auto' }}
+                width={32}
+                height={32}
+                style={{ width: '32px', height: '32px' }}
                 className="mr-2"
               />
               <span className="text-white text-xl md:text-2xl font-semibold">Travel Planner</span>
@@ -197,9 +194,9 @@ export default function LandingPage() {
 
       <WeProvideBest />
       <FeaturedTourPlaces />
-      {/*<ExploreSection /> */}
+      {/* <ExploreSection /> */}
       <TopCities />
-      {/*<Testimonials /> */}
+      {/* <Testimonials /> */}
       <Footer />
     </div>
   )

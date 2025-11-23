@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { Star, Clock, Phone, Globe, MapPin, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Location } from '@/types/map';
@@ -44,7 +44,7 @@ const RichLocationPopup: React.FC<RichLocationPopupProps> = ({
     const fullStars = Math.floor(rating);
     const hasHalfStar = rating % 1 !== 0;
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 5; i += 1) {
       if (i < fullStars) {
         stars.push(<Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />);
       } else if (i === fullStars && hasHalfStar) {
@@ -59,9 +59,9 @@ const RichLocationPopup: React.FC<RichLocationPopupProps> = ({
   // Render price level
   const renderPriceLevel = (priceLevel?: number) => {
     if (!priceLevel) return null;
-    
+
     const symbols = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 4; i += 1) {
       symbols.push(
         <span key={i} className={i < priceLevel ? "text-green-600" : "text-gray-300"}>
           $
@@ -102,6 +102,7 @@ const RichLocationPopup: React.FC<RichLocationPopupProps> = ({
             {photos.length > 1 && (
               <>
                 <button
+                  type="button"
                   onClick={prevPhoto}
                   aria-label="Previous photo"
                   className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70 transition-opacity"
@@ -109,6 +110,7 @@ const RichLocationPopup: React.FC<RichLocationPopupProps> = ({
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
+                  type="button"
                   onClick={nextPhoto}
                   aria-label="Next photo"
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70 transition-opacity"
@@ -118,13 +120,15 @@ const RichLocationPopup: React.FC<RichLocationPopupProps> = ({
                 
                 {/* Photo indicators */}
                 <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
-                  {photos.map((_, index) => (
+                  {photos.map((photo, index) => (
                     <button
-                      key={index}
+                      type="button"
+                      key={photo}
                       onClick={() => setCurrentPhotoIndex(index)}
                       className={`w-2 h-2 rounded-full transition-colors ${
                         index === currentPhotoIndex ? 'bg-white' : 'bg-white bg-opacity-50'
                       }`}
+                      aria-label={`View photo ${index + 1} of ${photos.length}`}
                     />
                   ))}
                 </div>
@@ -139,6 +143,7 @@ const RichLocationPopup: React.FC<RichLocationPopupProps> = ({
         
         {/* Close button */}
         <button
+          type="button"
           onClick={onClose}
           aria-label="Close"
           className="absolute top-3 right-3 bg-white bg-opacity-90 rounded-full p-1.5 hover:bg-opacity-100 transition-colors"
@@ -233,10 +238,10 @@ const RichLocationPopup: React.FC<RichLocationPopupProps> = ({
 
         {/* Action Buttons */}
         <div className="flex space-x-2 pt-2">
-          <button className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+          <button type="button" className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
             Get Directions
           </button>
-          <button className="flex-1 border border-gray-300 text-gray-700 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+          <button type="button" className="flex-1 border border-gray-300 text-gray-700 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
             Save
           </button>
         </div>

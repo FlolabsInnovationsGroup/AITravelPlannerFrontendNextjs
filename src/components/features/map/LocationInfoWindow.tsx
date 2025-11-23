@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Location } from '@/types/map';
 import { Star, Clock, Phone, Globe, MapPin, DollarSign, X, ExternalLink, Users, Navigation } from 'lucide-react';
 
@@ -39,10 +40,11 @@ const LocationInfoWindow: React.FC<LocationInfoWindowProps> = ({
         );
     };
 
-    const getStatusColor = (isOpen?: boolean) => {
-        if (isOpen === undefined) return 'text-gray-500';
-        return isOpen ? 'text-green-600' : 'text-red-600';
-    };
+    // Unused function - kept for reference
+    // const getStatusColor = (isOpen?: boolean) => {
+    //     if (isOpen === undefined) return 'text-gray-500';
+    //     return isOpen ? 'text-green-600' : 'text-red-600';
+    // };
 
     const getStatusText = (isOpen?: boolean) => {
         if (isOpen === undefined) return 'Hours unknown';
@@ -54,9 +56,11 @@ const LocationInfoWindow: React.FC<LocationInfoWindowProps> = ({
             {/* Header with photo and gradient overlay */}
             <div className="relative h-40 bg-gradient-to-br from-blue-400 to-purple-600">
                 {location.photos && location.photos.length > 0 ? (
-                    <img 
+                    <Image 
                         src={location.photos[0]} 
-                        alt={location.name}
+                        alt={location.name || 'Location photo'}
+                        width={320}
+                        height={160}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                             // Show gradient background if image fails to load
@@ -74,11 +78,12 @@ const LocationInfoWindow: React.FC<LocationInfoWindowProps> = ({
                 )}
                 
                 {/* Gradient overlay for better text readability */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
                 
                 {/* Close button on image */}
                 {onClose && (
                     <button 
+                        type="button"
                         onClick={onClose}
                         className="absolute top-3 right-3 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center text-gray-700 hover:text-gray-900 transition-all"
                         aria-label="Close"
@@ -97,6 +102,7 @@ const LocationInfoWindow: React.FC<LocationInfoWindowProps> = ({
                     </h3>
                     {onClose && (!location.photos || location.photos.length === 0) && (
                         <button 
+                            type="button"
                             onClick={onClose}
                             className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 transition-all"
                             aria-label="Close"
@@ -177,6 +183,7 @@ const LocationInfoWindow: React.FC<LocationInfoWindowProps> = ({
                 <div className="flex flex-col gap-2">
                     {onGetDirections && (
                         <button
+                            type="button"
                             onClick={() => onGetDirections(location)}
                             className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                         >
@@ -199,7 +206,7 @@ const LocationInfoWindow: React.FC<LocationInfoWindowProps> = ({
                         )}
                         
                         {/* Additional action button for future features */}
-                        <button className="flex items-center justify-center gap-2 flex-1 px-4 py-2 bg-white border-2 border-gray-200 text-gray-700 rounded-lg font-medium hover:border-gray-300 hover:bg-gray-50 transition-all">
+                        <button type="button" className="flex items-center justify-center gap-2 flex-1 px-4 py-2 bg-white border-2 border-gray-200 text-gray-700 rounded-lg font-medium hover:border-gray-300 hover:bg-gray-50 transition-all">
                             <Users className="w-4 h-4" />
                             Share
                         </button>

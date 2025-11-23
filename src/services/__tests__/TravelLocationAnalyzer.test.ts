@@ -1,6 +1,6 @@
 // src/services/__tests__/TravelLocationAnalyzer.test.ts
-import { TravelLocationAnalyzer } from '../TravelLocationAnalyzer';
 import { Location } from '@/types/map';
+import { TravelLocationAnalyzer } from '../TravelLocationAnalyzer';
 
 describe('TravelLocationAnalyzer', () => {
   let analyzer: TravelLocationAnalyzer;

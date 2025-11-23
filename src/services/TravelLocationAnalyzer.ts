@@ -40,6 +40,7 @@ export class TravelLocationAnalyzer {
     /**
      * Calculates the Haversine distance between two points
      */
+    // eslint-disable-next-line class-methods-use-this
     private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
         const R = 6371000; // Earth's radius in meters
         const φ1 = lat1 * Math.PI / 180;
@@ -58,6 +59,7 @@ export class TravelLocationAnalyzer {
     /**
      * Estimates time spent at a location based on type
      */
+    // eslint-disable-next-line class-methods-use-this
     private getLocationTime(type?: LocationType): number {
         switch (type) {
             case 'museum':
@@ -90,6 +92,7 @@ export class TravelLocationAnalyzer {
     /**
      * Gets travel theme for a day based on location types
      */
+    // eslint-disable-next-line class-methods-use-this
     private getDayTheme(locations: Location[]): string {
         const types = locations.map(loc => loc.type).filter(Boolean);
         const typeCounts = types.reduce((acc, type) => {
@@ -142,7 +145,7 @@ export class TravelLocationAnalyzer {
             let nearestIndex = 0;
             let minDistance = Infinity;
 
-            for (let i = 0; i < remaining.length; i++) {
+            for (let i = 0; i < remaining.length; i += 1) {
                 const distance = this.calculateDistance(
                     current.latitude, current.longitude,
                     remaining[i].latitude, remaining[i].longitude
@@ -182,7 +185,7 @@ export class TravelLocationAnalyzer {
             let travelTime = 0;
 
             // Calculate distances and times
-            for (let j = 0; j < dayLocations.length; j++) {
+            for (let j = 0; j < dayLocations.length; j += 1) {
                 const location = dayLocations[j];
                 totalTime += this.getLocationTime(location.type);
 
@@ -265,6 +268,7 @@ export class TravelLocationAnalyzer {
     /**
      * Generates travel recommendations based on analysis
      */
+    // eslint-disable-next-line class-methods-use-this
     private generateRecommendations(locations: Location[], days: ItineraryDay[]): TravelRecommendation[] {
         const recommendations: TravelRecommendation[] = [];
 
@@ -322,6 +326,7 @@ export class TravelLocationAnalyzer {
     /**
      * Formats travel time in a readable format
      */
+    // eslint-disable-next-line class-methods-use-this
     formatTime(minutes: number): string {
         if (minutes < 60) {
             return `${minutes}m`;
@@ -334,6 +339,7 @@ export class TravelLocationAnalyzer {
     /**
      * Formats distance in a readable format
      */
+    // eslint-disable-next-line class-methods-use-this
     formatDistance(meters: number): string {
         if (meters < 1000) {
             return `${Math.round(meters)}m`;

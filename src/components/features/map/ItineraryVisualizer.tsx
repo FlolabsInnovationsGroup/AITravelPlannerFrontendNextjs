@@ -19,6 +19,65 @@ interface RouteSegment {
   mode: 'driving' | 'walking' | 'transit';
 }
 
+// ==================== HELPER FUNCTIONS ====================
+// These must be defined before the component to avoid no-use-before-define errors
+
+function toRadians(degrees: number): number {
+  return degrees * (Math.PI / 180);
+}
+
+function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = toRadians(lat2 - lat1);
+  const dLng = toRadians(lng2 - lng1);
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function estimateDuration(distanceKm: number, mode: 'driving' | 'walking' | 'transit'): number {
+  // Returns duration in minutes
+  switch (mode) {
+    case 'driving':
+      return distanceKm * 2; // ~30 km/h in city traffic
+    case 'walking':
+      return distanceKm * 12; // ~5 km/h walking speed
+    case 'transit':
+      return distanceKm * 3; // ~20 km/h with stops
+    default:
+      return distanceKm * 2;
+  }
+}
+
+function formatDuration(minutes: number): string {
+  if (minutes < 60) {
+    return `${Math.round(minutes)}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = Math.round(minutes % 60);
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
+function getLocationTypeEmoji(type?: string): string {
+  switch (type) {
+    case 'hotel': return '🏨';
+    case 'restaurant': return '🍽️';
+    case 'cafe': return '☕';
+    case 'attraction': return '🏛️';
+    case 'transport': return '🚉';
+    case 'shopping': return '🛍️';
+    case 'park': return '🌳';
+    case 'beach': return '🏖️';
+    case 'mountain': return '⛰️';
+    default: return '📍';
+  }
+}
+
+// ==================== END HELPER FUNCTIONS ====================
+
 const ItineraryVisualizer: React.FC<ItineraryVisualizerProps> = ({
   locations,
   onLocationSelect,
@@ -97,6 +156,7 @@ const ItineraryVisualizer: React.FC<ItineraryVisualizerProps> = ({
         
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setShowRouteDetails(!showRouteDetails)}
             className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
             title={showRouteDetails ? 'Hide details' : 'Show details'}
@@ -104,6 +164,7 @@ const ItineraryVisualizer: React.FC<ItineraryVisualizerProps> = ({
             {showRouteDetails ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
           <button
+            type="button"
             onClick={() => setIsExpanded(!isExpanded)}
             className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
           >
@@ -125,6 +186,7 @@ const ItineraryVisualizer: React.FC<ItineraryVisualizerProps> = ({
               ].map(({ mode, icon, label }) => (
                 <button
                   key={mode}
+                  type="button"
                   onClick={() => setSelectedTravelMode(mode)}
                   className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
                     selectedTravelMode === mode
@@ -153,6 +215,7 @@ const ItineraryVisualizer: React.FC<ItineraryVisualizerProps> = ({
                 </div>
               </div>
               <button
+                type="button"
                 onClick={handleOptimizeRoute}
                 className="text-xs text-blue-600 hover:text-blue-700 transition-colors font-medium"
               >
@@ -169,6 +232,15 @@ const ItineraryVisualizer: React.FC<ItineraryVisualizerProps> = ({
                 <div
                   className="flex items-center gap-3 p-3 border border-gray-200 rounded-md hover:border-blue-300 hover:bg-blue-50/50 transition-all cursor-pointer"
                   onClick={() => onLocationSelect?.(location)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onLocationSelect?.(location);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Select ${location.name || 'location'}`}
                 >
                   {/* Step Number */}
                   <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
@@ -203,7 +275,7 @@ const ItineraryVisualizer: React.FC<ItineraryVisualizerProps> = ({
                 {/* Route Segment */}
                 {index < locations.length - 1 && showRouteDetails && (
                   <div className="flex items-center gap-2 ml-4 my-2 text-sm text-gray-500">
-                    <div className="w-px h-6 bg-gray-300"></div>
+                    <div className="w-px h-6 bg-gray-300" />
                     <Navigation size={14} className="text-blue-500" />
                     <span>{routeSegments[index]?.distance.toFixed(1)} km</span>
                     <span>•</span>
@@ -221,60 +293,5 @@ const ItineraryVisualizer: React.FC<ItineraryVisualizerProps> = ({
     </div>
   );
 };
-
-// Helper Functions
-function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371; // Earth's radius in kilometers
-  const dLat = toRadians(lat2 - lat1);
-  const dLng = toRadians(lng2 - lng1);
-  const a = 
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function toRadians(degrees: number): number {
-  return degrees * (Math.PI / 180);
-}
-
-function estimateDuration(distanceKm: number, mode: 'driving' | 'walking' | 'transit'): number {
-  // Returns duration in minutes
-  switch (mode) {
-    case 'driving':
-      return distanceKm * 2; // ~30 km/h in city traffic
-    case 'walking':
-      return distanceKm * 12; // ~5 km/h walking speed
-    case 'transit':
-      return distanceKm * 3; // ~20 km/h with stops
-    default:
-      return distanceKm * 2;
-  }
-}
-
-function formatDuration(minutes: number): string {
-  if (minutes < 60) {
-    return `${Math.round(minutes)}m`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = Math.round(minutes % 60);
-  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-}
-
-function getLocationTypeEmoji(type?: string): string {
-  switch (type) {
-    case 'hotel': return '🏨';
-    case 'restaurant': return '🍽️';
-    case 'cafe': return '☕';
-    case 'attraction': return '🏛️';
-    case 'transport': return '🚉';
-    case 'shopping': return '🛍️';
-    case 'park': return '🌳';
-    case 'beach': return '🏖️';
-    case 'mountain': return '⛰️';
-    default: return '📍';
-  }
-}
 
 export default ItineraryVisualizer;

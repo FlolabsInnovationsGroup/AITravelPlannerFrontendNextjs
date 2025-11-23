@@ -45,7 +45,7 @@ describe('ChatHistoryService', () => {
       content: 'Hello world',
       sender: 'user',
       timestamp: new Date(),
-      sessionId: sessionId,
+      sessionId,
       messageType: 'USER',
       metadata: { source: 'test' }
     };

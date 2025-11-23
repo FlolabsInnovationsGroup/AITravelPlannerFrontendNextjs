@@ -40,65 +40,7 @@ interface GuestTokenResponse {
   message: string;
 }
 
-// API client setup
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add token to all requests
-apiClient.interceptors.request.use((config) => {
-  const token = getToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Add response interceptor for token refresh
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    
-    // If the error is 401 and we haven't already tried to refresh, and it's not the guest-token endpoint
-    if (error.response?.status === 401 && 
-        !originalRequest._retry && 
-        !originalRequest.url?.includes('/api/auth/guest-token')) {
-      originalRequest._retry = true;
-      
-      try {
-        
-        // Get a new guest token directly via axios (no interceptors)
-        const response = await axios.post(`${API_BASE_URL}/api/auth/guest-token`);
-        
-        // Check if we got a valid token in the response
-        if (response.status === 200 && response.data.token) {
-          const newToken = response.data.token;
-
-          // Save the new token
-          setToken(newToken);
-          
-          // Update the failed request's token and retry
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          return apiClient(originalRequest);
-        } else {
-          throw new Error('No valid token received in refresh response');
-        }
-      } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError);
-        // If refresh fails, clear token but don't reload to avoid infinite loops
-        clearToken();
-        return Promise.reject(refreshError);
-      }
-    }
-    
-    return Promise.reject(error);
-  }
-);
-
+// ==================== TOKEN MANAGEMENT FUNCTIONS ====================
 // Token validation helper
 const isTokenExpired = (token: string): boolean => {
   try {
@@ -116,6 +58,10 @@ export const setToken = (token: string) => {
   localStorage.setItem(TOKEN_KEY, token);
 };
 
+export const clearToken = () => {
+  localStorage.removeItem(TOKEN_KEY);
+};
+
 export const getToken = () => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -130,9 +76,87 @@ export const getToken = () => {
   return null;
 };
 
-export const clearToken = () => {
-  localStorage.removeItem(TOKEN_KEY);
+// Guest token creation - use direct axios without interceptors to avoid circular calls
+export const createGuestToken = async (): Promise<string> => {
+  try {
+    
+    // Use direct axios without interceptors to prevent circular dependencies
+    const response = await axios.post<GuestTokenResponse>(`${API_BASE_URL}/api/auth/guest-token`);
+    
+    if (response.status === 200 && response.data.token) {
+      const { token } = response.data;
+      setToken(token);
+      return token;
+    }
+    
+    throw new Error('Failed to get guest token: No token in response');
+  } catch (error) {
+    console.error('Error creating guest token:', error);
+    throw error;
+  }
 };
+// ==================== END TOKEN MANAGEMENT FUNCTIONS ====================
+
+// API client setup
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 60000, // 60 seconds timeout for AI responses
+});
+
+// Add token to all requests
+apiClient.interceptors.request.use((config) => {
+  const token = getToken();
+  if (token) {
+    // eslint-disable-next-line no-param-reassign
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Add response interceptor for token refresh
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // If the error is 401 and we haven't already tried to refresh, and it's not the guest-token endpoint
+    if (error.response?.status === 401 && 
+        !originalRequest.isRetry && 
+        !originalRequest.url?.includes('/api/auth/guest-token')) {
+      originalRequest.isRetry = true;
+      
+      try {
+        
+        // Get a new guest token directly via axios (no interceptors)
+        const response = await axios.post(`${API_BASE_URL}/api/auth/guest-token`);
+        
+        // Check if we got a valid token in the response
+        if (response.status === 200 && response.data.token) {
+          const newToken = response.data.token;
+
+          // Save the new token
+          setToken(newToken);
+          
+          // Update the failed request's token and retry
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return await apiClient(originalRequest);
+        } 
+          throw new Error('No valid token received in refresh response');
+        
+      } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
+        // If refresh fails, clear token but don't reload to avoid infinite loops
+        clearToken();
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
 
 // Force clear all authentication data and create fresh session
 export const initializeFreshSession = async (): Promise<string> => {
@@ -156,58 +180,9 @@ export const initializeFreshSession = async (): Promise<string> => {
   }
 };
 
-// Guest token creation - use direct axios without interceptors to avoid circular calls
-export const createGuestToken = async (): Promise<string> => {
-  try {
-    
-    // Use direct axios without interceptors to prevent circular dependencies
-    const response = await axios.post<GuestTokenResponse>(`${API_BASE_URL}/api/auth/guest-token`);
-    
-    // Check for successful response
-    if (response.status === 200 && response.data.token) {
-      
-      setToken(response.data.token); // Save token to local storage
-      return response.data.token;   // Return the token
-    } else {
-      throw new Error(`Guest token missing in response: ${response.data.message || 'Unknown error'}`);
-    }
-  } catch (error: any) {
-    console.error('Error creating guest token:', error);
-    
-    // Handle specific error cases
-    if (error.response) {
-      
-      // If user is already authenticated (400 status), handle gracefully
-      if (error.response.status === 400 && error.response.data?.message?.includes('already authenticated')) {
-        // User is already authenticated, check if they have a current token
-        const existingToken = getToken();
-        if (existingToken) {
-          
-          return existingToken;
-        } else {
-          throw new Error('User authenticated but no token found');
-        }
-      }
-      
-      // For other errors, provide more context
-      const errorMessage = error.response.data?.message || 'Unknown server error';
-      throw new Error(`Server error (${error.response.status}): ${errorMessage}`);
-    } else if (error.request) {
-      console.error('Network error - no response received:', error.request);
-      throw new Error('Network error: Unable to reach the server');
-    } else {
-      console.error('Request setup error:', error.message);
-      throw new Error(`Request setup error: ${error.message}`);
-    }
-  }
-};
-
 // User management
 export const getCurrentUser = async (): Promise<{ id: string; username?: string; email?: string }> => {
   try {
-    
-    const token = getToken();
-    
     const response = await apiClient.get<{ 
       id: string; 
       username?: string; 
@@ -327,9 +302,7 @@ export const signIn = async (username: string, password: string) => {
   return response.data;
 };
 
-export const signUp = async (username: string, email: string, password: string) => {
-  return await apiClient.post('/api/auth/signup', { username, email, password });
-};
+export const signUp = async (username: string, email: string, password: string) => apiClient.post('/api/auth/signup', { username, email, password });
 
 // Streaming message handling
 export const sendStreamMessage = async (
@@ -411,11 +384,11 @@ export const getLocationsBySession = async (sessionId: string): Promise<Location
     }
 
     // Ensure we're getting an array
-    let locations = Array.isArray(response.data) ? response.data : [];
+    const locations = Array.isArray(response.data) ? response.data : [];
     
     // Log when no locations are found
     if (locations.length === 0) {
-      
+      // TODO: Consider adding analytics or user feedback for empty location results
     }
 
     return locations;
@@ -429,14 +402,33 @@ export const getLocationsBySession = async (sessionId: string): Promise<Location
   }
 };
 
+// Transcribe audio file to text
+export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
+  try {
+    const formData = new FormData();
+    formData.append('audioFile', audioBlob, 'recording.webm');
+
+    const response = await apiClient.post<string>('/audio/transcribe', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error transcribing audio:', error);
+    throw new Error(error.response?.data?.message || 'Failed to transcribe audio');
+  }
+};
+
 // Update or add this function
 export const updateSession = async (sessionId: string, title: string, userId: string) => {
   try {
     const now = new Date().toISOString();
     const payload = {
-      sessionId: sessionId,
-      userId: userId,
-      title: title,
+      sessionId,
+      userId,
+      title,
       createdAt: now,  // You might want to keep the original createdAt if available
       updatedAt: now
     };

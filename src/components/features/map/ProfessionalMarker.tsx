@@ -3,7 +3,6 @@
 import React from 'react';
 import { Location, LocationType } from '@/types/map';
 import { 
-  MapPin, 
   Bed, 
   Utensils, 
   Coffee, 
@@ -19,8 +18,7 @@ import {
   Church, 
   Hospital, 
   Gamepad2,
-  Star,
-  DollarSign
+  Star
 } from 'lucide-react';
 
 interface ProfessionalMarkerProps {
@@ -159,7 +157,19 @@ const ProfessionalMarker: React.FC<ProfessionalMarkerProps> = ({
   };
 
   return (
-    <div style={markerStyle} onClick={onClick}>
+    <div 
+      style={markerStyle} 
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Marker for ${location.name || 'location'}`}
+    >
       {/* Main marker body */}
       <div style={markerBodyStyle}>
         <IconComponent 
@@ -207,22 +217,24 @@ const ProfessionalMarker: React.FC<ProfessionalMarkerProps> = ({
         />
       )}
 
-      <style jsx>{`
-        @keyframes pulse {
-          0% {
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 0.6;
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes pulse {
+            0% {
+              transform: translate(-50%, -50%) scale(1);
+              opacity: 0.6;
+            }
+            70% {
+              transform: translate(-50%, -50%) scale(1.4);
+              opacity: 0;
+            }
+            100% {
+              transform: translate(-50%, -50%) scale(1);
+              opacity: 0;
+            }
           }
-          70% {
-            transform: translate(-50%, -50%) scale(1.4);
-            opacity: 0;
-          }
-          100% {
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 0;
-          }
-        }
-      `}</style>
+        `
+      }} />
     </div>
   );
 };
