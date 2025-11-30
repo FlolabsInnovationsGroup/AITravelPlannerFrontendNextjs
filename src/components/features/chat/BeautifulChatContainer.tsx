@@ -53,7 +53,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
     cancelStream,
     clearMessages: clearStreamMessages
   } = useStreamingChat({
-    apiUrl: process.env.NEXT_PUBLIC_API_URL + '/api/chat/stream' || 'http://localhost:8080/api/chat/stream',
+    apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
     sessionId: sessionId || `session-${Date.now()}`,
     onError: (error) => {
       console.error('Streaming error:', error);

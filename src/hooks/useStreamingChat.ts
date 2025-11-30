@@ -98,12 +98,34 @@ export function useStreamingChat({
       abortControllerRef.current = new AbortController();
 
       const token = localStorage.getItem('token');
+      
+      // If no token, try to get/create guest token
+      if (!token) {
+        console.warn('No auth token found - attempting guest token creation');
+        try {
+          const guestResponse = await fetch(`${apiUrl}/api/auth/guest-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          if (guestResponse.ok) {
+            const data = await guestResponse.json();
+            if (data.token) {
+              localStorage.setItem('token', data.token);
+              console.log('✅ Guest token created successfully');
+            }
+          }
+        } catch (err) {
+          console.error('Failed to create guest token:', err);
+        }
+      }
+      
+      const finalToken = localStorage.getItem('token');
       const url = `${apiUrl}/api/chat/stream?message=${encodeURIComponent(content)}&sessionId=${sessionId}`;
 
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${finalToken || ''}`,
           'Accept': 'text/event-stream'
         },
         signal: abortControllerRef.current.signal
@@ -166,7 +188,7 @@ export function useStreamingChat({
       const errorMessage = error.message || 'Failed to stream response';
       console.error('Streaming error:', error);
 
-      // Update last assistant message to show error
+      // Update last assistant message to show friendly error with guidance
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg?.messageType === 'ASSISTANT') {
@@ -174,7 +196,7 @@ export function useStreamingChat({
             idx === prev.length - 1
               ? { 
                   ...msg, 
-                  content: msg.content || '❌ Failed to receive response. Please try again.',
+                  content: msg.content || '😊 Oops! I had a little hiccup there. No worries though! Try asking me again, or rephrase your question slightly. I\'m here to help you plan an amazing trip! 🌍\n\nNeed ideas? Try asking me about:\n• Destination recommendations\n• Hotel and restaurant suggestions\n• Creating custom itineraries\n• Budget-friendly travel tips',
                   status: 'failed' as const 
                 }
               : msg
