@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { getToken, setToken, clearToken, getCurrentUser, createGuestToken } from '@/lib/api';
+import React, { createContext, useState, useContext, useEffect, useMemo } from 'react';
+import { getToken, setToken, clearToken, getCurrentUser, createGuestToken, initializeFreshSession } from '@/lib/api';
 
 interface User {
   id: string;
@@ -29,38 +29,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // First try to get current user (for session-based auth)
+        let token = getToken(); // This will return null if token is expired
+        
+        // If no valid token, initialize fresh session
+        if (!token) {
+          // No valid token found, initializing fresh session
+          token = await initializeFreshSession();
+        }
+
+        // Add a small delay to ensure token is properly set in localStorage
+        await new Promise(resolve => { setTimeout(resolve, 100); });
+
+        // Get current user info using the token we just ensured exists
         try {
           const user = await getCurrentUser();
           if (user) {
-            setCurrentUser({ ...user, token: 'session-auth' });
+            setCurrentUser({ ...user, token }); // Use the token we just verified/created
             setIsAuthenticated(true);
-            return; // User is authenticated, no need for guest token
-          }
-        } catch (userError) {
-          console.log('No authenticated user found, will try guest token');
-        }
-
-        // If no authenticated user, try guest token
-        if (!getToken()) {
-          const guestToken = await createGuestToken();
-          setToken(guestToken);
-        }
-
-        // Try to get current user again (might be guest user)
-        try {
-          const user = await getCurrentUser();
-          if (user) {
-            setCurrentUser({ ...user, token: getToken() || '' });
+          } else {
+            // If no user but we have a token, create a basic guest user
+            setCurrentUser({ id: 'guest', token });
             setIsAuthenticated(true);
           }
         } catch (userError) {
-          console.log('No user found after guest token creation');
+          console.warn('Could not get current user, using guest session:', userError);
+          // If getCurrentUser fails but we have a token, still set up guest session
+          setCurrentUser({ id: 'guest', token });
+          setIsAuthenticated(true);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
+        // On error, clear everything and try to create a new guest session
         clearToken();
-        setIsAuthenticated(false);
+        try {
+          const newToken = await createGuestToken();
+          setToken(newToken);
+          setCurrentUser({ id: 'guest', token: newToken });
+          setIsAuthenticated(true);
+        } catch (retryError) {
+          console.error('Failed to create guest session:', retryError);
+          setIsAuthenticated(false);
+        }
       }
     };
 
@@ -106,8 +115,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.location.href = '/auth/signin';
   };
 
+  const contextValue = useMemo(
+    () => ({ isAuthenticated, currentUser, signIn, signOut }),
+    [isAuthenticated, currentUser]
+  );
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, currentUser, signIn, signOut }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

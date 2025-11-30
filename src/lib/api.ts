@@ -1,9 +1,8 @@
 import axios from 'axios';
 
 // Constants
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://api.flomadtravel.com' 
-  : 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
+  (process.env.NODE_ENV === 'production' ? 'https://api.flomadtravel.com' : 'http://localhost:8080');
 const TOKEN_KEY = 'token';
 
 // Types
@@ -37,8 +36,67 @@ export interface Location {
 }
 
 interface GuestTokenResponse {
+  verified: boolean;
   token: string;
+  message: string;
 }
+
+// ==================== TOKEN MANAGEMENT FUNCTIONS ====================
+// Token validation helper
+const isTokenExpired = (token: string): boolean => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const currentTime = Math.floor(Date.now() / 1000);
+    return payload.exp < currentTime;
+  } catch (error) {
+    console.error('Error parsing token:', error);
+    return true; // Treat invalid tokens as expired
+  }
+};
+
+// Token management
+export const setToken = (token: string) => {
+  localStorage.setItem(TOKEN_KEY, token);
+};
+
+export const clearToken = () => {
+  localStorage.removeItem(TOKEN_KEY);
+};
+
+export const getToken = () => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem(TOKEN_KEY);
+    // Check if token exists and is not expired
+    if (token && isTokenExpired(token)) {
+      
+      clearToken();
+      return null;
+    }
+    return token;
+  }
+  return null;
+};
+
+// Guest token creation - use direct axios without interceptors to avoid circular calls
+export const createGuestToken = async (): Promise<string> => {
+  try {
+    
+    // Use direct axios without interceptors to prevent circular dependencies
+    const response = await axios.post<GuestTokenResponse>(`${API_BASE_URL}/api/auth/guest-token`);
+    
+    if (response.status === 200 && response.data.token) {
+      const { token } = response.data;
+      setToken(token);
+      return token;
+    }
+    
+    throw new Error('Failed to get guest token: No token in response');
+  } catch (error) {
+    console.error('Error creating guest token:', error);
+    throw error;
+  }
+};
+// ==================== END TOKEN MANAGEMENT FUNCTIONS ====================
 
 // API client setup
 const apiClient = axios.create({
@@ -46,68 +104,106 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 60000, // 60 seconds timeout for AI responses
 });
 
 // Add token to all requests
 apiClient.interceptors.request.use((config) => {
   const token = getToken();
   if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`;
+    // eslint-disable-next-line no-param-reassign
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-// Handle unauthorized responses
+// Add response interceptor for token refresh
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      clearToken();
-      window.location.href = '/auth/signin';
+    const originalRequest = error.config;
+    
+    // If the error is 401 and we haven't already tried to refresh, and it's not the guest-token endpoint
+    if (error.response?.status === 401 && 
+        !originalRequest.isRetry && 
+        !originalRequest.url?.includes('/api/auth/guest-token')) {
+      originalRequest.isRetry = true;
+      
+      try {
+        
+        // Get a new guest token directly via axios (no interceptors)
+        const response = await axios.post(`${API_BASE_URL}/api/auth/guest-token`);
+        
+        // Check if we got a valid token in the response
+        if (response.status === 200 && response.data.token) {
+          const newToken = response.data.token;
+
+          // Save the new token
+          setToken(newToken);
+          
+          // Update the failed request's token and retry
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return await apiClient(originalRequest);
+        } 
+          throw new Error('No valid token received in refresh response');
+        
+      } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
+        // If refresh fails, clear token but don't reload to avoid infinite loops
+        clearToken();
+        return Promise.reject(refreshError);
+      }
     }
+    
     return Promise.reject(error);
   }
 );
 
-// Token management
-export const setToken = (token: string) => {
-  localStorage.setItem(TOKEN_KEY, token);
-};
+// Force clear all authentication data and create fresh session
+export const initializeFreshSession = async (): Promise<string> => {
 
-export const getToken = () => {
-  return localStorage.getItem(TOKEN_KEY);
-};
-
-export const clearToken = () => {
+  // Clear all possible token storage
   localStorage.removeItem(TOKEN_KEY);
-};
-
-// Guest token creation
-export const createGuestToken = async (): Promise<string> => {
+  localStorage.removeItem('sessionId');
+  localStorage.removeItem('user');
+  
+  // Clear any cached authentication data
+  localStorage.clear();
+  
   try {
-    const response = await apiClient.post<GuestTokenResponse>('/api/auth/guest-session');
-    if (response.data.token) {
-      setToken(response.data.token); // Save token to local storage
-      return response.data.token;   // Return the token
-    } else {
-      throw new Error('Guest token missing in response');
-    }
+    // Create new guest token
+    const newToken = await createGuestToken();
+    
+    return newToken;
   } catch (error) {
-    console.error('Error creating guest token:', error);
+    console.error('Failed to initialize fresh session:', error);
     throw error;
   }
 };
 
-
 // User management
-export const getCurrentUser = async (): Promise<{ id: string }> => {
+export const getCurrentUser = async (): Promise<{ id: string; username?: string; email?: string }> => {
   try {
-    const response = await apiClient.get<{ id: string }>('/users/current', {
-      withCredentials: true // Ensure cookies are sent
-    });
+    const response = await apiClient.get<{ 
+      id: string; 
+      username?: string; 
+      email?: string; 
+      isEmailVerified?: boolean;
+      provider?: string;
+      roles?: string[];
+      lastActive?: string;
+    }>('/users/current');
+    
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error getting current user:', error);
+    if (error.response) {
+      // Response error handled
+    } else if (error.request) {
+      // Network error - no response received
+    } else {
+      // Request setup error
+    }
     throw error;
   }
 };
@@ -115,19 +211,14 @@ export const getCurrentUser = async (): Promise<{ id: string }> => {
 // Session handling
 export const createSession = async (title: string): Promise<SessionDTO> => {
   try {
-    // For session-based auth, we don't need to get the user first
-    // The backend will automatically get the current user from the session
+    const user = await getCurrentUser();
+
     const payload = {
       title,
-      userId: null // Let the backend set this from the session
+      userId: user.id
     };
 
-    // Add a small delay to ensure authentication is established
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    const response = await apiClient.post<SessionDTO>('/sessions', payload, {
-      withCredentials: true // Ensure cookies are sent
-    });
+    const response = await apiClient.post<SessionDTO>('/sessions', payload);
     return response.data;
   } catch (error) {
     console.error('Error creating session:', error);
@@ -159,14 +250,10 @@ export const sendMessage = async (
       },
     };
 
-    console.log("Sending message payload:", formData);
     const response = await apiClient.post('/api/chat/call', formData, config);
     return { content: response.data };
   } catch (error) {
     console.error('Error sending message:', error);
-    if (axios.isAxiosError(error) && error.response) {
-      console.error("Backend response error:", error.response.data);
-    }
     throw error;
   }
 };
@@ -197,25 +284,19 @@ export const sendMessagesEntity = async (
       "/api/chat/call/entity",
       formData,
       {
-        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        headers: {
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+        },
         withCredentials: true,
       }
     );
 
     return response.data;
-  } catch (error) {
-    console.error("❌ Error sending message entity:", error);
+  } catch (error: any) {
+    console.error("Error sending message:", error.message || error);
     throw error;
   }
 };
-
-
-
-
-
-
-
-
 
 export const signIn = async (username: string, password: string) => {
   console.log('API: Making signIn request to /api/auth/signin');
@@ -231,11 +312,7 @@ export const signIn = async (username: string, password: string) => {
   }
 };
 
-export const signUp = async (username: string, email: string, password: string) => {
-  return await apiClient.post('/api/auth/signup', { username, email, password }, {
-    withCredentials: true // Important: This ensures cookies are sent and received
-  });
-};
+export const signUp = async (username: string, email: string, password: string) => apiClient.post('/api/auth/signup', { username, email, password });
 
 // Streaming message handling
 export const sendStreamMessage = async (
@@ -269,7 +346,7 @@ export const initializeGuestUser = async (): Promise<void> => {
 export const getChatHistory = async (path: string) => {
   try {
     const response = await apiClient.get(`/sessions/${path}`);
-    console.log('API Response:', response.data); // Debug log
+     // Debug log
     return response.data;
   } catch (error) {
     console.error('Error getting chat history:', error);
@@ -299,15 +376,58 @@ export const getSessionMessages = async (sessionId: string) => {
   }
 };
 
-
 // Get locations by session ID
 export const getLocationsBySession = async (sessionId: string): Promise<Location[]> => {
   try {
-    const response = await apiClient.get(`/api/locations/${sessionId}`);
+    
+    // First try to get any existing locations
+    const response = await apiClient.get(`/api/locations/${sessionId}`, {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.data) {
+      console.warn('⚠️ No location data received from server');
+      return [];
+    }
+
+    // Ensure we're getting an array
+    const locations = Array.isArray(response.data) ? response.data : [];
+    
+    // Log when no locations are found
+    if (locations.length === 0) {
+      // TODO: Consider adding analytics or user feedback for empty location results
+    }
+
+    return locations;
+  } catch (error: any) {
+    console.error('❌ Error getting locations by session:', {
+      error,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    throw new Error(error.response?.data?.message || 'Failed to fetch locations');
+  }
+};
+
+// Transcribe audio file to text
+export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
+  try {
+    const formData = new FormData();
+    formData.append('audioFile', audioBlob, 'recording.webm');
+
+    const response = await apiClient.post<string>('/audio/transcribe', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
     return response.data;
-  } catch (error) {
-    console.error('Error getting locations by session:', error);
-    throw error;
+  } catch (error: any) {
+    console.error('❌ Error transcribing audio:', error);
+    throw new Error(error.response?.data?.message || 'Failed to transcribe audio');
   }
 };
 
@@ -316,14 +436,13 @@ export const updateSession = async (sessionId: string, title: string, userId: st
   try {
     const now = new Date().toISOString();
     const payload = {
-      sessionId: sessionId,
-      userId: userId,
-      title: title,
+      sessionId,
+      userId,
+      title,
       createdAt: now,  // You might want to keep the original createdAt if available
       updatedAt: now
     };
 
-    console.log('Updating session with payload:', payload);
     const response = await apiClient.put(`/sessions/${sessionId}`, payload);
     return response.data;
   } catch (error: unknown) {

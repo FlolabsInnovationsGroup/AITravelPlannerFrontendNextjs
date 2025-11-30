@@ -1,7 +1,8 @@
-//src/components/SignUp.tsx
+// src/components/SignUp.tsx
+
 "use client"
 
-import Image from "next/legacy/image"
+import Image from "next/image"
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import React, { useState } from 'react';
@@ -38,8 +39,8 @@ export function SignUp() {
     
     setIsLoading(true);
     try {
-      const response = await signUp(username, email, password);
-      console.log('Signup successful:', response);
+      /* const response = */ await signUp(username, email, password);
+      // Signup successful
       toast.success('Signup successful! Please check your email for verification.');
       router.push('/signin');
     } catch (error: any) {
@@ -54,6 +55,7 @@ export function SignUp() {
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-96 relative">
         <button 
+          type="button"
           onClick={handleCancel}
           className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
           aria-label="Close"
@@ -64,7 +66,7 @@ export function SignUp() {
         </button>
         
         <div className="flex items-center mb-6">
-          <Image src="/logo.png" alt="Flomad Travel Logo" width={24} height={24} />
+          <Image src="/logo.svg" alt="Flomad Travel Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} />
           <span className="ml-2 text-xl font-semibold">flomad travel</span>
         </div>
         
@@ -114,7 +116,7 @@ export function SignUp() {
         
         <div className="relative mb-4">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
+            <div className="w-full border-t border-gray-300" />
           </div>
           <div className="relative flex justify-center text-sm">
             <span className="px-2 bg-white text-gray-500">or</span>
@@ -122,7 +124,7 @@ export function SignUp() {
         </div>
         
         <Button variant="outline" className="w-full" onClick={handleOAuthLogin}>
-          <Image src="/image/google.png" alt="Google Logo" width={20} height={20} className="mr-2" />
+          <Image src="/image/google.png" alt="Google Logo" width={20} height={20} style={{ width: 'auto', height: 'auto' }} className="mr-2" />
           Sign up with Google
         </Button>
       </div>

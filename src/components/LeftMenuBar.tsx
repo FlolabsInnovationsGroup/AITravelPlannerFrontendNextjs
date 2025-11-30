@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Heart, Globe, Bell, PlusCircle, Search, Menu, X, LogOut } from 'lucide-react';
+import { MessageSquare, Heart, Globe, Bell, PlusCircle, Search, LogOut } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 
 interface LeftMenuBarProps {
@@ -23,7 +23,8 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
                                                      isMobileMenuOpen,
                                                      showChatHistory,
                                                      toggleChatHistory,
-                                                     toggleMobileMenu,
+                                                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  toggleMobileMenu,
                                                      signOut,
                                                      handleNewChat,
                                                      chatHistory,
@@ -32,11 +33,13 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
                                                      searchQuery,
                                                      setSearchQuery,
                                                  }) => {
-    return (
-        <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} md:block bg-white border-r transition-all duration-300 ${showChatHistory ? 'w-full md:w-64' : 'w-16'} md:h-screen flex flex-col`}>
+  const visibilityClass = isMobileMenuOpen ? 'block' : 'hidden';
+  const widthClass = showChatHistory ? 'w-full md:w-64' : 'w-16';
+  return (
+        <div className={`${visibilityClass} md:block bg-white border-r transition-all duration-300 ${widthClass} md:h-screen flex flex-col`}>
             <div className="p-4 flex items-center justify-center">
                 <Link href="/">
-                    <Image src="/logo.png" alt="AiTripPlanner Logo" width={24} height={24} />
+                    <Image src="/logo.svg" alt="AiTripPlanner Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} />
                 </Link>
             </div>
 
@@ -59,7 +62,7 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
                     <Button variant="ghost" className="flex items-center py-2 px-4 w-full" aria-label="Global">
                         <Globe className="w-6 h-6" />
                     </Button>
-                    <div className="mt-auto mb-2 border-t border-gray-200 w-full"></div>
+                    <div className="mt-auto mb-2 border-t border-gray-200 w-full" />
                     <Button
                         variant="ghost"
                         className="flex items-center py-2 px-4 w-full mt-auto"
@@ -103,19 +106,21 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
                                 />
                             </div>
                             <ul>
-  {(Array.isArray(chatHistory) ? chatHistory : []) // Ensure it's always an array
+  {(Array.isArray(chatHistory) ? chatHistory : [])
     .filter(session =>
       session.title.toLowerCase().includes(searchQuery.toLowerCase())
     )
     .map((session) => (
-      <li
-        key={session.sessionId}
-        className={`py-2 px-4 cursor-pointer hover:bg-gray-100 rounded-md ${
-          currentSessionId === session.sessionId ? 'bg-gray-200' : ''
-        }`}
-        onClick={() => handleSessionClick(session)}
-      >
-        <span className="truncate">{session.title}</span>
+      <li key={session.sessionId}>
+        <button
+          type="button"
+          className={`w-full text-left py-2 px-4 cursor-pointer hover:bg-gray-100 rounded-md ${
+            currentSessionId === session.sessionId ? 'bg-gray-200' : ''
+          }`}
+          onClick={() => handleSessionClick(session)}
+        >
+          <span className="truncate">{session.title}</span>
+        </button>
       </li>
     ))}
 </ul>
@@ -144,6 +149,6 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
             )}
         </div>
     );
-};
+  };
 
 export default LeftMenuBar;

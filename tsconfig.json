@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "target": "es2022",
     "lib": [
       "dom",
       "dom.iterable",
@@ -26,13 +27,18 @@
         "./src/*"
       ]
     },
-    "target": "ES2017"
+    "baseUrl": ".",
+    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "jest.config.ts",
+    "jest.setup.ts",
+    "__tests__/**/*"
   ],
   "exclude": [
     "node_modules"

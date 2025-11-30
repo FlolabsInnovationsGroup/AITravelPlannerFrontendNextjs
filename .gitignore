@@ -17,6 +17,8 @@
 # Misc
 .DS_Store
 *.pem
+*.new.tsx
+*.fixed.tsx
 
 # Debug
 npm-debug.log*
@@ -35,5 +37,19 @@ next-env.d.ts
 
 # Environment variables
 .env
-.env.*
+.env.local
+.env.*.local
+.env.vercel.production
 !.env.example
+!.env.development
+!.env.production
+
+# Test files and patches
+*.patch
+test-*.js
+system-integration-test.js
+test-websocket-debug.js
+scripts/clearTokens.js
+
+# Copilot instructions
+.github/copilot-instructions.md

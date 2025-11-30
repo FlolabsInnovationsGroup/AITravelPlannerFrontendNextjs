@@ -6,18 +6,18 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const cities = [
-  { name: "New York", image: "/image/newnewyork.jpg" },
-  { name: "Paris", image: "/image/newparis.jpg" },
-  { name: "Tokyo", image: "/image/newtokyo.jpg" },
-  { name: "Rome", image: "/image/newrome.jpg" },
-  { name: "Sydney", image: "/image/newsydney.jpg" },
-  { name: "Dubai", image: "/image/newdubai.jpg" },
-  { name: "Mumbai", image: "/image/mumbai.jpg" },
-  { name: "Cape Town", image: "/image/cape-town.jpg" },
-  { name: "Barcelona", image: "/image/newbarcelona.jpg" },
-  { name: "Prague", image: "/image/newprague.jpg" },
-  { name: "Vienna", image: "/image/vienna.jpg" },
-  { name: "Amsterdam", image: "/image/newamsterdam.jpg" },
+  { name: "New York", image: "/image/newnewyork.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Paris", image: "/image/newparis.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Tokyo", image: "/image/newtokyo.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Rome", image: "/image/newrome.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Sydney", image: "/image/newsydney.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Dubai", image: "/image/newdubai.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Mumbai", image: "/image/mumbai.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Cape Town", image: "/image/cape-town.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Barcelona", image: "/image/newbarcelona.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Prague", image: "/image/newprague.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Vienna", image: "/image/vienna.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
+  { name: "Amsterdam", image: "/image/newamsterdam.jpg", sizes: "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" },
   { name: "Lisbon", image: "/image/newlisbon.jpg" },
 ];
 
@@ -26,10 +26,7 @@ export function TopCities() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
-  useEffect(() => {
-    checkScroll();
-  }, []);
-
+  // ==================== HELPER FUNCTIONS ====================
   const checkScroll = () => {
     if (scrollRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
@@ -37,6 +34,11 @@ export function TopCities() {
       setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
     }
   };
+  // ==================== END HELPER FUNCTIONS ====================
+
+  useEffect(() => {
+    checkScroll();
+  }, []);
 
   const scroll = (direction: "left" | "right") => {
     if (scrollRef.current) {
@@ -58,18 +60,18 @@ export function TopCities() {
             className="flex overflow-x-auto space-x-6 no-scrollbar scroll-smooth"
             onScroll={checkScroll}
           >
-            {cities.map((city, index) => (
-              <div key={index} className="flex-none w-64">
+            {cities.map((city) => (
+              <div key={city.name} className="flex-none w-64">
                 <div className="relative aspect-[3/4] group overflow-hidden rounded-lg shadow-md transition-all duration-300 hover:shadow-xl">
                   <Image
                     src={city.image}
                     alt={city.name}
-                    layout="fill"
-                    objectFit="cover"
-                    className="transition-all duration-300 brightness-90 group-hover:brightness-100"
+                    fill
+                    sizes={city.sizes || "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"}
+                    className="object-cover transition-all duration-300 brightness-90 group-hover:brightness-100"
                   />
                   {/* Full-width gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
                   {/* Full-width blurry text background */}
                   <div className="absolute inset-x-0 bottom-0 bg-black/20 backdrop-blur-sm p-3">

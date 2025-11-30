@@ -38,7 +38,7 @@
 "use client"
 
 import { useState, useRef } from 'react'
-import Image from "next/legacy/image"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -92,17 +92,17 @@ export function TopCities() {
             className="flex overflow-x-auto space-x-6 no-scrollbar"
             onScroll={checkScroll}
           >
-            {cities.map((city, index) => (
-              <div key={index} className="flex-none w-64">
+            {cities.map((city) => (
+              <div key={city.name} className="flex-none w-64">
                 <div className="relative aspect-[3/4] group overflow-hidden rounded-lg">
                   <Image
                     src={city.image}
                     alt={city.name}
-                    layout="fill"
-                    objectFit="cover"
-                    className="transition-transform duration-300 group-hover:scale-110"
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-110"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-70"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-70" />
                   <div className="absolute bottom-0 left-0 right-0 p-4">
                     <h3 className="text-white font-semibold text-xl">{city.name}</h3>
                     <p className="text-white">{city.tours} tours</p>

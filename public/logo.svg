@@ -1,20 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- Created with Inkscape (http://www.inkscape.org/) -->
-
 <svg
-   width="210mm"
-   height="297mm"
-   viewBox="0 0 210 297"
+   id="Layer_2"
+   data-name="Layer 2"
+   viewBox="0 0 100.4 100.4"
    version="1.1"
-   id="svg1"
-   inkscape:version="1.3.2 (091e20e, 2023-11-25, custom)"
-   sodipodi:docname="FlomadTravelLogo.svg"
+   sodipodi:docname="FloLabsRD-international_logo - Copy.svg"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
   <sodipodi:namedview
-     id="namedview1"
+     id="namedview11"
      pagecolor="#ffffff"
      bordercolor="#000000"
      borderopacity="0.25"
@@ -22,77 +19,206 @@
      inkscape:pageopacity="0.0"
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
-     inkscape:document-units="mm"
-     inkscape:zoom="0.69219276"
-     inkscape:cx="397.28818"
-     inkscape:cy="561.25984"
+     inkscape:zoom="7.6992031"
+     inkscape:cx="42.796637"
+     inkscape:cy="49.940233"
      inkscape:window-width="1920"
      inkscape:window-height="991"
      inkscape:window-x="-9"
      inkscape:window-y="-9"
      inkscape:window-maximized="1"
-     inkscape:current-layer="layer1" />
+     inkscape:current-layer="Layer_2" />
   <defs
-     id="defs1">
+     id="defs11">
+    <linearGradient id="emeraldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10B981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+    <filter
+       id="selectable_hidder_filter"
+       width="1"
+       height="1"
+       x="0"
+       y="0"
+       style="color-interpolation-filters:sRGB;"
+       inkscape:label="LPE boolean visibility">
+      <feComposite
+         id="boolops_hidder_primitive"
+         result="composite1"
+         operator="arithmetic"
+         in2="SourceGraphic"
+         in="BackgroundImage" />
+    </filter>
     <inkscape:path-effect
-       effect="fillet_chamfer"
-       id="path-effect40"
+       effect="bool_op"
+       operand-path=""
+       id="path-effect35"
        is_visible="true"
        lpeversion="1"
-       nodesatellites_param="F,1,0,1,0,0,0,1 @ F,1,0,1,0,0,0,1 @ F,1,0,1,0,0,0,1 @ F,1,0,1,0,1,0,1 @ F,1,0,1,0,0,0,1 @ F,1,0,1,0,0,0,1 @ F,1,0,1,0,0,0,1"
-       radius="0"
-       unit="px"
-       method="auto"
-       mode="F"
-       chamfer_steps="1"
-       flexible="true"
-       use_knot_distance="true"
-       apply_no_radius="true"
-       apply_with_radius="true"
-       only_selected="false"
-       hide_knots="false" />
-    <inkscape:path-effect
-       effect="fillet_chamfer"
-       id="path-effect43"
-       is_visible="true"
-       lpeversion="1"
-       nodesatellites_param="F,0,0,1,0,3.4395833,0,1 @ F,0,0,1,0,3.4395833,0,1 @ F,0,0,1,0,3.4395833,0,1 @ F,0,0,1,0,3.4395833,0,1"
-       radius="13"
-       unit="px"
-       method="auto"
-       mode="F"
-       chamfer_steps="1"
-       flexible="false"
-       use_knot_distance="true"
-       apply_no_radius="true"
-       apply_with_radius="true"
-       only_selected="false"
-       hide_knots="false" />
+       operation="union"
+       swap-operands="false"
+       filltype-this="from-curve"
+       filter=""
+       filltype-operand="from-curve" />
+    <style
+       id="style1">
+      .cls-1 {
+        fill: none;
+        stroke: #231f20;
+        stroke-width: 2px;
+      }
+
+      .cls-1, .cls-2 {
+        stroke-miterlimit: 10;
+      }
+
+      .cls-3 {
+        fill: #231f20;
+      }
+
+      .cls-4, .cls-2 {
+        fill: #fff;
+      }
+
+      .cls-2 {
+        stroke: #fff;
+        stroke-linecap: round;
+        stroke-width: 4px;
+      }
+    </style>
+    <symbol
+       id="Flomad_Logo"
+       data-name="Flomad Logo"
+       viewBox="0 0 45.36 45.36">
+      <g
+         id="Flomad_Logo-2"
+         data-name="Flomad Logo">
+        <circle
+           class="cls-3"
+           cx="22.68"
+           cy="22.68"
+           r="22.68"
+           id="circle1" />
+        <g
+           id="g11">
+          <g
+             id="g8">
+            <line
+               class="cls-2"
+               x1="11.21"
+               y1="21.86"
+               x2="8.52"
+               y2="13.92"
+               id="line1" />
+            <line
+               class="cls-2"
+               x1="16.91"
+               y1="20.89"
+               x2="13.49"
+               y2="10"
+               id="line2" />
+            <line
+               class="cls-2"
+               x1="22.7"
+               y1="21.48"
+               x2="26.63"
+               y2="7.42"
+               id="line3" />
+            <line
+               class="cls-2"
+               x1="28.32"
+               y1="22.68"
+               x2="32.13"
+               y2="11.07"
+               id="line4" />
+            <line
+               class="cls-2"
+               x1="11.57"
+               y1="23.62"
+               x2="11.57"
+               y2="33.01"
+               id="line5" />
+            <line
+               class="cls-2"
+               x1="17.17"
+               y1="23.62"
+               x2="17.17"
+               y2="35.75"
+               id="line6" />
+            <line
+               class="cls-2"
+               x1="22.77"
+               y1="23.46"
+               x2="22.77"
+               y2="38.66"
+               id="line7" />
+            <line
+               class="cls-2"
+               x1="28.32"
+               y1="24.47"
+               x2="28.32"
+               y2="36.08"
+               id="line8" />
+          </g>
+          <path
+             class="cls-4"
+             d="M41.56,25.49l-1.33-1.21c-.34-.31-.85-.3-1.18.02l-6.68,6.46-.02,4.69c.76,0,7.3-6.68,9.25-8.74.33-.35.31-.9-.05-1.23Z"
+             id="path8" />
+          <path
+             class="cls-4"
+             d="M31.13,24.28"
+             id="path9" />
+          <path
+             class="cls-4"
+             d="M9.54,23.92"
+             id="path10" />
+          <path
+             class="cls-1"
+             d="M8.21,24.14c8.91-2.04,14.75-2.46,23.66.36"
+             id="path11" />
+        </g>
+      </g>
+    </symbol>
   </defs>
   <g
-     inkscape:label="Layer 1"
-     inkscape:groupmode="layer"
-     id="layer1">
+     id="g290"
+     transform="matrix(1.2807942,0,0,1.2807942,-136.89855,-7.0227137)"
+     style="fill:url(#emeraldGradient);fill-opacity:1">
     <path
-       id="path38"
-       style="fill:none;stroke:#000000;stroke-width:6.80175;stroke-linecap:square;stroke-linejoin:round;stroke-miterlimit:4.3;stroke-dasharray:none;stroke-dashoffset:4.98898;paint-order:markers stroke fill"
-       d="m 421.71338,1222.948 c -17.88066,-0.7868 -33.82101,16.8575 -31.30521,34.5502 2.6739,12.8075 9.36767,24.2908 15.69049,35.5907 2.79744,4.6888 5.56618,9.4092 8.46919,14.0407 3.66999,5.8552 10.03603,5.7397 14.14647,0.2173 8.82621,-14.1993 17.72141,-28.6318 23.02454,-44.5795 3.88378,-10.6083 0.16487,-23.0291 -7.83924,-30.7274 -5.78035,-5.7519 -13.93686,-9.5253 -22.18624,-9.092 z"
-       inkscape:export-filename="flomadblack.png"
-       inkscape:export-xdpi="96"
-       inkscape:export-ydpi="96"
-       inkscape:path-effect="#path-effect40"
-       inkscape:original-d="m 421.71338,1222.948 c -17.88066,-0.7868 -33.82101,16.8575 -31.30521,34.5502 2.6739,12.8075 9.36767,24.2908 15.69049,35.5907 4.93336,8.2688 9.77746,16.636 15.42614,24.4405 2.69647,-2.1388 4.80342,-6.9768 7.18952,-10.1825 8.82621,-14.1993 17.72141,-28.6318 23.02454,-44.5795 3.88378,-10.6083 0.16487,-23.0291 -7.83924,-30.7274 -5.78035,-5.7519 -13.93686,-9.5253 -22.18624,-9.092 z"
-       transform="matrix(1,0,0,1.0591421,-316.62193,-1202.7372)" />
+       d="m 160.27344,49.763672 c -3.00227,-0.888901 -5.83791,-1.601805 -8.56641,-2.154297 a 4.3000002,4.3000002 0 0 0 -0.0332,0.494141 v 25.658203 a 4.3000002,4.3000002 0 0 0 4.29883,4.300781 4.3000002,4.3000002 0 0 0 4.30078,-4.300781 z"
+       style="baseline-shift:baseline;display:inline;overflow:visible;fill:url(#emeraldGradient);stroke:#ffffff;stroke-width:0;stroke-linecap:round;stroke-miterlimit:10;paint-order:fill markers stroke;enable-background:accumulate;stop-color:#000000;fill-opacity:1"
+       id="path290" />
     <path
-       style="fill:#000000;stroke:none;stroke-width:0.458308;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.3;stroke-dasharray:none;stroke-dashoffset:4.98898;paint-order:markers stroke fill"
-       d="m 366.84534,1097.6024 c -1.56855,4.7015 -5.26813,8.4009 -9.96962,9.9694 -1.79847,0.6 -1.79847,0.8536 -10e-6,1.4536 4.70156,1.5686 8.40116,5.268 9.96968,9.9696 0.6,1.7984 0.85349,1.7984 1.45346,-10e-5 1.56847,-4.7016 5.26799,-8.4012 9.96967,-9.9696 1.79848,-0.6 1.79848,-0.8534 0,-1.4534 -4.70163,-1.5684 -8.40112,-5.2679 -9.96963,-9.9695 -0.59999,-1.7984 -0.85352,-1.7984 -1.45355,0 z"
-       id="path39"
-       inkscape:path-effect="#path-effect43"
-       inkscape:original-d="m 367.57213,1094.2474 c -0.78489,7.4222 -6.62928,13.2663 -14.05145,14.0512 7.42225,0.785 13.26664,6.6291 14.05145,14.0514 0.78483,-7.4224 6.62893,-13.2667 14.05145,-14.0514 -7.42244,-0.7847 -13.26652,-6.6288 -14.05145,-14.0512 z"
-       transform="matrix(1.7455521,0,0,1.7455521,-536.51357,-1809.1717)" />
+       d="m 152.25195,43.660156 c 2.76852,0.543778 5.62847,1.245131 8.62891,2.115235 l 6.85937,-27.09375 A 4.4425998,4.4425998 0 0 0 164.52344,13.285156 4.4425998,4.4425998 0 0 0 163.37109,13.150391 4.4425998,4.4425998 0 0 0 159.12695,16.5 Z"
+       style="baseline-shift:baseline;display:inline;overflow:visible;fill:url(#emeraldGradient);stroke:#ffffff;stroke-width:0;stroke-linecap:round;stroke-miterlimit:10;paint-order:fill markers stroke;enable-background:accumulate;stop-color:#000000;fill-opacity:1"
+       id="path287" />
     <path
-       id="path65"
-       style="fill:#000000;fill-rule:nonzero;stroke:none;stroke-width:6.6;stroke-linecap:round;stroke-miterlimit:4.3;stroke-dasharray:none;paint-order:fill markers stroke"
-       d="m 83.46868,177.3602 c -0.3995,-4e-4 -1.147,0.3935 -2.2469,1.2355 -2.8824,2.2068 -5.0523,5.2653 -5.4813,8.968 -0.6823,6.0536 3.4941,11.39 8.277,14.5655 6.2111,4.1148 13.643,6.1744 21.085,6.2012 7.442,-0.027 14.8739,-2.0864 21.085,-6.2012 4.7829,-3.1755 8.9593,-8.5119 8.277,-14.5655 -0.429,-3.7027 -2.5989,-6.7612 -5.4813,-8.968 -1.0998,-0.842 -1.8474,-1.2359 -2.2469,-1.2355 -0.6658,5e-4 -0.3647,1.0959 0.8857,3.0365 0.2271,0.3524 0.441,0.7139 0.6403,1.0836 1.6894,2.8378 1.4171,6.7406 -1.0547,9.0486 -4.041,3.8883 -9.6152,5.7629 -15.0662,6.5861 -2.319,0.2967 -4.6797,0.4429 -7.0389,0.4129 -2.3592,0.03 -4.7199,-0.1162 -7.0388,-0.4129 -5.451,-0.8232 -11.0253,-2.6978 -15.0663,-6.5861 -2.4718,-2.308 -2.7441,-6.2108 -1.0547,-9.0486 0.1993,-0.3697 0.4131,-0.7312 0.6402,-1.0836 1.2504,-1.9406 1.5517,-3.036 0.8858,-3.0365 z" />
+       d="m 126.49414,42.851562 c 3.01782,-0.372929 5.95591,-0.604716 8.88477,-0.671875 l -4.86914,-27.455078 a 4.4339199,4.4339199 0 0 0 -4.5625,-3.65625 4.4339199,4.4339199 0 0 0 -0.57618,0.06445 4.4339199,4.4339199 0 0 0 -3.59179,5.140624 z"
+       style="baseline-shift:baseline;display:inline;overflow:visible;fill:url(#emeraldGradient);stroke:#ffffff;stroke-width:0;stroke-linecap:round;stroke-miterlimit:10;paint-order:fill markers stroke;enable-background:accumulate;stop-color:#000000;fill-opacity:1"
+       id="path286" />
+    <path
+       d="m 114.4668,44.923828 c 3.05655,-0.646876 5.97266,-1.194158 8.80273,-1.626953 a 4.4736199,4.4736199 0 0 0 -0.0371,-0.173828 l -4.43945,-18.757813 a 4.4736199,4.4736199 0 0 0 -4.2207,-3.441406 4.4736199,4.4736199 0 0 0 -1.16211,0.119141 4.4736199,4.4736199 0 0 0 -3.32227,5.382812 z"
+       style="baseline-shift:baseline;display:inline;overflow:visible;fill:url(#emeraldGradient);stroke:#ffffff;stroke-width:0;stroke-linecap:round;stroke-miterlimit:10;paint-order:fill markers stroke;enable-background:accumulate;stop-color:#000000;fill-opacity:1"
+       id="path285" />
+    <path
+       d="m 123.32227,47.316406 c -2.78051,0.446961 -5.67051,1.009581 -8.73243,1.671875 v 18.765625 a 4.3660898,4.3660898 0 0 0 4.36524,4.365235 4.3660898,4.3660898 0 0 0 4.36719,-4.365235 z"
+       style="baseline-shift:baseline;display:inline;overflow:visible;fill:url(#emeraldGradient);stroke:#ffffff;stroke-width:0;stroke-linecap:round;stroke-miterlimit:10;paint-order:fill markers stroke;enable-background:accumulate;stop-color:#000000;fill-opacity:1"
+       id="path282" />
+    <path
+       d="m 135.82422,46.121094 c -2.96348,0.05611 -5.94167,0.294605 -9.0293,0.691406 v 29.757812 a 4.53791,4.53791 0 0 0 4.53711,4.53711 4.53791,4.53791 0 0 0 4.53711,-4.53711 V 46.714844 a 4.53791,4.53791 0 0 0 -0.0449,-0.59375 z"
+       style="baseline-shift:baseline;display:inline;overflow:visible;fill:url(#emeraldGradient);stroke:#ffffff;stroke-width:0;stroke-linecap:round;stroke-miterlimit:10;paint-order:fill markers stroke;enable-background:accumulate;stop-color:#000000;fill-opacity:1"
+       id="path279" />
+    <path
+       d="m 148.00781,46.947266 c -2.94018,-0.453346 -5.77997,-0.71337 -8.59961,-0.802735 v 33.320313 a 4.3000002,4.3000002 0 0 0 4.29883,4.298828 4.3000002,4.3000002 0 0 0 4.30078,-4.298828 z"
+       style="baseline-shift:baseline;display:inline;overflow:visible;fill:url(#emeraldGradient);stroke:#ffffff;stroke-width:0;stroke-linecap:round;stroke-miterlimit:10;paint-order:fill markers stroke;enable-background:accumulate;stop-color:#000000;fill-opacity:1"
+       id="path277" />
+    <path
+       d="m 150.93359,5.5976562 a 4.4352798,4.4352798 0 0 0 -4.10351,3.5097657 l -7.00977,33.0996091 c 2.9176,0.101741 5.86008,0.37355 8.89258,0.835938 l 6.79492,-32.097656 a 4.4352798,4.4352798 0 0 0 -3.41992,-5.257813 4.4352798,4.4352798 0 0 0 -1.1543,-0.089844 z"
+       style="baseline-shift:baseline;display:inline;overflow:visible;fill:url(#emeraldGradient);stroke:#ffffff;stroke-width:0;stroke-linecap:round;stroke-miterlimit:10;paint-order:fill markers stroke;enable-background:accumulate;stop-color:#000000;fill-opacity:1"
+       id="path274" />
+    <path
+       d="m 163.96768,59.100617 v 6.080078 0 6.082031 l 16.96484,-16.964844 a 4.3000002,4.3000002 0 0 0 0,-6.082031 4.3000002,4.3000002 0 0 0 -3.03906,-1.259766 4.3000002,4.3000002 0 0 0 -3.04102,1.259766 z"
+       style="baseline-shift:baseline;display:inline;overflow:visible;fill:url(#emeraldGradient);stroke-width:0;stroke-linecap:round;stroke-miterlimit:10;stroke-dasharray:none;paint-order:fill markers stroke;enable-background:accumulate;stop-color:#000000;stop-opacity:1;fill-opacity:1"
+       id="path122" />
   </g>
 </svg>

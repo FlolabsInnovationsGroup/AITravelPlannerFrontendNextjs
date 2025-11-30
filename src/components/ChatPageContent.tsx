@@ -3,18 +3,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from "next/image";
-import Link from 'next/link';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { Components } from 'react-markdown';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession } from '@/lib/api';
-import { Send, Menu, X } from 'lucide-react';
+import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages } from '@/lib/api';
+import { Send } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/contexts/AuthContext';
-import AudioRecorder from './AudioRecorder';
-import { Components } from 'react-markdown';
+
 import LeftMenuBar from '@/components/LeftMenuBar';
-import RightMapPanel from '@/components/RightMapPanel';
+import RightMapPanel from '@/components/features/map/RightMapPanel';
+import TravelItinerary from '@/components/features/map/TravelItinerary';
+import { Location } from '@/types/map';
+import AudioRecorder from './AudioRecorder';
 
 interface CodeProps extends React.HTMLAttributes<HTMLElement> {
     inline?: boolean;
@@ -26,6 +27,47 @@ interface Message {
     content: string;
 }
 
+// Markdown components defined outside to prevent re-creation on every render
+const markdownComponents: Components = {
+    p: ({ ...props }) => <p className="mb-4 last:mb-0" {...props} />,
+    ul: ({ ...props }) => <ul className="list-disc ml-4 mb-4" {...props} />,
+    ol: ({ ...props }) => <ol className="list-decimal ml-4 mb-4" {...props} />,
+    li: ({ ...props }) => <li className="mb-2" {...props} />,
+    h1: ({ node, children, ...props }) => <h1 className="text-xl font-bold mb-4" {...props}>{children}</h1>,
+    h2: ({ node, children, ...props }) => <h2 className="text-lg font-bold mb-3" {...props}>{children}</h2>,
+    h3: ({ node, children, ...props }) => <h3 className="text-md font-bold mb-2" {...props}>{children}</h3>,
+    code: ({ inline, ...props }: CodeProps) =>
+        inline ? (
+            <code className="bg-gray-100 px-1 py-0.5 rounded" {...props} />
+        ) : (
+            <code className="block bg-gray-100 p-4 rounded mb-4" {...props} />
+        ),
+};
+
+// Suggestions component defined outside to prevent re-creation on every render
+interface SuggestionsProps {
+    suggestions: string[];
+    handleSendMessage: (message: string) => void;
+}
+
+const Suggestions: React.FC<SuggestionsProps> = ({ suggestions, handleSendMessage }) => (
+    <div className="mt-4">
+        <h3 className="text-lg font-semibold mb-2">Suggestions:</h3>
+        <div className="flex flex-wrap gap-2">
+            {suggestions.map((suggestion) => (
+                <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => handleSendMessage(suggestion)}
+                    className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+                >
+                    {suggestion}
+                </button>
+            ))}
+        </div>
+    </div>
+);
+
 export default function ChatPageContent() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputMessage, setInputMessage] = useState('');
@@ -36,11 +78,11 @@ export default function ChatPageContent() {
     const [searchQuery, setSearchQuery] = useState('');
     const [isInitialized, setIsInitialized] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [messageCount, setMessageCount] = useState(0);
     const [chatHistory, setChatHistory] = useState<Array<{ sessionId: string; title: string }>>([]);
     const { currentUser } = useAuth();
-    const [hasReachedMessageLimit, setHasReachedMessageLimit] = useState(false);
     const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [showItinerary, setShowItinerary] = useState(false);
+    const [itineraryLocations, setItineraryLocations] = useState<Location[]>([]);
 
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -68,15 +110,30 @@ export default function ChatPageContent() {
     
         if (lowerCaseContext.includes("flight")) {
             return ["Book a flight", "Check flight prices", "View flight schedules", "Explore airline options"];
-        } else if (lowerCaseContext.includes("hotel")) {
+        } if (lowerCaseContext.includes("hotel")) {
             return ["Find nearby hotels", "Check hotel reviews", "View hotel deals", "Explore amenities"];
-        } else if (lowerCaseContext.includes("beach")) {
+        } if (lowerCaseContext.includes("beach")) {
             return ["Explore beach resorts", "Find snorkeling spots", "Plan a beach vacation", "Check weather for beaches"];
         }
     
         return defaultPrompts.slice(0, 4); // Default fallback prompts
     };
     
+    // ==================== HELPER FUNCTIONS ====================
+    
+    const fetchChatHistory = async () => {
+        if (!currentUser?.id) return;
+    
+        try {
+            const sessions = await getUserSessions(currentUser.id);
+            setChatHistory(sessions);
+        } catch (error) {
+            console.error('Error fetching chat history:', error);
+            toast.error('Failed to load chat history');
+        }
+    };
+    
+    // ==================== END HELPER FUNCTIONS ====================
 
     // Event handlers and functions
     const signOut = () => {
@@ -133,9 +190,9 @@ export default function ChatPageContent() {
             let sessionId = currentSession?.sessionId;
     
             if (!sessionId) {
-                console.log("Creating a new session...");
+                // Creating a new session
                 const newSession = await createSession('New Chat');
-                console.log("New session created:", newSession);
+                // New session created
                 
                 if (!newSession || !newSession.sessionId) {
                     throw new Error("Failed to create a new session.");
@@ -145,6 +202,8 @@ export default function ChatPageContent() {
                 setCurrentSession(newSession);
             }
     
+            // Check message limit for guest users (1000 messages)
+            const messageCount = messages.length;
             if (messageCount >= 1000 && !currentUser) {
                 setMessages((prev) => [
                     ...prev,
@@ -205,22 +264,9 @@ export default function ChatPageContent() {
     };
     
     const handleTranscription = (transcribedText: string) => {
-        console.log("✅ Received transcription:", transcribedText);
+        // Received transcription from audio
         setInputMessage(transcribedText);
         handleSendMessage(transcribedText); // ✅ Auto-send
-    };
-    
-    
-    const fetchChatHistory = async () => {
-        if (!currentUser?.id) return;
-    
-        try {
-            const sessions = await getUserSessions(currentUser.id);
-            setChatHistory(sessions);
-        } catch (error) {
-            console.error('Error fetching chat history:', error);
-            toast.error('Failed to load chat history');
-        }
     };
     
     useEffect(() => {
@@ -229,56 +275,6 @@ export default function ChatPageContent() {
             fetchChatHistory();
         }
     }, [messages, currentUser?.id]);
-    
-
-    const generateSessionTitle = (message: string) => {
-        const cleanMessage = message.replace(/[^\w\s]/gi, ' ').replace(/\s+/g, ' ').trim();
-
-        if (cleanMessage.length <= 30) {
-            return cleanMessage;
-        }
-
-        const words = cleanMessage.split(' ');
-        let title = '';
-        for (const word of words) {
-            if ((title + word).length > 27) break;
-            title += (title ? ' ' : '') + word;
-        }
-        return title + '...';
-    };
-
-    const markdownComponents: Components = {
-        p: ({ ...props }) => <p className="mb-4 last:mb-0" {...props} />,
-        ul: ({ ...props }) => <ul className="list-disc ml-4 mb-4" {...props} />,
-        ol: ({ ...props }) => <ol className="list-decimal ml-4 mb-4" {...props} />,
-        li: ({ ...props }) => <li className="mb-2" {...props} />,
-        h1: ({ node, ...props }) => <h1 className="text-xl font-bold mb-4" {...props} />,
-        h2: ({ node, ...props }) => <h2 className="text-lg font-bold mb-3" {...props} />,
-        h3: ({ node, ...props }) => <h3 className="text-md font-bold mb-2" {...props} />,
-        code: ({ inline, ...props }: CodeProps) =>
-            inline ? (
-                <code className="bg-gray-100 px-1 py-0.5 rounded" {...props} />
-            ) : (
-                <code className="block bg-gray-100 p-4 rounded mb-4" {...props} />
-            ),
-    };
-
-    const Suggestions = ({ suggestions, handleSendMessage }: { suggestions: string[]; handleSendMessage: (message: string) => void }) => (
-        <div className="mt-4">
-            <h3 className="text-lg font-semibold mb-2">Suggestions:</h3>
-            <div className="flex flex-wrap gap-2">
-                {suggestions.map((suggestion, index) => (
-                    <button
-                        key={index}
-                        onClick={() => handleSendMessage(suggestion)}
-                        className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
-                    >
-                        {suggestion}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
 
     useEffect(() => {
         if (bottomRef.current) {
@@ -353,10 +349,11 @@ export default function ChatPageContent() {
                         {/* Wrapper for Logo */}
                         <div className="flex justify-center mt-6 mb-8">
                             <Image
-                                src="/logo.png"
+                                src="/logo.svg"
                                 alt="AiTripPlanner Logo"
                                 width={128}
                                 height={128}
+                                style={{ width: 'auto', height: 'auto' }}
                                 className="object-contain"
                             />
                         </div>
@@ -368,9 +365,10 @@ export default function ChatPageContent() {
                                     How can I help you plan your trip today?
                                 </h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {defaultPrompts.map((prompt: string, index: number) => (
+                                    {defaultPrompts.map((prompt: string) => (
                                         <button
-                                            key={index}
+                                            key={prompt}
+                                            type="button"
                                             onClick={() => handlePromptClick(prompt)}
                                             className="text-left p-6 rounded-lg bg-white hover:bg-gray-100
                                                      transition-all duration-200 shadow-sm hover:shadow
@@ -472,10 +470,54 @@ export default function ChatPageContent() {
     
 {/* Right Map Panel */}
 <div className="flex-[2.7] bg-white overflow-hidden p-4 h-full">
-    <RightMapPanel
-        currentSessionId={currentSession?.sessionId || null}
-        currentUserToken={currentUser?.token || null}
-    />
+    <div className="flex flex-col h-full">
+        {/* Map Panel Controls */}
+        <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Travel Map & Itinerary</h2>
+            <div className="flex space-x-2">
+                <Button
+                    onClick={() => setShowItinerary(!showItinerary)}
+                    variant={showItinerary ? "default" : "outline"}
+                    size="sm"
+                    className="text-sm"
+                >
+                    {showItinerary ? 'Show Map' : 'Show Itinerary'}
+                </Button>
+            </div>
+        </div>
+        
+        {showItinerary ? (
+            <div className="flex-1 overflow-auto">
+                <TravelItinerary 
+                    locations={itineraryLocations}
+                    onLocationSelect={() => {
+                        // Switch back to map view and center on location
+                        setShowItinerary(false);
+                        // You could add map centering logic here
+                    }}
+                    onLocationRemove={(locationId) => {
+                        setItineraryLocations(prev => 
+                            prev.filter(loc => loc.id !== locationId)
+                        );
+                    }}
+                    onOptimizeRoute={() => {
+                        // Implement route optimization
+                        toast.success("Route optimization coming soon!");
+                    }}
+                />
+            </div>
+        ) : (
+            <div className="flex-1">
+                <RightMapPanel
+                    currentSessionId={currentSession?.sessionId || null}
+                    currentUserToken={currentUser?.token || null}
+                    onLocationUpdate={(locations: Location[]) => {
+                        setItineraryLocations(locations);
+                    }}
+                />
+            </div>
+        )}
+    </div>
 </div>
 </div>
 

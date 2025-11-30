@@ -4,14 +4,13 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Mic, MicOff, Loader2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
-import { sendMessagesEntity } from '@/lib/api'
 
 interface AudioRecorderProps {
-  sessionId: string
   onTranscription: (transcribedText: string) => void
+  sessionId?: string // Optional session ID for future transcription API integration
 }
 
-export default function AudioRecorder({ sessionId, onTranscription }: AudioRecorderProps) {
+export default function AudioRecorder({ onTranscription, sessionId }: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [recordingDuration, setRecordingDuration] = useState(0)
@@ -19,48 +18,102 @@ export default function AudioRecorder({ sessionId, onTranscription }: AudioRecor
   const audioChunks = useRef<Blob[]>([])
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
-    return () => {
+  useEffect(() => () => {
       if (timerRef.current) {
         clearInterval(timerRef.current)
       }
+    }, [])
+
+  const stopRecording = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
-  }, [])
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+    }
+
+    setIsRecording(false); // Stop recording mode
+    setIsProcessing(true); // Show processing state
+    setRecordingDuration(0); // Reset duration
+  };
+
+  const transcribeAudio = async (audioBlob: Blob) => {
+    // Starting audio transcription
+
+    setIsProcessing(true); // Show processing state
+
+    try {
+      const formData = new FormData();
+      formData.append("audioFile", audioBlob, "recording.wav"); // Match DTO field name
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/audio/transcribe`, {
+        method: "POST",
+        body: formData,
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`, // Ensure authentication if required
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.text();
+      // Transcription completed successfully
+
+      if (data) {
+        onTranscription(data);
+      } else {
+        console.warn("⚠️ No transcription returned from API.");
+      }
+    } catch (error) {
+      console.error("❌ Audio transcription failed:", error);
+      toast.error(error instanceof Error ? `Error: ${error.message}` : "An unknown error occurred.");
+    } finally {
+      setIsProcessing(false); // Reset microphone button state
+    }
+  };
 
   const startRecording = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       toast.error("❌ Audio recording is not supported in this browser.");
       return;
     }
-  
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       audioChunks.current = [];
-  
+
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          console.log("✅ Audio data available:", event.data);
+          // Audio data available
           audioChunks.current.push(event.data);
         } else {
           console.warn("⚠️ No audio data captured.");
         }
       };
-  
+
       mediaRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunks.current, { type: "audio/wav" });
-        console.log("🎤 Recorded Audio Blob:", audioBlob);
+        // Recording completed, preparing transcription
         await transcribeAudio(audioBlob);
       };
-  
+
       mediaRecorderRef.current.start();
       setIsRecording(true);
-      console.log("🎙️ Recording started...");
-  
+      setRecordingDuration(0);
+      
+      // Start timer to track recording duration
+      timerRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+
       // ✅ Automatically stop recording after 30 seconds
       setTimeout(() => {
         if (mediaRecorderRef.current && isRecording) {
-          console.log("⏳ Auto-stopping recording after 30s...");
+          // Auto-stopping recording after timeout
           stopRecording();
         }
       }, 30000); // Auto-stop after 30s
@@ -69,96 +122,34 @@ export default function AudioRecorder({ sessionId, onTranscription }: AudioRecor
       toast.error("Could not access microphone. Check browser permissions.");
     }
   };
-  
-  
-
-  const stopRecording = () => {
-    if (timerRef.current) {
-        clearInterval(timerRef.current);
-    }
-    if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.stop();
-    }
-
-    setIsRecording(false); // Stop recording mode
-    setIsProcessing(true); // Show processing state
-};
-
-
-const transcribeAudio = async (audioBlob: Blob) => {
-  console.log("⏳ Transcribing audio...", audioBlob);
-
-  setIsProcessing(true); // Show processing state
-
-  try {
-      const formData = new FormData();
-      formData.append("audioFile", audioBlob, "recording.wav"); // Match DTO field name
-
-      const response = await fetch("https://api.flomadtravel.com/api/audio/transcribe", {
-          method: "POST",
-          body: formData,
-          headers: {
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`, // Ensure authentication if required
-          },
-      });
-
-      if (!response.ok) {
-          throw new Error(`Server Error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.text();
-      console.log("✅ Transcription Response:", data);
-
-      if (data) {
-          onTranscription(data);
-      } else {
-          console.warn("⚠️ No transcription returned from API.");
-      }
-  } catch (error) {
-      console.error("❌ Audio transcription failed:", error);
-      toast.error(error instanceof Error ? `Error: ${error.message}` : "An unknown error occurred.");
-  } finally {
-      setIsProcessing(false); // Reset microphone button state
-  }
-};
-
-  
-  
-  
-  
-
 
   return (
     <div className="relative inline-flex items-center">
-<Button
-    onClick={isRecording ? stopRecording : startRecording}
-    variant="ghost"
-    size="icon"
-    className={`h-10 w-10 rounded-full transition-colors duration-200 ${
-        isProcessing
-            ? 'text-gray-400 cursor-not-allowed' // ✅ Disable button when processing
-            : isRecording
-                ? 'text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30' 
-                : 'text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-    }`}
-    disabled={isProcessing} // ✅ Prevent clicking while processing
-    aria-label={isRecording ? "Stop recording" : "Start recording"}
->
-    {isProcessing ? (
-        <Loader2 className="w-5 h-5 animate-spin" /> // ✅ Show spinner during processing
-    ) : isRecording ? (
-        <MicOff className="w-5 h-5" /> // ✅ Show "mic off" while recording
-    ) : (
-        <Mic className="w-5 h-5" /> // ✅ Show default mic icon when ready
-    )}
-</Button>
+      <Button
+        onClick={isRecording ? stopRecording : startRecording}
+        variant="ghost"
+        size="icon"
+        className={(() => {
+          if (isProcessing) return 'h-10 w-10 rounded-full transition-colors duration-200 text-gray-400 cursor-not-allowed';
+          if (isRecording) return 'h-10 w-10 rounded-full transition-colors duration-200 text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30';
+          return 'h-10 w-10 rounded-full transition-colors duration-200 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20';
+        })()}
+        disabled={isProcessing} // ✅ Prevent clicking while processing
+        aria-label={isRecording ? "Stop recording" : "Start recording"}
+      >
+        {(() => {
+          if (isProcessing) return <Loader2 className="w-5 h-5 animate-spin" />;
+          if (isRecording) return <MicOff className="w-5 h-5" />;
+          return <Mic className="w-5 h-5" />;
+        })()}
+      </Button>
 
       {isRecording && (
         <div className="absolute left-12 top-1/2 -translate-y-1/2 flex items-center">
           <div className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-red-500 bg-red-50 dark:bg-red-900/20 rounded-full">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
             </span>
             {Math.floor(recordingDuration)}s
           </div>

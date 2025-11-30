@@ -9,7 +9,7 @@ export default function Footer() {
           {/* Left column */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Image src="/logo.png?height=24&width=24" alt="Flomad Travel Logo" width={24} height={24} />
+              <Image src="/logo.svg" alt="Flomad Travel Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} className="object-contain" />
               <span className="text-xl font-bold">flomad travel</span>
             </div>
             <p className="text-sm text-gray-400 max-w-md">
@@ -21,22 +21,18 @@ export default function Footer() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Social media icons */}
             <div className="space-y-4">
-              <a href="#" className="flex items-center space-x-2 text-sm hover:text-gray-300">
+              <button type="button" className="flex items-center space-x-2 text-sm hover:text-gray-300 bg-transparent border-none cursor-pointer">
                 <Facebook size={20} />
                 <span>Facebook</span>
-              </a>
-              <a href="#" className="flex items-center space-x-2 text-sm hover:text-gray-300">
+              </button>
+              <button type="button" className="flex items-center space-x-2 text-sm hover:text-gray-300 bg-transparent border-none cursor-pointer">
                 <Twitter size={20} />
                 <span>Twitter</span>
-              </a>
-              <a href="#" className="flex items-center space-x-2 text-sm hover:text-gray-300">
+              </button>
+              <button type="button" className="flex items-center space-x-2 text-sm hover:text-gray-300 bg-transparent border-none cursor-pointer">
                 <Linkedin size={20} />
                 <span>LinkedIn</span>
-              </a>
-              {/* <a href="#" className="flex items-center space-x-2 text-sm hover:text-gray-300">
-                <Image src="/logo.png?height=20&width=20" alt="Pinterest" width={20} height={20} />
-                <span>Pinterest</span>
-              </a> */}
+              </button>
             </div>
 
             {/* Recent Post */}

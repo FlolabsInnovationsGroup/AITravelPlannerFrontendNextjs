@@ -13,9 +13,9 @@ export function FeaturedTourPlaces() {
       <div className="container mx-auto px-4">
         <h2 className="text-3xl font-bold text-gray-800 mb-8">Experiences</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {places.map((place, index) => (
+          {places.map((place) => (
             <div 
-              key={index} 
+              key={place.name} 
               className="relative aspect-square rounded-lg overflow-hidden shadow-md transition-all duration-300 hover:shadow-lg hover:scale-105"
             >
               <Image
