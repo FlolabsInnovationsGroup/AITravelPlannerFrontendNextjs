@@ -161,9 +161,23 @@ export function useStreamingChat({
           break;
         }
 
-        // Decode chunk
+        // Decode chunk and parse SSE format
         const chunk = decoder.decode(value, { stream: true });
-        accumulatedContent += chunk;
+        
+        // Parse SSE format: "data: content\n\n"
+        // Remove "data: " prefix and trim whitespace
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const content = line.substring(6); // Remove "data: " prefix
+            if (content.trim()) {
+              accumulatedContent += content;
+            }
+          } else if (line.trim() && !line.startsWith(':')) {
+            // Handle plain text chunks (fallback for non-SSE format)
+            accumulatedContent += line;
+          }
+        }
 
         // Update assistant message with accumulated content
         setMessages(prev => 
