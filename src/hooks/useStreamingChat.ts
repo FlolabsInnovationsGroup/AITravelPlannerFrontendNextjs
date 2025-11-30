@@ -165,18 +165,22 @@ export function useStreamingChat({
         const chunk = decoder.decode(value, { stream: true });
         
         // Parse SSE format: "data: content\n\n"
-        // Remove "data: " prefix and trim whitespace
+        // Each SSE message is separated by double newline
         const lines = chunk.split('\n');
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const content = line.substring(6); // Remove "data: " prefix
-            if (content.trim()) {
+          if (line.startsWith('data:')) {
+            // Extract content after "data:"
+            // Backend sends: "data:word" or "data: word"
+            // We want to preserve the exact content including spaces
+            const content = line.substring(5); // Remove "data:" prefix, keep everything else
+            
+            if (content) {
+              // Append content exactly as sent by backend
+              // Backend streaming already includes proper spacing between tokens
               accumulatedContent += content;
             }
-          } else if (line.trim() && !line.startsWith(':')) {
-            // Handle plain text chunks (fallback for non-SSE format)
-            accumulatedContent += line;
           }
+          // Skip empty lines and comments (lines starting with ':')
         }
 
         // Update assistant message with accumulated content
