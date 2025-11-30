@@ -98,12 +98,34 @@ export function useStreamingChat({
       abortControllerRef.current = new AbortController();
 
       const token = localStorage.getItem('token');
+      
+      // If no token, try to get/create guest token
+      if (!token) {
+        console.warn('No auth token found - attempting guest token creation');
+        try {
+          const guestResponse = await fetch(`${apiUrl}/api/auth/guest-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          if (guestResponse.ok) {
+            const data = await guestResponse.json();
+            if (data.token) {
+              localStorage.setItem('token', data.token);
+              console.log('✅ Guest token created successfully');
+            }
+          }
+        } catch (err) {
+          console.error('Failed to create guest token:', err);
+        }
+      }
+      
+      const finalToken = localStorage.getItem('token');
       const url = `${apiUrl}/api/chat/stream?message=${encodeURIComponent(content)}&sessionId=${sessionId}`;
 
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${finalToken || ''}`,
           'Accept': 'text/event-stream'
         },
         signal: abortControllerRef.current.signal
