@@ -77,18 +77,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = (token: string) => {
-    setToken(token); // Save token to local storage
-    setIsAuthenticated(true);
-
-    // Refresh the current user info
-    getCurrentUser()
-      .then((user) => {
-        if (user) {
-          setCurrentUser({ ...user, token });
-        }
-      })
-      .catch((error) => console.error('Error fetching user after sign-in:', error));
-
+    // For session-based auth, we don't need to store a token
+    // The JSESSIONID cookie handles authentication
+    if (token === 'session-auth') {
+      setIsAuthenticated(true);
+      
+      // Refresh the current user info
+      getCurrentUser()
+        .then((user) => {
+          if (user) {
+            setCurrentUser({ ...user, token: 'session-auth' });
+          }
+        })
+        .catch((error) => console.error('Error fetching user after sign-in:', error));
+    } else {
+      // Handle token-based auth (for guest tokens, etc.)
+      setToken(token);
+      setIsAuthenticated(true);
+      
+      getCurrentUser()
+        .then((user) => {
+          if (user) {
+            setCurrentUser({ ...user, token });
+          }
+        })
+        .catch((error) => console.error('Error fetching user after sign-in:', error));
+    }
+    
+    // Redirect to chat page after successful authentication
     window.location.href = '/chat';
   };
 

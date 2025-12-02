@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 // Constants
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
+  (process.env.NODE_ENV === 'production' ? 'https://api.flomadtravel.com' : 'http://localhost:8080');
 const TOKEN_KEY = 'token';
 
 // Types
@@ -20,9 +21,10 @@ export interface AIMessageResponse {
 }
 
 export interface SessionDTO {
-  sessionId: string;
-  title: string;
-  userId: string;
+  id?: string;
+  sessionId?: string;
+  title?: string;
+  userId?: string;
 }
 
 export interface Location {
@@ -35,9 +37,7 @@ export interface Location {
 }
 
 interface GuestTokenResponse {
-  verified: boolean;
   token: string;
-  message: string;
 }
 
 // ==================== TOKEN MANAGEMENT FUNCTIONS ====================
@@ -79,19 +79,32 @@ export const getToken = () => {
 // Guest token creation - use direct axios without interceptors to avoid circular calls
 export const createGuestToken = async (): Promise<string> => {
   try {
+    console.log('Creating guest token...');
     
     // Use direct axios without interceptors to prevent circular dependencies
-    const response = await axios.post<GuestTokenResponse>(`${API_BASE_URL}/api/auth/guest-token`);
+    const response = await axios.post<GuestTokenResponse>(
+      `${API_BASE_URL}/api/auth/guest-token`,
+      {},
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        withCredentials: false // Don't need cookies for JWT
+      }
+    );
+    
+    console.log('Guest token response:', response.data);
     
     if (response.status === 200 && response.data.token) {
       const { token } = response.data;
       setToken(token);
+      console.log('Guest token created successfully');
       return token;
     }
     
     throw new Error('Failed to get guest token: No token in response');
-  } catch (error) {
-    console.error('Error creating guest token:', error);
+  } catch (error: any) {
+    console.error('Error creating guest token:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -208,19 +221,32 @@ export const getCurrentUser = async (): Promise<{ id: string; username?: string;
 };
 
 // Session handling
-export const createSession = async (title: string): Promise<SessionDTO> => {
+export const createSession = async (title: string = 'New Chat'): Promise<SessionDTO> => {
   try {
-    const user = await getCurrentUser();
+    console.log('Creating session with title:', title);
+    
+    // Get current user to extract userId
+    let userId: string | null = null;
+    try {
+      const user = await getCurrentUser();
+      userId = user.id;
+      console.log('User ID from getCurrentUser:', userId);
+    } catch (userError) {
+      console.warn('Could not get current user, session will be created without userId:', userError);
+      // Continue without userId - backend will handle it
+    }
 
     const payload = {
       title,
-      userId: user.id
+      userId
     };
 
+    console.log('Creating session with payload:', payload);
     const response = await apiClient.post<SessionDTO>('/sessions', payload);
+    console.log('Session created:', response.data);
     return response.data;
-  } catch (error) {
-    console.error('Error creating session:', error);
+  } catch (error: any) {
+    console.error('Error creating session:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -298,8 +324,17 @@ export const sendMessagesEntity = async (
 };
 
 export const signIn = async (username: string, password: string) => {
-  const response = await apiClient.post('/api/auth/signin', { username, password });
-  return response.data;
+  console.log('API: Making signIn request to /api/auth/signin');
+  try {
+    const response = await apiClient.post('/api/auth/signin', { username, password }, {
+      withCredentials: true // Important: This ensures cookies are sent and received
+    });
+    console.log('API: SignIn response received:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('API: SignIn error:', error);
+    throw error;
+  }
 };
 
 export const signUp = async (username: string, email: string, password: string) => apiClient.post('/api/auth/signup', { username, email, password });

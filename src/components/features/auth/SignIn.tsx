@@ -47,19 +47,52 @@ function SignInContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submitted with:', { username, password });
     setIsLoading(true);
+    
+    // Test if we can reach the backend at all
     try {
+      console.log('Testing backend connectivity...');
+      const testResponse = await fetch('http://localhost:8080/api/auth/session-state');
+      console.log('Backend test response:', testResponse.status);
+    } catch (testError) {
+      console.error('Backend connectivity test failed:', testError);
+    }
+    
+    try {
+      console.log('Calling signIn API...');
       const response = await signIn(username, password);
-      if (response.token) {
-        authSignIn(response.token);
-        router.push('/chat');
+      console.log('Sign-in response:', response);
+      
+      // For session-based auth, we don't need a token
+      // The JSESSIONID cookie is automatically set by the browser
+      if (response.message && response.message.includes('successful')) {
+        console.log('Sign-in successful, calling authSignIn...');
+        // Set a dummy token for the auth context (or modify auth context to work without token)
+        authSignIn('session-auth');
         toast.success('Signed in successfully!');
       } else {
+        console.log('Invalid response:', response);
         throw new Error('Invalid response from server');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error during sign-in:', error);
-      toast.error('Sign-in failed. Please check your credentials.');
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
+      
+      if (error.response?.status === 401) {
+        toast.error('Invalid credentials. Please check your username and password.');
+      } else if (error.response?.status === 500) {
+        toast.error('Server error. Please try again later.');
+      } else if (error.code === 'NETWORK_ERROR') {
+        toast.error('Network error. Please check your connection.');
+      } else {
+        toast.error(`Sign-in failed: ${error.message}`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -89,7 +122,7 @@ function SignInContent() {
         <p className="text-gray-600 mb-6">
           New member? <Link href="/auth/signup" className="text-blue-600 hover:underline">Sign up</Link>
         </p>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} id="signin-form">
           <Input
             type="text"
             placeholder="Username"
@@ -112,6 +145,7 @@ function SignInContent() {
             type="submit"
             className="w-full bg-black text-white hover:bg-gray-800 mb-4"
             disabled={isLoading}
+            onClick={() => console.log('Button clicked!')}
           >
             {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
