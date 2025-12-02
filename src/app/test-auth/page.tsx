@@ -10,18 +10,14 @@ export default function TestAuthPage() {
   const [response, setResponse] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    runTests();
-  }, []);
-
-  async function runTests() {
+  const runTests = async () => {
     try {
       // Test 1: Create guest token
       setStatus('Step 1: Creating guest token...');
       console.log('🔐 Testing guest token creation');
       
       const guestToken = await createGuestToken();
-      console.log('✅ Guest token created:', guestToken?.substring(0, 20) + '...');
+      console.log('✅ Guest token created:', guestToken ? `${guestToken.substring(0, 20)}...` : 'null');
       
       if (!guestToken) {
         throw new Error('Failed to create guest token');
@@ -70,7 +66,11 @@ export default function TestAuthPage() {
       setError(err.message || 'Unknown error');
       setStatus('❌ Test failed - see error below');
     }
-  }
+  };
+
+  useEffect(() => {
+    runTests();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
@@ -92,7 +92,7 @@ export default function TestAuthPage() {
               JWT Token
             </h2>
             <p className="text-sm text-gray-600 font-mono break-all">
-              {token.substring(0, 100)}...
+              {`${token.substring(0, 100)}...`}
             </p>
           </div>
         )}

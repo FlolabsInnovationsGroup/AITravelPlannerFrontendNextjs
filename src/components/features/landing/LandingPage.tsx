@@ -52,7 +52,18 @@ export default function LandingPage() {
     setIsLoading(true)
     try {
       const sessionResponse = await createSession('New Chat')
-      // Session created successfully
+      // Session created successfully - backend returns sessionId field
+      if (!sessionResponse.sessionId) {
+        console.error('Session response:', sessionResponse)
+        throw new Error('No session ID returned from server')
+      }
+      
+      // Clear any previous message state before navigation
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('sentMessage')
+        sessionStorage.removeItem('initialMessage')
+      }
+      
       router.push(
         `/chat?sessionId=${sessionResponse.sessionId}&initialMessage=${encodeURIComponent(message)}`
       )
