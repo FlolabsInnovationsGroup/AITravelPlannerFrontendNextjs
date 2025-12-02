@@ -199,7 +199,10 @@ export default function ChatPageContent() {
                 }
     
                 sessionId = newSession.sessionId;
-                setCurrentSession(newSession);
+                setCurrentSession({ 
+                    sessionId: newSession.sessionId, 
+                    title: newSession.title || 'New Chat' 
+                });
             }
     
             // Check message limit for guest users (1000 messages)

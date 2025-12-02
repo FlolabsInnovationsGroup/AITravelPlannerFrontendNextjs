@@ -52,6 +52,14 @@ export default function ChatPageContent() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputMessage, setInputMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    
+    // Debug: Log messages state changes
+    useEffect(() => {
+        console.log('📨 Messages state updated:', messages.length, 'messages');
+        messages.forEach((msg, idx) => {
+            console.log(`  ${idx + 1}. [${msg.messageType}]: ${msg.content.substring(0, 50)}...`);
+        });
+    }, [messages]);
     const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
     const [currentSession, setCurrentSession] = useState<{ sessionId: string; title: string } | null>(null);
     const [displayPrompts, setDisplayPrompts] = useState(true);
@@ -210,7 +218,10 @@ export default function ChatPageContent() {
                     throw new Error("Failed to create a new session for location operation");
                 }
                 
-                setCurrentSession(newSession);
+                setCurrentSession({ 
+                    sessionId: newSession.sessionId, 
+                    title: newSession.title || 'New Chat' 
+                });
                 
                 // Initialize WebSocket connection for the new session
                 if (mapServiceRef.current) {
@@ -282,7 +293,10 @@ export default function ChatPageContent() {
                 }
     
                 sessionId = newSession.sessionId;
-                setCurrentSession(newSession);
+                setCurrentSession({ 
+                    sessionId: newSession.sessionId, 
+                    title: newSession.title || 'New Chat' 
+                });
                 if (mapServiceRef.current && newSession.sessionId) {
                     mapServiceRef.current.connectWebSocket(newSession.sessionId);
                 }
@@ -753,7 +767,10 @@ export default function ChatPageContent() {
                 }
     
                 sessionId = newSession.sessionId;
-                setCurrentSession(newSession);
+                setCurrentSession({ 
+                    sessionId: newSession.sessionId, 
+                    title: newSession.title || 'New Chat' 
+                });
                 // Ensure WebSocket is connected after setting new session
                 if (mapServiceRef.current && newSession.sessionId) {
                     mapServiceRef.current.connectWebSocket(newSession.sessionId);
@@ -1034,8 +1051,16 @@ export default function ChatPageContent() {
 
     useEffect(() => {
         const initializeChat = async () => {
+            console.log('🔵 initializeChat called', {
+                initializationRef: initializationRef.current,
+                hasWindow: typeof window !== 'undefined',
+                currentUser: currentUser?.id
+            });
+
             // Prevent duplicate initialization 
-            if (initializationRef.current || !currentUser || typeof window === 'undefined') {
+            // Note: Allow execution even without currentUser to support guest users
+            if (initializationRef.current || typeof window === 'undefined') {
+                console.log('🛑 Returning early from initializeChat');
                 return;
             }
             
@@ -1048,21 +1073,33 @@ export default function ChatPageContent() {
             }
             const initialMessage = searchParams.get("initialMessage") || sessionStorage.getItem("initialMessage");
         
+            console.log('🔵 Chat initialization params:', {
+                sessionIdFromUrl: searchParams.get("sessionId"),
+                sessionIdFromStorage: sessionStorage.getItem("chatSessionId"),
+                finalSessionId: sessionId,
+                initialMessageFromUrl: searchParams.get("initialMessage"),
+                initialMessageFromStorage: sessionStorage.getItem("initialMessage"),
+                finalInitialMessage: initialMessage
+            });
 
 
         
             if (!sessionId) {
+                console.log('🔵 No sessionId found, creating new session...');
 
                 try {
                     const newSession = await createSession("New Chat");
+                    console.log('🔵 New session created:', newSession);
         
+                    // Backend returns sessionId field
                     if (newSession?.sessionId) {
                         sessionId = newSession.sessionId;
                         sessionStorage.setItem("chatSessionId", sessionId);
                         setCurrentSession({ sessionId, title: "New Chat" });
+                        console.log('✅ Session set:', sessionId);
 
                     } else {
-                        console.error("❌ Failed to create a session.");
+                        console.error("❌ Failed to create a session - no sessionId returned:", newSession);
                         initializationRef.current = false; // Reset on failure
                         return;
                     }
@@ -1072,40 +1109,56 @@ export default function ChatPageContent() {
                     return;
                 }
             } else {
+                console.log('✅ Using existing sessionId:', sessionId);
                 setCurrentSession({ sessionId, title: "New Chat" });
 
             }
         
             if (initialMessage) {
+                console.log('🔵 Processing initial message:', initialMessage);
 
         
                 try {
                     const decodedMessage = decodeURIComponent(initialMessage);
+                    const storedMessage = sessionStorage.getItem("sentMessage");
+                    
+                    console.log('🔵 Duplicate check:', {
+                        decodedMessage,
+                        storedMessage,
+                        isMatch: storedMessage === decodedMessage
+                    });
         
                     // ✅ Prevent duplicate processing but allow future messages
-                    if (sessionStorage.getItem("sentMessage") === decodedMessage) {
-
+                    if (storedMessage === decodedMessage) {
+                        console.log('⚠️ Message already sent, skipping');
                         sessionStorage.removeItem("sentMessage"); // Clear it after sending once
                         return;
                     }
         
                     // ✅ Add to state (avoid duplicate messages)
+                    console.log('🔵 Adding message to state');
                     setMessages((prev) => {
+                        console.log('  Current messages in state:', prev.length);
                         if (!prev.some((m) => m.content === decodedMessage)) {
-
-                            return [
+                            console.log('✅ Message added to state');
+                            const newMessages = [
                                 ...prev,
-                                { id: Date.now(), messageType: "USER", content: decodedMessage }
+                                { id: Date.now(), messageType: "USER" as const, content: decodedMessage }
                             ];
+                            console.log('  New messages count:', newMessages.length);
+                            return newMessages;
                         }
+                        console.log('⚠️ Message already exists in state');
                         return prev;
                     });
         
                     // 🛑 Store in sessionStorage to avoid duplicates
                     sessionStorage.setItem("sentMessage", decodedMessage);
+                    console.log('🔵 Message stored in sessionStorage');
         
                     // ✅ Update session title for all users (including guests)
                     if (currentUser?.id && sessionId) {
+                        console.log('🔵 Updating session title for authenticated user');
                         const newTitle = generateSessionTitle(decodedMessage);
 
                         
@@ -1134,15 +1187,33 @@ export default function ChatPageContent() {
                     }
         
                     // ✅ Send message to backend only if not already sent
+                    console.log('🔵 Sending message to backend:', decodedMessage);
                     const response = await sendMessagesEntity(decodedMessage, sessionId!);
+                    console.log('✅ Received response from backend:', response);
+                    
+                    // Ensure suggestions are always available with fallback
+                    if (!response.suggestions || response.suggestions.length === 0) {
+                        console.warn('⚠️ No suggestions received, using fallback suggestions');
+                        response.suggestions = [
+                            "Tell me more about this",
+                            "What are my options?",
+                            "Help me plan the next steps"
+                        ];
+                    }
         
+                    console.log('🔵 Adding AI response to messages');
                     setMessages((prev) => {
+                        console.log('  Current messages before AI response:', prev.length);
                         if (!prev.some((m) => m.content === response.message)) {
-                            return [
+                            console.log('✅ AI response added to state');
+                            const newMessages = [
                                 ...prev,
-                                { id: Date.now() + 1, messageType: "ASSISTANT", content: response.message || "I couldn't process your request. Please try again." }
+                                { id: Date.now() + 1, messageType: "ASSISTANT" as const, content: response.message || "I couldn't process your request. Please try again." }
                             ];
+                            console.log('  New messages count after AI response:', newMessages.length);
+                            return newMessages;
                         }
+                        console.log('⚠️ AI response already exists in state');
                         return prev;
                     });
         
@@ -1156,7 +1227,7 @@ export default function ChatPageContent() {
         };
         
         initializeChat();
-    }, [searchParams, currentUser]);
+    }, [searchParams]); // Remove currentUser from dependencies - we don't need to wait for it
         
         
     
@@ -1324,6 +1395,8 @@ export default function ChatPageContent() {
                     suggestions={suggestions}
                     currentUser={currentUser}
                     showWelcome={displayPrompts && messages.length === 0}
+                    useStreaming={false}
+                    sessionId={currentSession?.sessionId}
                     onVoiceRecord={async (audioBlob) => {
                         try {
                             // Use centralized transcribeAudio function
