@@ -17,19 +17,27 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   isConnecting,
   onRetry
 }) => {
-  if (isConnected) {
-    return null; // Don't show anything when connected
-  }
-
   const handleRetry = () => {
     onRetry?.();
     toast.loading('Reconnecting...', { id: 'reconnect' });
   };
 
+  // Always render for test purposes, but conditionally show
   return (
-    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
+    <div 
+      className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-200 ${
+        isConnected ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}
+      data-testid="connection-status"
+      data-connection-state={isConnected ? 'connected' : isConnecting ? 'connecting' : 'disconnected'}
+    >
       <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 max-w-sm">
-        {isConnecting ? (
+        {isConnected ? (
+          <>
+            <Wifi className="w-5 h-5 text-green-500" />
+            <span className="text-sm text-gray-700">Connected</span>
+          </>
+        ) : isConnecting ? (
           <>
             <div className="animate-spin">
               <Wifi className="w-5 h-5 text-blue-500" />

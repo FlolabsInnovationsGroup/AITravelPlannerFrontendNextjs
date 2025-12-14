@@ -52,12 +52,12 @@ export function SignUp() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-96 relative">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md relative">
         <button 
           type="button"
           onClick={handleCancel}
-          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
           aria-label="Close"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -65,56 +65,69 @@ export function SignUp() {
           </svg>
         </button>
         
-        <div className="flex items-center mb-6">
-          <Image src="/logo.svg" alt="Flomad Travel Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} />
-          <span className="ml-2 text-xl font-semibold">flomad travel</span>
+        <div className="flex flex-col items-center mb-8">
+          <div className="mb-4">
+            <Image 
+              src="/logo.svg" 
+              alt="Flomad Travel Logo" 
+              width={80} 
+              height={80} 
+              className="object-contain"
+              priority
+            />
+          </div>
+          <span className="text-2xl font-bold text-gray-900">flomad travel</span>
         </div>
         
-        <h2 className="text-2xl font-bold mb-2">Sign up for free!</h2>
-        <p className="text-gray-600 mb-6">
-          Have an account? <Link href="/signin" className="text-blue-600 hover:underline">Login</Link>
+        <h2 className="text-2xl font-bold mb-2 text-center">Sign up for free!</h2>
+        <p className="text-gray-600 mb-6 text-center">
+          Have an account? <Link href="/signin" className="text-blue-600 hover:underline font-medium">Login</Link>
         </p>
         
-        <form onSubmit={handleSignUp}>
+        <form onSubmit={handleSignUp} className="space-y-4">
           <Input 
             type="text" 
             placeholder="Username" 
-            className="mb-4" 
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
+            className="h-11"
           />
           <Input 
             type="email" 
             placeholder="Email" 
-            className="mb-4" 
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            className="h-11"
           />
           <Input 
             type="password" 
             placeholder="Password" 
-            className="mb-4"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            className="h-11"
           />
           <Input 
             type="password" 
             placeholder="Confirm Password" 
-            className="mb-6"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
+            className="h-11"
           />
           
-          <Button type="submit" className="w-full bg-black text-white hover:bg-gray-800 mb-4" disabled={isLoading}>
+          <Button 
+            type="submit" 
+            className="w-full bg-black text-white hover:bg-gray-800 h-11 mt-6" 
+            disabled={isLoading}
+          >
             {isLoading ? 'Signing up...' : 'Sign up'}
           </Button>
         </form>
         
-        <div className="relative mb-4">
+        <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300" />
           </div>
@@ -123,9 +136,19 @@ export function SignUp() {
           </div>
         </div>
         
-        <Button variant="outline" className="w-full" onClick={handleOAuthLogin}>
-          <Image src="/image/google.png" alt="Google Logo" width={20} height={20} style={{ width: 'auto', height: 'auto' }} className="mr-2" />
-          Sign up with Google
+        <Button 
+          variant="outline" 
+          className="w-full h-11 flex items-center justify-center gap-3" 
+          onClick={handleOAuthLogin}
+        >
+          <Image 
+            src="/image/google.png" 
+            alt="Google Logo" 
+            width={20} 
+            height={20} 
+            className="object-contain"
+          />
+          <span>Sign up with Google</span>
         </Button>
       </div>
     </div>

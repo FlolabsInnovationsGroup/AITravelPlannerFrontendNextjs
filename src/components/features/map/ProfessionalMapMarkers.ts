@@ -210,7 +210,8 @@ export function isPopularLocation(location: any): boolean {
 
 // Get enhanced marker configuration for a location
 export function getMarkerConfig(type?: LocationType, location?: any): MarkerConfig {
-  const baseConfig = MARKER_CONFIGS[type || 'default'];
+  // Safety check: ensure we always have a valid config by falling back to 'default'
+  const baseConfig = MARKER_CONFIGS[type as LocationType] || MARKER_CONFIGS['default'];
   
   // Enhance config for popular locations with modern professional styling
   if (location && isPopularLocation(location)) {

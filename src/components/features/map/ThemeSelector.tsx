@@ -16,7 +16,7 @@ const ThemeSelector: React.FC<ThemeSelectorProps> = ({
     setIsOpen(false);
   };
 
-  const currentThemeData = MAP_THEMES[currentTheme];
+  const currentThemeData = MAP_THEMES ? MAP_THEMES[currentTheme] : null;
 
   return (
     <div className={`relative ${className}`}>
@@ -57,7 +57,7 @@ const ThemeSelector: React.FC<ThemeSelectorProps> = ({
               Map Themes
             </div>
             
-            {Object.values(MAP_THEMES).map((theme) => (
+            {MAP_THEMES && typeof MAP_THEMES === 'object' && Object.values(MAP_THEMES).map((theme) => (
               <button
                 type="button"
                 key={theme.name}
