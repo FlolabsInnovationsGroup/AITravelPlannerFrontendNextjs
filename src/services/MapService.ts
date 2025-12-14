@@ -6,11 +6,20 @@ import { RetryMechanism, WebSocketRetryManager } from '@/utils/RetryMechanism';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;  // Non-null assertion as this is required
 
 export class MapService {
+    private static instance: MapService | null = null;
+    
     private stompClient: Client | null = null;
 
     private messageHandlers: ((event: WebSocketEvent<any>) => void)[] = [];
 
+    // 🔒 FIX 4.1: Track absolute reconnection attempts to prevent infinite loop
+    private absoluteReconnectAttempts = 0;
+    private readonly MAX_ABSOLUTE_RECONNECTS = 10; // Hard limit - stops completely after 10 attempts
     private wsRetryManager = new WebSocketRetryManager(5, 1000);
+    
+    // 🔒 FIX 4.2: Connection timeout tracking
+    private connectionTimeoutTimer: NodeJS.Timeout | null = null;
+    private readonly CONNECTION_TIMEOUT_MS = 30000; // 30 seconds
 
     private mapInstance: google.maps.Map | null = null;
 
@@ -19,6 +28,9 @@ export class MapService {
     private connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
 
     private pendingSessionId: string | null = null; // Store session ID for subscription after connection
+    
+    private currentSubscription: any | null = null; // Track current session subscription
+    private currentSessionId: string | null = null; // Track currently subscribed session ID
     
     // Event handlers
     onConnect: (() => void) | null = null;
@@ -31,7 +43,26 @@ export class MapService {
 
     onConnectionStatusChange: ((status: 'disconnected' | 'connecting' | 'connected') => void) | null = null;
 
-    constructor(private userToken: string) { }
+    private constructor(private userToken: string) { }
+    
+    // Singleton pattern: Get or create instance
+    public static getInstance(userToken: string): MapService {
+        if (!MapService.instance) {
+            MapService.instance = new MapService(userToken);
+        } else if (MapService.instance.userToken !== userToken) {
+            // Update token if changed
+            MapService.instance.updateToken(userToken);
+        }
+        return MapService.instance;
+    }
+    
+    // Reset singleton (useful for testing or logout)
+    public static resetInstance(): void {
+        if (MapService.instance) {
+            MapService.instance.disconnect();
+            MapService.instance = null;
+        }
+    }
 
     // Production-ready error logging
     private logError(context: string, error: any): void {
@@ -112,10 +143,10 @@ export class MapService {
                 sessionId: location.sessionId
             };
 
-            // Timeout warning (cleanup not implemented)
-            /* const timeoutRef = */ setTimeout(() => {
-                this.logError('addLocation', 'Request timeout - server may be slow or unavailable');
-            }, 15000); // 15 second warning
+            // Timeout warning with proper cleanup
+            const timeoutRef = setTimeout(() => {
+                this.logError('addLocation', 'Request timeout after 45 seconds - server may be slow or unavailable');
+            }, 45000); // 45 second warning for slow API responses
 
             const response = await fetch(`${API_BASE_URL}/api/locations/add`, {
                 method: 'POST',
@@ -125,6 +156,9 @@ export class MapService {
                 },
                 body: JSON.stringify(locationRequest),
             });
+
+            // Clear timeout since request completed
+            clearTimeout(timeoutRef);
 
             // First, check if the response is ok
             if (!response.ok) {
@@ -196,8 +230,29 @@ export class MapService {
         if (!sessionId) {
             return;
         }
+        
+        // 🔒 FIX 4.1: Check absolute reconnection limit
+        if (this.absoluteReconnectAttempts >= this.MAX_ABSOLUTE_RECONNECTS) {
+            this.logError('connectWebSocket', `Maximum reconnection attempts (${this.MAX_ABSOLUTE_RECONNECTS}) exceeded. Please refresh the page.`);
+            if (this.onError) {
+                this.onError(new Error('WebSocket reconnection limit exceeded. Please refresh the page.'));
+            }
+            return;
+        }
 
         if (this.stompClient?.connected) {
+            // ✅ FIX: Unsubscribe from old session before subscribing to new one
+            if (this.currentSubscription && this.currentSessionId !== sessionId) {
+                console.log(`🔄 Unsubscribing from old session: ${this.currentSessionId}`);
+                try {
+                    this.currentSubscription.unsubscribe();
+                    this.currentSubscription = null;
+                    this.currentSessionId = null;
+                } catch (error) {
+                    console.warn('⚠️ Error unsubscribing from old session:', error);
+                }
+            }
+            
             // If already connected, just subscribe to the new session
             this.subscribeToSessionWithRetry(sessionId).catch(error => {
                 if (this.onError) this.onError(error);
@@ -213,6 +268,23 @@ export class MapService {
         
         this.setConnectionStatus('connecting');
         this.pendingSessionId = sessionId; // Store for later subscription
+        
+        // 🔒 FIX 4.1: Increment absolute reconnection counter
+        this.absoluteReconnectAttempts += 1;
+        
+        // 🔒 FIX 4.2: Set connection timeout
+        this.connectionTimeoutTimer = setTimeout(() => {
+            if (this.connectionStatus === 'connecting') {
+                this.logError('connectWebSocket', 'Connection timeout after 30 seconds');
+                this.setConnectionStatus('disconnected');
+                if (this.stompClient) {
+                    this.stompClient.deactivate();
+                }
+                if (this.onError) {
+                    this.onError(new Error('WebSocket connection timeout'));
+                }
+            }
+        }, this.CONNECTION_TIMEOUT_MS);
 
         // Convert API_BASE_URL to URL object to parse it properly
         const apiUrl = new URL(API_BASE_URL);
@@ -228,7 +300,7 @@ export class MapService {
         this.stompClient = new Client({
             webSocketFactory: () => new SockJS(finalSocketUrl, null, {
                 transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
-                timeout: 15000, // Increased timeout to 15 seconds
+                timeout: 30000, // Increased timeout to 30 seconds for better stability
             }),
             connectHeaders: {
                 Authorization: `Bearer ${this.userToken}`,
@@ -240,18 +312,34 @@ export class MapService {
                 // Debug disabled in production
             },
             onConnect: () => {
+                console.log('✅ WebSocket connected');
+                
+                // 🔒 FIX 4.2: Clear connection timeout on successful connect
+                if (this.connectionTimeoutTimer) {
+                    clearTimeout(this.connectionTimeoutTimer);
+                    this.connectionTimeoutTimer = null;
+                }
+                
+                // 🔒 FIX 4.1: Reset absolute reconnect counter on successful connection
+                this.absoluteReconnectAttempts = 0;
+                
                 this.wsRetryManager.reset();
                 this.setConnectionStatus('connected');
                 
                 // Subscribe to pending session if available
                 if (this.pendingSessionId) {
                     const sessionToSubscribe = this.pendingSessionId;
+                    console.log(`🔔 Subscribing to session: ${sessionToSubscribe}`);
                     this.pendingSessionId = null; // Clear pending session
                     
-                    // Use retry mechanism for better reliability even in onConnect
-                    this.subscribeToSessionWithRetry(sessionToSubscribe).catch(error => {
-                        if (this.onError) this.onError(error);
-                    });
+                    // 🔒 FIX: Increase delay to 1 second to ensure STOMP is fully ready
+                    // The 'connected' property may be true but subscriptions might not work immediately
+                    setTimeout(() => {
+                        this.subscribeToSessionWithRetry(sessionToSubscribe).catch(error => {
+                            console.error('❌ Failed to subscribe to session:', error);
+                            if (this.onError) this.onError(error);
+                        });
+                    }, 1000); // Increased from 500ms to 1000ms
                 }
                 
                 // Wait a bit to ensure connection is fully stabilized before calling onConnect
@@ -287,16 +375,31 @@ export class MapService {
             throw new Error('STOMP client is not initialized. Please ensure WebSocket connection is established.');
         }
 
-        if (!this.stompClient.connected) {
+        // 🔒 FIX: Check both connected flag AND state for better reliability
+        const isActuallyConnected = this.stompClient.connected && this.stompClient.state === 1;
+        
+        if (!isActuallyConnected) {
             const stateMap = {
                 0: 'CONNECTING',
                 1: 'OPEN', 
                 2: 'CLOSING',
                 3: 'CLOSED'
             };
-            throw new Error(`Cannot subscribe: WebSocket not connected (state: ${this.stompClient.state} - ${stateMap[this.stompClient.state] || 'UNKNOWN'})`);
+            const currentState = stateMap[this.stompClient.state] || 'UNKNOWN';
+            
+            // If CONNECTING (state=0), queue the subscription instead of throwing error
+            if (this.stompClient.state === 0) {
+                console.log(`⏳ STOMP client still connecting - queuing subscription for ${sessionId}`);
+                this.pendingSessionId = sessionId;
+                return; // Will be handled by onConnect callback
+            }
+            
+            // For other non-ready states, warn and throw
+            console.warn(`⚠️ Cannot subscribe to ${sessionId}: STOMP client not ready (connected=${this.stompClient.connected}, state=${this.stompClient.state}/${currentState})`);
+            throw new Error(`Cannot subscribe: WebSocket not ready (state: ${currentState})`);
         }
 
+        // ✅ FIX: Store subscription and session ID for later unsubscription
         const subscription = this.stompClient.subscribe(`/topic/locations/${sessionId}`, (message) => {
             try {
                 const event: WebSocketEvent<LocationAddedPayload | LocationRemovedPayload | MapClearedPayload> = JSON.parse(message.body);
@@ -308,47 +411,70 @@ export class MapService {
 
         // Verify subscription was successful
         if (subscription) {
-            // Successfully subscribed
+            // ✅ Store subscription for later unsubscription when switching sessions
+            this.currentSubscription = subscription;
+            this.currentSessionId = sessionId;
+            console.log(`✅ Subscribed to session: ${sessionId}`);
         } else {
             throw new Error('Subscription returned null/undefined - server may have rejected the subscription');
         }
     }
 
     private async subscribeToSessionWithRetry(sessionId: string, maxRetries: number = 5, delayMs: number = 1000): Promise<void> {
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`🔄 Starting WebSocket subscription for session ${sessionId}`);
+        }
+        
         // Sequential retry logic - await in loop is intentional for retry pattern
         // eslint-disable-next-line no-plusplus
         for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
             try {
-                // More comprehensive check for STOMP client readiness
-                if (this.stompClient && 
-                    this.stompClient.connected && 
-                    this.stompClient.state === 1) { // CONNECTED state
-                    
-                    // Add a small delay to ensure the connection is fully established
+                // 🔒 FIX: Use 'connected' property instead of unreliable 'state' property
+                const hasClient = !!this.stompClient;
+                const isConnected = hasClient && this.stompClient.connected;
+                
+                // Only log detailed state on first attempt or if development
+                if (attempt === 1 || process.env.NODE_ENV === 'development') {
+                    console.log(`🔄 Subscription attempt ${attempt}/${maxRetries}: client=${hasClient}, connected=${isConnected}`);
+                }
+                
+                // ✅ NEW APPROACH: If connected is true, wait a moment then try subscribing
+                // Don't rely on 'state' property as it's unreliable in STOMP.js
+                if (hasClient && isConnected) {
+                    // Give STOMP a moment to fully initialize after connection
                     // eslint-disable-next-line no-await-in-loop
                     await new Promise(resolve => {
-                        setTimeout(() => resolve(undefined), 200);
+                        setTimeout(() => resolve(undefined), 300);
                     });
                     
-                    // Try to subscribe - catch any errors from subscribeToSession
+                    // Try to subscribe
                     try {
                         this.subscribeToSession(sessionId);
-                        return; // Success, exit the retry loop
+                        console.log(`✅ Successfully subscribed to session ${sessionId}`);
+                        return; // Success!
                     } catch (subscribeError) {
+                        console.warn(`⚠️ Subscription attempt ${attempt} failed:`, subscribeError);
                         if (attempt === maxRetries) {
                             throw subscribeError;
                         }
                         // Continue to next attempt
                     }
-                } else if (!this.stompClient && attempt === 1) {
+                } else if (!hasClient && attempt === 1) {
                     // If no STOMP client exists, try to reinitialize connection
+                    console.log(`🔌 Initializing WebSocket connection...`);
                     this.connectWebSocket(sessionId);
                     // eslint-disable-next-line no-await-in-loop
                     await new Promise(resolve => {
                         setTimeout(() => resolve(undefined), delayMs * 3);
                     }); // Give more time for connection
+                } else {
+                    // Client exists but not connected yet - wait for onConnect callback
+                    if (attempt === 1) {
+                        console.log(`⏳ Waiting for WebSocket connection...`);
+                    }
                 }
                 
+                // Wait before next attempt with exponential backoff
                 if (attempt < maxRetries) {
                     const waitTime = Math.min(delayMs * attempt, 5000); // Cap at 5 seconds
                     // eslint-disable-next-line no-await-in-loop
@@ -357,21 +483,33 @@ export class MapService {
                     });
                 }
             } catch (error) {
+                console.error(`❌ Subscription exception on attempt ${attempt}:`, error);
                 if (attempt === maxRetries) {
                     throw error;
                 }
-                // Wait before next attempt with exponential backoff
-                const waitTime = Math.min(delayMs * attempt, 5000); // Cap at 5 seconds
+                // Wait before next attempt
+                const waitTime = Math.min(delayMs * attempt, 5000);
                 // eslint-disable-next-line no-await-in-loop
                 await new Promise(resolve => {
                     setTimeout(() => resolve(undefined), waitTime);
                 });
             }
         }
+        console.error(`❌ Failed to subscribe to session ${sessionId} after ${maxRetries} attempts`);
         throw new Error(`Failed to subscribe to session ${sessionId} after ${maxRetries} attempts`);
     }
 
     private async handleConnectionError(): Promise<void> {
+        // 🔒 FIX 4.1: Check absolute reconnection limit before retrying
+        if (this.absoluteReconnectAttempts >= this.MAX_ABSOLUTE_RECONNECTS) {
+            this.logError('handleConnectionError', 'Maximum absolute reconnection attempts reached');
+            this.setConnectionStatus('disconnected');
+            if (this.onError) {
+                this.onError(new Error('Maximum reconnection attempts exceeded'));
+            }
+            return;
+        }
+        
         // Enhanced error handling (Audit Implementation)
         const shouldRetry = await this.wsRetryManager.shouldRetry();
         
@@ -461,6 +599,18 @@ export class MapService {
 
     disconnect(): void {
         try {
+            // ✅ FIX: Unsubscribe from current session when disconnecting
+            if (this.currentSubscription) {
+                console.log(`🔌 Unsubscribing from session: ${this.currentSessionId}`);
+                try {
+                    this.currentSubscription.unsubscribe();
+                } catch (error) {
+                    console.warn('⚠️ Error unsubscribing during disconnect:', error);
+                }
+                this.currentSubscription = null;
+                this.currentSessionId = null;
+            }
+            
             // Attempt to gracefully close the connection
             if (this.stompClient?.connected) {
                 this.stompClient.deactivate();
@@ -478,6 +628,15 @@ export class MapService {
             this.onConnect = null;
             this.onDisconnect = null;
             this.onError = null;
+            
+            // 🔒 FIX 4.2: Clear connection timeout timer
+            if (this.connectionTimeoutTimer) {
+                clearTimeout(this.connectionTimeoutTimer);
+                this.connectionTimeoutTimer = null;
+            }
+            
+            // 🔒 FIX 4.1: Reset absolute reconnection counter on manual disconnect
+            this.absoluteReconnectAttempts = 0;
         }
     }
 

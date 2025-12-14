@@ -12,6 +12,40 @@ import {
   Paperclip
 } from 'lucide-react';
 
+// 🔒 FIX 2.1: Input sanitization utility
+const sanitizeInput = (input: string): string => {
+  // Remove dangerous HTML/script tags while preserving user intent
+  let sanitized = input
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '') // Remove iframe tags
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '') // Remove event handlers like onclick=
+    .replace(/javascript:/gi, ''); // Remove javascript: protocol
+  
+  // Trim excessive whitespace
+  sanitized = sanitized.replace(/\s+/g, ' ').trim();
+  
+  return sanitized;
+};
+
+// 🔒 FIX 2.2: Validate message content
+const validateMessage = (message: string, maxLength: number): { valid: boolean; error?: string } => {
+  if (!message || message.trim().length === 0) {
+    return { valid: false, error: 'Message cannot be empty' };
+  }
+  
+  if (message.length > maxLength) {
+    return { valid: false, error: `Message too long (max ${maxLength} characters)` };
+  }
+  
+  // Check for repeated characters (potential spam)
+  const repeatedPattern = /(.)\1{49,}/; // 50+ same characters in a row
+  if (repeatedPattern.test(message)) {
+    return { valid: false, error: 'Message contains too many repeated characters' };
+  }
+  
+  return { valid: true };
+};
+
 interface ModernChatInputProps {
   value: string;
   onChange: (value: string) => void;
@@ -39,7 +73,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
   disabled = false,
   isLoading = false,
   suggestions = [],
-  maxLength = 1000,
+  maxLength = 4000, // 🔒 FIX 2.2: Increased from 1000 to 4000 for longer queries
   showEmojiPicker = true,
   showAttachments = false,
   showVoice = true,
@@ -50,6 +84,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const [validationError, setValidationError] = useState<string | null>(null); // 🔒 FIX 2.2: Track validation errors
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -93,10 +128,22 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
   }, [value, suggestions]);
 
   const handleSend = () => {
-    if (value.trim() && !disabled && !isLoading) {
-      onSend(value.trim());
-      setShowSuggestions(false);
+    // 🔒 FIX 2.1 & 2.2: Add sanitization and validation
+    if (!value.trim() || disabled || isLoading) {
+      return;
     }
+    
+    const sanitized = sanitizeInput(value.trim());
+    const validation = validateMessage(sanitized, maxLength);
+    
+    if (!validation.valid) {
+      setValidationError(validation.error || 'Invalid message');
+      return;
+    }
+    
+    setValidationError(null);
+    onSend(sanitized);
+    setShowSuggestions(false);
   };
 
   const handleSuggestionSelect = (suggestion: string) => {
@@ -302,20 +349,36 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
+            data-testid="message-input"
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => {
+              onChange(e.target.value);
+              // 🔒 FIX 2.2: Clear validation error when user types
+              if (validationError) {
+                setValidationError(null);
+              }
+            }}
             onKeyDown={handleKeyDown}
             placeholder={isRecording ? "Recording audio..." : placeholder}
             disabled={disabled || isRecording}
             maxLength={maxLength}
-            className="w-full resize-none bg-transparent border-none outline-none text-gray-800 placeholder-gray-500 py-2.5 px-3 rounded-lg min-h-[44px] max-h-[120px] h-[44px] flex items-center"
+            className={`w-full resize-none bg-transparent border-none outline-none text-gray-800 placeholder-gray-500 py-2.5 px-3 rounded-lg min-h-[44px] max-h-[120px] h-[44px] flex items-center ${
+              validationError ? 'border-red-300' : ''
+            }`}
             rows={1}
           />
           
+          {/* 🔒 FIX 2.2: Validation Error Display */}
+          {validationError && (
+            <div className="absolute bottom-full mb-1 left-0 right-0 bg-red-50 border border-red-200 text-red-600 text-xs px-2 py-1 rounded">
+              {validationError}
+            </div>
+          )}
+          
           {/* Character Counter */}
-          {value.length > maxLength * 0.8 && (
+          {value.length > maxLength * 0.8 && !validationError && (
             <div className={`absolute bottom-1 right-1 text-xs ${
-              value.length > maxLength * 0.95 ? 'text-red-500' : 'text-gray-400'
+              value.length > maxLength * 0.95 ? 'text-red-500 font-semibold' : 'text-gray-400'
             }`}>
               {value.length}/{maxLength}
             </div>
@@ -350,6 +413,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
           {/* Send Button */}
           <button
             type="button"
+            data-testid="send-button"
             onClick={handleSend}
             disabled={disabled || isLoading || !value.trim() || isRecording}
             className={`p-2.5 rounded-lg transition-all duration-200 flex items-center justify-center ${

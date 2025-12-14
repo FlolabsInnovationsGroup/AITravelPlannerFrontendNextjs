@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession, getLocationsBySession, getToken, transcribeAudio } from '@/lib/api';
+import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession, generateSessionTitle, getLocationsBySession, getToken, transcribeAudio, type SessionDTO } from '@/lib/api';
 import { Send, Menu, Map, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,7 +11,7 @@ import { Location } from '@/types/map';
 import LeftMenuBar from '@/components/features/chat/LeftMenuBar';
 import LocationSuggestions from '@/components/features/map/LocationSuggestions';
 import dynamic from 'next/dynamic';
-import { useChatErrorHandler } from '@/hooks/useMessageRetry';
+import { useChatErrorHandler, useMessageRetry } from '@/hooks/useMessageRetry';
 import { 
   TypingIndicator, 
   ErrorMessage 
@@ -53,6 +53,10 @@ export default function ChatPageContent() {
     const [inputMessage, setInputMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     
+    // 🔒 FIX 2.3: Duplicate message prevention with request tracking
+    const pendingRequestsRef = useRef<Set<string>>(new Set());
+    const lastSentMessageRef = useRef<{ content: string; timestamp: number } | null>(null);
+    
     // Debug: Log messages state changes
     useEffect(() => {
         console.log('📨 Messages state updated:', messages.length, 'messages');
@@ -66,7 +70,10 @@ export default function ChatPageContent() {
     const [showChatHistory, setShowChatHistory] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [chatHistory, setChatHistory] = useState<Array<{ sessionId: string; title: string }>>([]);
+    const [chatHistory, setChatHistory] = useState<SessionDTO[]>([]);
+    const [hasMoreSessions, setHasMoreSessions] = useState(true);
+    const [sessionPage, setSessionPage] = useState(0);
+    const [isLoadingSessions, setIsLoadingSessions] = useState(false);
     const [wsConnected, setWsConnected] = useState(false);
     const [showMap, setShowMap] = useState(false);
     const { currentUser } = useAuth();
@@ -78,6 +85,15 @@ export default function ChatPageContent() {
     
     // Enhanced error handling
     const { errorState, handleError, clearError } = useChatErrorHandler();
+    
+    // 🔒 FIX 2.4: Message retry functionality with queue
+    const { retryMessage, retryState, cancelRetry } = useMessageRetry();
+    const [failedMessages, setFailedMessages] = useState<Array<{ 
+        id: number; 
+        content: string; 
+        timestamp: Date;
+        error: string;
+    }>>([]);
     
     // Context menu state
     const [contextMenu, setContextMenu] = useState<{
@@ -127,34 +143,122 @@ export default function ChatPageContent() {
         }, 3000);
     };
     
-    // Fetch chat history function
-    const fetchChatHistory = async () => {
+    // ✅ Fetch chat history function with pagination support
+    const fetchChatHistory = useCallback(async (page = 0, append = false) => {
         if (!currentUser?.id) {
+            console.log('⚠️ Cannot fetch chat history: No user ID');
             setChatHistory([]);
             return;
         }
     
+        if (isLoadingSessions) return; // Prevent concurrent requests
+        
         try {
-            const sessions = await getUserSessions(currentUser.id);
+            setIsLoadingSessions(true);
+            console.log(`📥 Fetching chat history for user: ${currentUser.id}, page: ${page}`);
+            
+            const pageSize = 20;
+            const sessions = await getUserSessions(currentUser.id, {
+                limit: pageSize,
+                offset: page * pageSize,
+                sortBy: 'createdAt',
+                order: 'desc'
+            });
             
             if (Array.isArray(sessions)) {
-                setChatHistory(sessions);
+                console.log(`✅ Chat history fetched: ${sessions.length} sessions on page ${page}`);
+                
+                if (append) {
+                    setChatHistory(prev => [...prev, ...sessions]);
+                } else {
+                    setChatHistory(sessions);
+                }
+                
+                // If we got fewer sessions than pageSize, we've reached the end
+                setHasMoreSessions(sessions.length === pageSize);
+                setSessionPage(page);
             } else {
-                setChatHistory([]);
+                console.warn('⚠️ getUserSessions did not return an array:', sessions);
+                if (!append) setChatHistory([]);
             }
         } catch (error) {
             console.error('❌ Error fetching chat history:', error);
-            setChatHistory([]);
-            // Only show toast if it's not a network/auth issue
+            if (!append) setChatHistory([]);
+            
             const errorMessage = error instanceof Error ? error.message : String(error);
             if (!errorMessage.includes('Network Error') && !errorMessage.includes('401')) {
                 toast.error('Failed to load chat history');
             }
+        } finally {
+            setIsLoadingSessions(false);
         }
-    };
+    }, [currentUser?.id, isLoadingSessions]);
+    
+    // Load more sessions for infinite scroll
+    const loadMoreSessions = useCallback(() => {
+        if (hasMoreSessions && !isLoadingSessions) {
+            fetchChatHistory(sessionPage + 1, true);
+        }
+    }, [hasMoreSessions, isLoadingSessions, sessionPage, fetchChatHistory]);
+
+    // Handle session deletion
+    const handleSessionDeleted = useCallback((sessionId: string) => {
+        setChatHistory(prev => prev.filter(s => s.sessionId !== sessionId));
+        
+        // If deleted session was current, clear it
+        if (currentSession?.sessionId === sessionId) {
+            setCurrentSession(null);
+            setMessages([]);
+            setDisplayPrompts(true);
+        }
+    }, [currentSession?.sessionId]);
+
+    // Handle session rename
+    const handleSessionRenamed = useCallback((sessionId: string, newTitle: string) => {
+        setChatHistory(prev => prev.map(s => 
+            s.sessionId === sessionId ? { ...s, title: newTitle, updatedAt: new Date().toISOString() } : s
+        ));
+        
+        // Update current session title if it's the one being renamed
+        if (currentSession?.sessionId === sessionId) {
+            setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
+        }
+    }, [currentSession?.sessionId]);
 
     // Generate session title from message
-    const generateSessionTitle = (message: string) => {
+    // 🔒 FIX 3.3: Validate and sanitize session titles
+    const validateAndSanitizeTitle = (title: string): string => {
+        if (!title || typeof title !== 'string') {
+            return 'New Chat';
+        }
+        
+        // Remove dangerous characters and scripts
+        let sanitized = title
+            .replace(/<script[^>]*>.*?<\/script>/gi, '')
+            .replace(/<[^>]+>/g, '')
+            .replace(/[<>"'`]/g, '')
+            .trim();
+        
+        // Limit length to 100 characters
+        if (sanitized.length > 100) {
+            sanitized = sanitized.substring(0, 97) + '...';
+        }
+        
+        // If empty after sanitization, use default
+        return sanitized.length > 0 ? sanitized : 'New Chat';
+    };
+    
+    /**
+     * Fallback title generation using simple keyword extraction
+     * Used when AI-powered backend title generation fails
+     * @deprecated Use AI-powered generateSessionTitle() from api.ts instead
+     */
+    const generateSessionTitleFromMessage = (message: string) => {
+        // 🔒 FIX 3.3: Validate input before processing
+        if (!message || message.trim().length === 0) {
+            return 'New Chat';
+        }
+        
         // Clean the message and remove emojis for better processing
         const cleanMessage = message.replace(/[^\w\s]/gi, ' ').replace(/\s+/g, ' ').trim();
         
@@ -184,13 +288,9 @@ export default function ChatPageContent() {
         // Combine important words with regular words (up to 5 words total)
         const titleWords = [...importantWords, ...regularWords].slice(0, 5);
         
-        // If we have a title, use it; otherwise, use first 5 words
-        const title = titleWords.length > 0 
-            ? titleWords.join(' ') 
-            : words.slice(0, 5).join(' ');
-        
-        // Fallback to "New Chat" if title is empty
-        return title.trim() || 'New Chat';
+        // 🔒 FIX 3.3: Validate and sanitize the generated title
+        const rawTitle = titleWords.length > 0 ? titleWords.join(' ') : cleanMessage.split(' ').slice(0, 5).join(' ');
+        return validateAndSanitizeTitle(rawTitle || 'New Chat');
     };
 
     // Location service initialization (must be before processChatMessage)
@@ -210,25 +310,12 @@ export default function ChatPageContent() {
                 throw new Error("MapService not initialized");
             }
 
+            // ✅ FIX: Session must exist before adding locations
+            // Don't create new sessions here - this was causing duplicate session spam
             if (!currentSession?.sessionId) {
-                console.log("🔄 No session found, creating new session for location operation...");
-                const newSession = await createSession('New Chat');
-                
-                if (!newSession || !newSession.sessionId) {
-                    throw new Error("Failed to create a new session for location operation");
-                }
-                
-                setCurrentSession({ 
-                    sessionId: newSession.sessionId, 
-                    title: newSession.title || 'New Chat' 
-                });
-                
-                // Initialize WebSocket connection for the new session
-                if (mapServiceRef.current) {
-                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
-                }
-                
-                console.log("✅ Created new session for location:", newSession.sessionId);
+                const errorMsg = "❌ Cannot add location: No active session. Please start a new chat first.";
+                console.error(errorMsg);
+                throw new Error(errorMsg);
             }
 
             // Validate location data before sending
@@ -245,7 +332,8 @@ export default function ChatPageContent() {
             const locationToAdd = {
                 latitude: Number(location.latitude),
                 longitude: Number(location.longitude),
-                name: location.name.trim(),
+                // Sanitize name to prevent backend validation errors
+                name: location.name.trim().replace(/[\u0000-\u001F\u007F-\u009F]/g, ''),
                 type: location.type || 'attraction',
                 sessionId: currentSession?.sessionId || sessionStorage.getItem("chatSessionId") || "default"
             };
@@ -257,19 +345,21 @@ export default function ChatPageContent() {
 
             
             // Dispatch event for map update
-            const event = new CustomEvent('newLocation', { 
-                detail: addedLocation
-            });
-            window.dispatchEvent(event);
+            if (typeof window !== 'undefined') {
+                const event = new CustomEvent('newLocation', { 
+                    detail: addedLocation
+                });
+                window.dispatchEvent(event);
+            }
 
             
             return addedLocation;
         } catch (error) {
-            console.error("❌ Error adding location:", error);
-            console.error("❌ Location data:", location);
-            console.error("❌ Current session:", currentSession);
-            console.error("❌ Current user:", currentUser ? 'Available' : 'Not available');
-            
+            // Silently handle location addition errors for better UX
+            // The AI response will still show successfully even if map markers fail
+            if (process.env.NODE_ENV === 'development') {
+                console.warn("⚠️ Could not add location to map:", location.name, error);
+            }
             // Check if it's a validation error
             if (error instanceof Error && error.message && error.message.includes('invalid characters')) {
 
@@ -283,9 +373,12 @@ export default function ChatPageContent() {
     // Process chat message (separate function to avoid duplication)
     const processChatMessage = async (message: string) => {
         try {
+            // ✅ FIX: Session should already exist from handleNewChat
+            // If it doesn't exist (edge case), create it now
             let sessionId = currentSession?.sessionId;
     
             if (!sessionId) {
+                console.warn('⚠️ processChatMessage: No session found - creating one now');
                 const newSession = await createSession('New Chat');
     
                 if (!newSession || !newSession.sessionId) {
@@ -298,7 +391,7 @@ export default function ChatPageContent() {
                     title: newSession.title || 'New Chat' 
                 });
                 if (mapServiceRef.current && newSession.sessionId) {
-                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
+                    await mapServiceRef.current.connectWebSocket(newSession.sessionId);
                 }
                 sessionStorage.setItem("chatSessionId", sessionId);
             }
@@ -308,6 +401,11 @@ export default function ChatPageContent() {
             clearError();
             setIsLoading(true);
             setIsAITyping(true);
+            
+            // ✅ CRITICAL FIX: Get the ACTUAL message count (user message was already added)
+            // Since React state updates are async, we count from current state + 1 for the user message that was just added
+            const messageCountBeforeResponse = messages.length + 1; // +1 for the user message just added
+            console.log('📊 Message count before AI response (including user message):', messageCountBeforeResponse);
     
             const response = await sendMessagesEntity(message, sessionIdToUse);
     
@@ -347,17 +445,61 @@ export default function ChatPageContent() {
                 // Locations will be added via WebSocket updates from the backend
 
                 // Update session title if this is the first conversation
-                if (messages.length === 2 && currentUser?.id && sessionIdToUse && currentSession?.title === 'New Chat') {
-                    const newTitle = generateSessionTitle(message);
+                // ✅ FIX: Use captured message count from BEFORE API call
+                console.log('🔍 Title update check:', {
+                    messageCountBeforeResponse,
+                    hasUserId: !!currentUser?.id,
+                    userId: currentUser?.id,
+                    hasSessionId: !!sessionIdToUse,
+                    sessionId: sessionIdToUse,
+                    currentTitle: currentSession?.title,
+                    isNewChat: currentSession?.title === 'New Chat',
+                    isEmpty: !currentSession?.title || currentSession.title.trim() === ''
+                });
+                
+                console.log('🧮 Condition breakdown:', {
+                    'messageCountBeforeResponse === 1': messageCountBeforeResponse === 1,
+                    'currentUser?.id exists': !!currentUser?.id,
+                    'sessionIdToUse exists': !!sessionIdToUse,
+                    'title check': !currentSession?.title || currentSession.title === 'New Chat' || currentSession.title.trim() === ''
+                });
+                
+                const shouldUpdateTitle = messageCountBeforeResponse === 1 && 
+                                        currentUser?.id && 
+                                        sessionIdToUse && 
+                                        (!currentSession?.title || currentSession.title === 'New Chat' || currentSession.title.trim() === '');
+                
+                console.log('🎯 Should update title:', shouldUpdateTitle);
+                
+                if (shouldUpdateTitle) {
+                    console.log(`📝 Generating AI-powered title for session "${currentSession?.title}"`);
                     
                     try {
-                        await updateSession(sessionIdToUse, newTitle, currentUser.id);
+                        // Use AI-powered title generation from backend
+                        const newTitle = await generateSessionTitle(sessionIdToUse);
+                        console.log(`✅ AI-generated title: "${newTitle}"`);
+                        
+                        // Update local state with new title
                         setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
-                        await fetchChatHistory();
+                        
+                        // ✅ FIX: Force refresh chat history to show new title in sidebar
+                        console.log('🔄 Refreshing chat history to update sidebar title');
+                        await fetchChatHistory(0, false);
                     } catch (error) {
-                        console.error('❌ Failed to update session title:', error);
-                        // Still update local state even if API call fails
-                        setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
+                        console.error('❌ Failed to generate AI title:', error);
+                        // Fallback to simple title generation from message
+                        const fallbackTitle = generateSessionTitleFromMessage(message);
+                        console.log(`⚠️ Using fallback title: "${fallbackTitle}"`);
+                        
+                        try {
+                            await updateSession(sessionIdToUse, fallbackTitle, currentUser.id);
+                            setCurrentSession(prev => prev ? { ...prev, title: fallbackTitle } : null);
+                            await fetchChatHistory(0, false);
+                        } catch (fallbackError) {
+                            console.error('❌ Fallback title update also failed:', fallbackError);
+                            // Still update local state even if API call fails
+                            setCurrentSession(prev => prev ? { ...prev, title: fallbackTitle } : null);
+                        }
                     }
                 }
             }
@@ -392,10 +534,10 @@ export default function ChatPageContent() {
             return undefined;
         }
         
-        // Initialize MapService if not exists
+        // Initialize MapService if not exists - use singleton pattern
         if (!mapServiceRef.current) {
 
-            mapServiceRef.current = new MapService(token);
+            mapServiceRef.current = MapService.getInstance(token);
             
             // Set up WebSocket event listeners
             mapServiceRef.current.onConnect = () => {
@@ -486,42 +628,69 @@ export default function ChatPageContent() {
     
     const handleNewChat = async () => {
         try {
-            // Reset initialization state
-            initializationRef.current = false;
+            // ✅ FIX: Set flag to prevent initializeChat from running during navigation
+            sessionStorage.setItem("newChatCreating", "true");
             
             // Clear locations from backend for current session before starting new one
             const currentSessionId = sessionStorage.getItem("chatSessionId");
             if (currentSessionId && mapServiceRef.current) {
                 try {
-
                     await mapServiceRef.current.clearLocations(currentSessionId);
                 } catch (error) {
-
                     // Continue with new chat even if clearing fails
                 }
             }
 
             // Disconnect from current session's WebSocket and clear map data safely
             if (mapServiceRef.current) {
-
                 mapServiceRef.current.disconnect();
                 // Safely clear markers (won't throw error if map not initialized)
                 mapServiceRef.current.clearAllMarkers();
             }
             
-            setCurrentSession(null);
+            // ✅ FIX: Create session IMMEDIATELY when "New Chat" is clicked
+            // This prevents duplicate session creation when AI extracts locations
+            console.log('📝 Creating new session immediately...');
+            const newSession = await createSession('New Chat');
+            
+            if (!newSession || !newSession.sessionId) {
+                throw new Error("Failed to create new session");
+            }
+            
+            console.log('✅ New session created:', newSession.sessionId);
+            setCurrentSession({ 
+                sessionId: newSession.sessionId, 
+                title: newSession.title || 'New Chat' 
+            });
+            
+            // ✅ CRITICAL FIX: Save session to storage BEFORE router.push
+            // This prevents initializeChat() from creating ANOTHER session on re-render
+            sessionStorage.setItem("chatSessionId", newSession.sessionId);
+            
+            // Connect WebSocket to new session
+            if (mapServiceRef.current) {
+                await mapServiceRef.current.connectWebSocket(newSession.sessionId);
+            }
+            
             setMessages([]);
             setDisplayPrompts(true);
             setWsConnected(false);
             
-            // Clear session storage
-            sessionStorage.removeItem("chatSessionId");
+            // Clear only the temporary message storage
             sessionStorage.removeItem("sentMessage");
             sessionStorage.removeItem("initialMessage");
             
             router.push('/chat');
             setIsMobileMenuOpen(false);
+            
+            // ✅ FIX: Refresh chat history after creating new session
+            console.log('🔄 Refreshing chat history after new chat creation');
             await fetchChatHistory();
+            
+            // ✅ FIX: Clear the flag after navigation completes
+            setTimeout(() => {
+                sessionStorage.removeItem("newChatCreating");
+            }, 1000);
         } catch (error) {
             console.error('Error starting a new chat:', error);
             toast.error('Failed to start a new chat');
@@ -536,10 +705,41 @@ export default function ChatPageContent() {
         setIsMobileMenuOpen((prev) => !prev);
     };
     
+    // 🔒 FIX 3.4: Track active session load to prevent race conditions
+    const activeSessionLoadRef = useRef<AbortController | null>(null);
+    
     const handleSessionClick = async (session: { sessionId: string; title: string }) => {
         try {
+            // 🔒 FIX 3.4: Cancel any in-flight session load requests
+            if (activeSessionLoadRef.current) {
+                activeSessionLoadRef.current.abort();
+                console.log('⚠️ Cancelled previous session load');
+            }
+            
+            // Create new abort controller for this request
+            const abortController = new AbortController();
+            activeSessionLoadRef.current = abortController;
+            
+            const targetSessionId = session.sessionId;
             setCurrentSession(session);
+            
+            // ✅ Update sessionStorage to maintain session consistency
+            sessionStorage.setItem("chatSessionId", targetSessionId);
+            console.log('✅ Updated sessionStorage with new sessionId:', targetSessionId);
+            
             const sessionMessages = await getSessionMessages(session.sessionId);
+            
+            // 🔒 FIX 3.4: Verify we're still loading the same session (not switched mid-load)
+            if (abortController.signal.aborted) {
+                console.log('⚠️ Session load aborted - user switched sessions');
+                return;
+            }
+            
+            // Double-check session ID matches current session
+            if (targetSessionId !== session.sessionId) {
+                console.warn('⚠️ Session mismatch - discarding stale data');
+                return;
+            }
             const messageArray = Array.isArray(sessionMessages) ? sessionMessages : [];
             
             // ✅ Apply JSON parsing to historical messages (same logic as new messages)
@@ -565,14 +765,52 @@ export default function ChatPageContent() {
                 return message;
             });
             
-            setMessages(parsedMessages);
-            setDisplayPrompts(false);
-            setShowChatHistory(false);
-            setIsMobileMenuOpen(false);
-            await fetchChatHistory();
-        } catch (error) {
+            // 🔒 FIX 3.4: Final check before applying state changes
+            if (!abortController.signal.aborted) {
+                setMessages(parsedMessages);
+                setDisplayPrompts(false);
+                setShowChatHistory(false);
+                setIsMobileMenuOpen(false);
+                
+                // ✅ CRITICAL: Reconnect WebSocket to new session and load locations
+                if (mapServiceRef.current && targetSessionId) {
+                    console.log('🔄 Reconnecting WebSocket to session:', targetSessionId);
+                    await mapServiceRef.current.disconnect();
+                    await mapServiceRef.current.connectWebSocket(targetSessionId);
+                    
+                    // ✅ Load locations for this session from database
+                    try {
+                        console.log('📍 Loading locations for session:', targetSessionId);
+                        const sessionLocations = await mapServiceRef.current.getLocations(targetSessionId);
+                        console.log(`✅ Loaded ${sessionLocations?.length || 0} locations for session`);
+                        
+                        // Clear existing markers and add new ones
+                        mapServiceRef.current.clearAllMarkers();
+                        if (sessionLocations && sessionLocations.length > 0 && typeof window !== 'undefined') {
+                            sessionLocations.forEach(location => {
+                                window.dispatchEvent(new CustomEvent('newLocation', { detail: location }));
+                            });
+                        }
+                    } catch (locationError) {
+                        console.error('❌ Failed to load session locations:', locationError);
+                    }
+                }
+                
+                await fetchChatHistory();
+                
+                // Clear the active load ref since we completed successfully
+                activeSessionLoadRef.current = null;
+            }
+        } catch (error: any) {
+            // 🔒 FIX 3.4: Don't show error if request was intentionally aborted
+            if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+                console.log('Session load cancelled by user');
+                return;
+            }
+            
             console.error('Error loading session messages:', error);
             toast.error('Failed to load chat messages');
+            activeSessionLoadRef.current = null;
         }
     };
 
@@ -656,17 +894,48 @@ export default function ChatPageContent() {
 
     const handleSendMessage = async (message: string) => {
         if (!message.trim()) return;
+        
+        // 🔒 FIX 2.3: Enhanced duplicate prevention
+        const messageHash = `${message.trim()}-${currentSession?.sessionId || 'no-session'}`;
+        
+        // Check if request is already in flight
+        if (pendingRequestsRef.current.has(messageHash)) {
+            console.warn('⚠️ Duplicate request prevented - message already being sent');
+            return;
+        }
+        
+        // Check if same message sent within last 2 seconds (prevents accidental double-clicks)
+        const now = Date.now();
+        if (lastSentMessageRef.current && 
+            lastSentMessageRef.current.content === message.trim() &&
+            now - lastSentMessageRef.current.timestamp < 2000) {
+            console.warn('⚠️ Duplicate prevented - same message sent <2s ago');
+            return;
+        }
     
         setIsLoading(true);
         setIsAITyping(false);  // Clear any existing typing indicator
         clearError();          // Clear any previous errors
+        
+        // Track this request
+        pendingRequestsRef.current.add(messageHash);
+        lastSentMessageRef.current = { content: message.trim(), timestamp: now };
     
         try {
+            // ✅ CRITICAL: Capture message count BEFORE adding user message
+            // This is used later for title generation detection
+            const messageCountBeforeSending = messages.length;
+            
             // ✅ FIRST: Add user's original message to chat UI immediately
             setMessages((prev) => {
-                // Prevent duplicate messages
-                if (prev.length > 0 && prev[prev.length - 1].content === message && prev[prev.length - 1].messageType === "USER") {
-
+                // Double-check for duplicate in UI (belt and suspenders approach)
+                const isDuplicate = prev.some(
+                    msg => msg.content === message && 
+                    msg.messageType === 'USER' && 
+                    now - (msg.timestamp?.getTime() || 0) < 2000
+                );
+                
+                if (isDuplicate) {
                     return prev;
                 }
 
@@ -692,74 +961,28 @@ export default function ChatPageContent() {
 
 
 
-            // Extract and add locations from the message if it contains location keywords
-            // Skip frontend extraction for tour requests - let AI backend handle multi-destination planning
-            let locationsAdded = false;
-            if (hasLocationKeyword && !isTourRequest && locationService.current) {
-
-                try {
-                    // First try to extract multiple locations (for AI responses with itineraries)
-                    const multipleLocations = await locationService.current.extractMultipleLocationsFromMessage(message);
-
-                    
-                    if (multipleLocations && multipleLocations.length > 0 && currentSession?.sessionId) {
-
-                        
-                        // Add all locations to the map
-                        await Promise.all(
-                            multipleLocations.map(location => addLocationToMap(location))
-                        );
-                        locationsAdded = true;
-                        setLastLocationAlternatives([]);
-                        // Continue to AI processing instead of returning early
-                    }
-                    
-                    // Fallback to single location extraction
-                    const locationResult = await locationService.current.extractLocationFromMessage(message);
-
-                    
-                    if (locationResult.extractedLocation && currentSession?.sessionId) {
-                        // Automatically use the most likely location (first result) instead of showing popup
-
-                        await addLocationToMap(locationResult.extractedLocation);
-                        locationsAdded = true;
-                        
-                        // Store alternative locations for AI context
-                        if (locationResult.suggestedPlaces && locationResult.suggestedPlaces.length > 0) {
-                            setLastLocationAlternatives(locationResult.suggestedPlaces);
-                        } else {
-                            setLastLocationAlternatives([]);
-                        }
-                    } else if (locationResult.error) {
-                        // TODO: Handle location extraction errors with user feedback
-                    } else {
-                        // TODO: Handle successful location extraction without alternatives
-                    }
-                } catch (error) {
-                    console.error("❌ Location extraction failed:", error);
-                    // Continue with normal chat processing even if location extraction fails
-                }
-            }
+            // FRONTEND LOCATION EXTRACTION DISABLED
+            // All location extraction is now handled by backend AI's AutoLocationExtractionFunction
+            // which provides proper geographic filtering and validation
+            //
+            // Previous frontend location extraction code has been removed - the backend AI now:
+            // 1. Extracts locations from chat messages using Spring AI
+            // 2. Enriches with Google Places API data (photos, ratings, hours, contact info)
+            // 3. Applies geographic filtering to prevent wrong locations (e.g., Paris for Southeast Asia queries)
+            // 4. Broadcasts location updates via WebSocket to sync with map in real-time
+            //
+            // This ensures consistent location data with proper validation and contextual relevance.
             
-            // If locations were added, modify the message to provide context to the AI (internal only)
-            let messageToSend = message;
-            if (locationsAdded) {
-                messageToSend = `${message}. Please provide detailed travel information about this place without adding it to the map again.`;
-                
-                // Add context about alternatives if they exist
-                if (lastLocationAlternatives.length > 0) {
-                    const alternativeNames = lastLocationAlternatives.slice(0, 3).map(loc => loc.name).join(', ');
-                    messageToSend += ` [Context: I auto-selected the most likely location. If multiple locations were possible, mention alternatives like: ${alternativeNames}. Ask if they meant a different location if applicable.]`;
-                }
-                
-
-            }
+            // Message is sent directly to AI without frontend preprocessing
+            const messageToSend = message;
 
 
+            // ✅ FIX: Session should already exist from handleNewChat
+            // If it doesn't exist (edge case), create it now
             let sessionId = currentSession?.sessionId;
     
             if (!sessionId) {
-
+                console.warn('⚠️ No session found when sending message - creating one now');
                 const newSession = await createSession('New Chat');
     
                 if (!newSession || !newSession.sessionId) {
@@ -773,28 +996,34 @@ export default function ChatPageContent() {
                 });
                 // Ensure WebSocket is connected after setting new session
                 if (mapServiceRef.current && newSession.sessionId) {
-                    mapServiceRef.current.connectWebSocket(newSession.sessionId);
+                    await mapServiceRef.current.connectWebSocket(newSession.sessionId);
                 }
             }
     
-            // ✅ Send enhanced message to backend (user message already added to UI above)
-
-
-
-
-            
-            // Add timeout to prevent hanging (90 seconds for AI processing)
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('API call timeout after 90 seconds')), 90000);
-            });
-            
+            // 🔒 FIX 2.4: Wrap API call in retry mechanism
             // Show AI typing indicator
             setIsAITyping(true);
+            
+            const response = await retryMessage(async () => {
+                // Add timeout to prevent hanging (90 seconds for AI processing)
+                const timeoutPromise = new Promise<never>((_, reject) => {
+                    setTimeout(() => reject(new Error('API call timeout after 90 seconds')), 90000);
+                });
 
-            const response = await Promise.race([
-                sendMessagesEntity(messageToSend, sessionId) as Promise<ApiResponse>,
-                timeoutPromise
-            ]) as ApiResponse;
+                return await Promise.race([
+                    sendMessagesEntity(messageToSend, sessionId) as Promise<ApiResponse>,
+                    timeoutPromise
+                ]) as ApiResponse;
+            }, {
+                maxAttempts: 3,
+                baseDelay: 2000,
+                retryCondition: (error) => {
+                    // Retry on network errors, timeouts, and 5xx server errors
+                    return error.message?.includes('timeout') ||
+                           error.message?.includes('Network Error') ||
+                           (error.response?.status >= 500 && error.response?.status < 600);
+                }
+            });
             
             // Clear typing indicator
             setIsAITyping(false);
@@ -868,26 +1097,54 @@ export default function ChatPageContent() {
                 // ✅ Update session title if this is the first conversation (check for first user message)
                 
                 // Check if this is the first message conversation AND the session still has "New Chat" title
-                // Since we add user message first, then AI response, check for length === 2 (user + AI)
-                if (messages.length === 2 && currentUser?.id && sessionId && currentSession?.title === 'New Chat') {
-                    const newTitle = generateSessionTitle(message);
-
-                    
+                // CRITICAL: We use messageCountBeforeSending (captured before adding user message)
+                // because messages.length may be 0 here due to React's async state updates
+                const shouldUpdateTitle = messageCountBeforeSending === 0 && 
+                                        currentUser?.id && 
+                                        sessionId && 
+                                        (!currentSession?.title || currentSession.title === 'New Chat' || currentSession.title.trim() === '');
+                
+                console.log('🔍 Title update check:', { 
+                    messageCountBeforeSending: messageCountBeforeSending,
+                    currentMessagesLength: messages.length,
+                    hasUser: !!currentUser?.id, 
+                    hasSessionId: !!sessionId, 
+                    currentTitle: currentSession?.title,
+                    shouldUpdate: shouldUpdateTitle
+                });
+                
+                if (shouldUpdateTitle) {
                     try {
-
-                        await updateSession(sessionId, newTitle, currentUser.id);
+                        // Call backend AI to generate title from session conversation
+                        console.log(`🤖 Generating AI title for session: ${sessionId}`);
+                        const newTitle = await generateSessionTitle(sessionId);
+                        console.log(`📝 AI generated title: "${newTitle}"`);
                         
+                        await updateSession(sessionId, newTitle, currentUser.id);
+                        console.log('✅ Session title updated successfully in database');
 
                         setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
                         
-
-                        await fetchChatHistory();
-                        
+                        // ✅ CRITICAL: Force refresh chat history with page reset to show new title in sidebar
+                        console.log('🔄 Forcing chat history refresh after title update');
+                        await fetchChatHistory(0, false); // Explicitly fetch page 0, don't append
 
                     } catch (error) {
-                        console.error('❌ Failed to update session title:', error);
-                        // Still update local state even if API call fails
-                        setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
+                        console.warn('⚠️ Backend title generation failed, using fallback:', error);
+                        
+                        // Fallback: Use local title generation from message content
+                        const fallbackTitle = generateSessionTitleFromMessage(message);
+                        console.log(`📝 Using fallback title: "${fallbackTitle}"`);
+                        
+                        try {
+                            await updateSession(sessionId, fallbackTitle, currentUser.id);
+                            setCurrentSession(prev => prev ? { ...prev, title: fallbackTitle } : null);
+                            await fetchChatHistory(0, false);
+                        } catch (fallbackError) {
+                            console.error('❌ Even fallback title update failed:', fallbackError);
+                            // Update local state only
+                            setCurrentSession(prev => prev ? { ...prev, title: fallbackTitle } : null);
+                        }
                     }
                 }
 
@@ -928,28 +1185,60 @@ export default function ChatPageContent() {
     
             setDisplayPrompts(false);
         } catch (error: any) {
+            // 🔒 FIX 2.4: Track failed messages for manual retry
+            const failedMessage = {
+                id: Date.now(),
+                content: message,
+                timestamp: new Date(),
+                error: error.message || 'Unknown error'
+            };
+            setFailedMessages(prev => [...prev, failedMessage]);
+            
             // Use enhanced error handling
             const { errorMessage, canRetry } = handleError(error, 'sendMessage');
             
             setMessages((prev) => [...prev, {
                 id: Date.now(),
                 messageType: 'ASSISTANT',
-                content: errorMessage,
+                content: `❌ ${errorMessage}${canRetry ? '\n\n💡 You can retry sending this message.' : ''}`,
             }]);
 
             // Show retry option if applicable  
             if (canRetry) {
                 toast.error(`${errorMessage} You can try sending your message again.`, {
-                    duration: 6000
-                });
+                    duration: 6000,
+                    action: {
+                        label: 'Retry',
+                        onClick: () => handleRetryFailedMessage(failedMessage.id)
+                    }
+                } as any);
             } else {
                 toast.error(errorMessage, { duration: 4000 });
             }
         } finally {
+            // 🔒 FIX 2.3: Cleanup pending request tracking
+            const messageHash = `${message.trim()}-${currentSession?.sessionId || 'no-session'}`;
+            pendingRequestsRef.current.delete(messageHash);
+            
             setIsLoading(false);
             setInputMessage('');
             setIsAITyping(false);  // Ensure typing indicator is cleared
         }
+    };
+    
+    // 🔒 FIX 2.4: Retry handler for failed messages
+    const handleRetryFailedMessage = async (messageId: number) => {
+        const failedMessage = failedMessages.find(m => m.id === messageId);
+        if (!failedMessage) {
+            toast.error('Failed message not found');
+            return;
+        }
+        
+        // Remove from failed queue
+        setFailedMessages(prev => prev.filter(m => m.id !== messageId));
+        
+        // Retry sending the message
+        await handleSendMessage(failedMessage.content);
     };
     
     
@@ -1022,12 +1311,14 @@ export default function ChatPageContent() {
         handleSendMessage(transcribedText); // ✅ Auto-send
     };
 
+    // ✅ FIX: Fetch chat history on component mount when user is authenticated
     useEffect(() => {
-        
-        if (currentUser?.id && messages.length > 0) {
+        if (currentUser?.id) {
+            console.log('🔄 Fetching initial chat history for user:', currentUser.id);
             fetchChatHistory();
         }
-    }, [messages, currentUser?.id]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentUser?.id]); // Only re-run when user ID changes
 
     // Markdown components removed - EnhancedChatBubbles handles message rendering with its own markdown styling
 
@@ -1056,6 +1347,12 @@ export default function ChatPageContent() {
                 hasWindow: typeof window !== 'undefined',
                 currentUser: currentUser?.id
             });
+
+            // ✅ FIX: Don't initialize if we're in the middle of creating a new chat
+            if (typeof window !== 'undefined' && sessionStorage.getItem("newChatCreating") === "true") {
+                console.log('🛑 Skipping initializeChat - new chat is being created');
+                return;
+            }
 
             // Prevent duplicate initialization 
             // Note: Allow execution even without currentUser to support guest users
@@ -1156,8 +1453,12 @@ export default function ChatPageContent() {
                     sessionStorage.setItem("sentMessage", decodedMessage);
                     console.log('🔵 Message stored in sessionStorage');
         
-                    // ✅ Update session title for all users (including guests)
-                    if (currentUser?.id && sessionId) {
+                    // ✅ Update session title for all users (including guests) if it's still "New Chat"
+                    const shouldUpdateTitle = currentUser?.id && 
+                                            sessionId && 
+                                            (!currentSession?.title || currentSession.title === 'New Chat' || currentSession.title.trim() === '');
+                    
+                    if (shouldUpdateTitle) {
                         console.log('🔵 Updating session title for authenticated user');
                         const newTitle = generateSessionTitle(decodedMessage);
 
@@ -1242,13 +1543,19 @@ export default function ChatPageContent() {
         <LoadScript
             googleMapsApiKey={(() => {
                 const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-                console.log('🔑 Google Maps API Key being used:', apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING');
-                console.log('🔑 Full key available:', !!apiKey, 'Length:', apiKey.length);
+                // Only log once per session to reduce console noise
+                if (typeof window !== 'undefined' && !(window as any).__MAPS_KEY_LOGGED) {
+                    console.log('🔑 Google Maps API Key configured:', apiKey ? 'Yes' : 'No');
+                    (window as any).__MAPS_KEY_LOGGED = true;
+                }
                 return apiKey;
             })()}
             libraries={libraries}
             onLoad={() => {
-                console.log('✅ Google Maps loaded successfully');
+                if (typeof window !== 'undefined' && !(window as any).__MAPS_LOADED_LOGGED) {
+                    console.log('✅ Google Maps loaded successfully');
+                    (window as any).__MAPS_LOADED_LOGGED = true;
+                }
                 setIsGoogleMapsLoaded(true);
             }}
             onError={(error) => {
@@ -1295,6 +1602,12 @@ export default function ChatPageContent() {
                                 handleSessionClick={handleSessionClick}
                                 searchQuery={searchQuery}
                                 setSearchQuery={setSearchQuery}
+                                hasMoreSessions={hasMoreSessions}
+                                isLoadingSessions={isLoadingSessions}
+                                onLoadMore={loadMoreSessions}
+                                onSessionDeleted={handleSessionDeleted}
+                                onSessionRenamed={handleSessionRenamed}
+                                currentUserId={currentUser?.id}
                             />
                         </div>
                     </div>
@@ -1315,6 +1628,12 @@ export default function ChatPageContent() {
                     handleSessionClick={handleSessionClick}
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
+                    hasMoreSessions={hasMoreSessions}
+                    isLoadingSessions={isLoadingSessions}
+                    onLoadMore={loadMoreSessions}
+                    onSessionDeleted={handleSessionDeleted}
+                    onSessionRenamed={handleSessionRenamed}
+                    currentUserId={currentUser?.id}
                 />
             </div>
             {/* Middle Chat Section */}
@@ -1516,6 +1835,12 @@ export default function ChatPageContent() {
                             handleSessionClick={handleSessionClick}
                             searchQuery={searchQuery}
                             setSearchQuery={setSearchQuery}
+                            hasMoreSessions={hasMoreSessions}
+                            isLoadingSessions={isLoadingSessions}
+                            onLoadMore={loadMoreSessions}
+                            onSessionDeleted={handleSessionDeleted}
+                            onSessionRenamed={handleSessionRenamed}
+                            currentUserId={currentUser?.id}
                         />
                     </div>
                 </div>

@@ -40,7 +40,13 @@ const calculateHaversineDistance = (lat1: number, lng1: number, lat2: number, ln
 // Helper function to convert API location type to our LocationType
 const convertLocationType = (type: string | undefined): LocationType | undefined => {
     if (!type) return undefined;
-    const validTypes: LocationType[] = ['attraction', 'cafe', 'hotel', 'restaurant', 'transport'];
+    const validTypes: LocationType[] = [
+        'attraction', 'cafe', 'hotel', 'restaurant', 'transport',
+        'park', 'museum', 'beach', 'mountain', 'landmark',
+        'shopping', 'entertainment', 'religious', 'hospital',
+        'airport', 'station', 'viewpoint', 'nature', 'sports',
+        'accommodation'
+    ];
     return validTypes.includes(type as LocationType) ? type as LocationType : 'attraction';
 };
 
@@ -68,6 +74,8 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
     const [currentTheme, setCurrentTheme] = useState('modern');
     const [showThemeSelector, setShowThemeSelector] = useState(false);
     const mapServiceRef = useRef<MapService | null>(null);
+    // 🔒 FIX: Track active location fetch to prevent race conditions
+    const activeLocationFetchRef = useRef<AbortController | null>(null);
 
     // Clear all locations function
     const handleClearAllLocations = useCallback(async () => {
@@ -93,7 +101,6 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                 setLocations([]);
                 setFilteredLocations([]);
                 toast.success('Map cleared successfully!');
-                devLog('✅ All locations cleared successfully');
                 
                 // Notify parent component
                 if (onLocationUpdate) {
@@ -110,20 +117,12 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
         }
     }, [currentSessionId, currentUserToken, onLocationUpdate]);
 
-    // Debug: Monitor locations state changes (development only)
-    useEffect(() => {
-        devLog('📍 RightMapPanel: Locations state updated:', {
-            count: locations.length,
-            locations: locations.map(loc => ({ name: loc.name, id: loc.id, coords: [loc.latitude, loc.longitude] }))
-        });
-    }, [locations]);
-
-    // Initialize MapService when token is available
+    // Initialize MapService when token is available - use singleton pattern
     useEffect(() => {
         if (!currentUserToken) return undefined;
 
-        // Create new MapService instance
-        const mapService = new MapService(currentUserToken);
+        // Get MapService singleton instance
+        const mapService = MapService.getInstance(currentUserToken);
         mapServiceRef.current = mapService;
             
         // Set up WebSocket message handler
@@ -131,16 +130,41 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
             switch (event.type) {
                 case 'LOCATION_ADDED': {
                     const newLocation = event.payload as Location;
+                    
+                    // 🔒 CRITICAL FIX: Validate coordinates are valid numbers
+                    if (typeof newLocation.latitude !== 'number' || 
+                        typeof newLocation.longitude !== 'number' ||
+                        isNaN(newLocation.latitude) || 
+                        isNaN(newLocation.longitude)) {
+                        console.error('❌ Invalid location coordinates:', newLocation);
+                        toast.error(`Cannot add "${newLocation.name || 'location'}": Invalid coordinates`);
+                        return;
+                    }
+                    
+                    // 🔒 CRITICAL FIX: Validate coordinate ranges
+                    if (newLocation.latitude < -90 || newLocation.latitude > 90 ||
+                        newLocation.longitude < -180 || newLocation.longitude > 180) {
+                        console.error('❌ Coordinates out of range:', newLocation);
+                        toast.error(`Cannot add "${newLocation.name || 'location'}": Coordinates out of range`);
+                        return;
+                    }
+                    
+                    // 🔒 CRITICAL FIX: Validate session ID matches current session
+                    if (newLocation.sessionId && newLocation.sessionId !== currentSessionId) {
+                        console.warn(
+                            `⚠️ Received location for wrong session: ${newLocation.sessionId} ` +
+                            `(expected ${currentSessionId}), ignoring event`
+                        );
+                        return;
+                    }
+                    
                     devLog('🎯 RightMapPanel: LOCATION_ADDED WebSocket event received:', {
                         locationName: newLocation.name,
                         locationId: newLocation.id,
-                        coordinates: [newLocation.latitude, newLocation.longitude],
-                        type: newLocation.type
+                        sessionId: newLocation.sessionId
                     });
                     
                     setLocations(prev => {
-                        devLog('📍 RightMapPanel: Current locations before add:', prev.length);
-                        
                         // Check if location already exists (prevent duplicates)
                         const exists = prev.some(loc => {
                             // Check by ID first (most reliable)
@@ -151,31 +175,25 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                             if (loc.name === newLocation.name) {
                                 return true;
                             }
+                            // 🔒 FIX 4.3: Reduced distance threshold from 100m to 10m
+                            // Allows adding nearby locations (e.g., multiple restaurants on same street)
                             // Then check by distance for locations without IDs
                             const distance = calculateHaversineDistance(
                                 loc.latitude, loc.longitude,
                                 newLocation.latitude, newLocation.longitude
                             );
-                            // Allow locations that are more than 100 meters apart
-                            return distance < 100; // meters
+                            // Allow locations that are more than 10 meters apart (instead of 100)
+                            return distance < 10; // meters - more precise duplicate detection
                         });
                         
                         if (exists) {
-                            devLog('⚠️ RightMapPanel: Location already exists, not adding duplicate');
                             return prev;
                         }
                         
                         const updated = [...prev, newLocation];
-                        devLog('✅ RightMapPanel: Added new location. Total locations now:', updated.length);
+                        devLog('✅ RightMapPanel: Location added to state. Total locations:', updated.length);
                         return updated;
                     });
-                    toast.success("New location added to map");
-                    break;
-                }
-                case 'LOCATION_REMOVED': {
-                    const { locationId } = event.payload as { locationId: string };
-                    setLocations(prev => prev.filter(loc => loc.id !== locationId));
-                    toast.success("Location removed from map");
                     break;
                 }
                 case 'MAP_CLEARED': {
@@ -198,11 +216,6 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
         // Set up all handlers
         mapService.addMessageHandler(messageHandler);
         
-        mapService.onError = (wsError: Error) => {
-            console.error("❌ WebSocket error:", wsError);
-            toast.error("Connection error. Some map features may be limited.");
-        };
-
         mapService.onConnect = () => {
             toast.success("Map connection established");
         };
@@ -240,6 +253,15 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                     return;
                 }
                 
+                // 🔒 FIX: Cancel previous fetch if session switched rapidly
+                if (activeLocationFetchRef.current) {
+                    activeLocationFetchRef.current.abort();
+                    console.log('⚠️ Cancelled previous location fetch (session switched)');
+                }
+                
+                const controller = new AbortController();
+                activeLocationFetchRef.current = controller;
+                
                 try {
                     setIsLoading(true);
                     
@@ -250,23 +272,40 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                             'Authorization': `Bearer ${currentUserToken}`,
                             'Content-Type': 'application/json',
                         },
+                        signal: controller.signal,
                     });
                     
-                    if (response && response.ok) {
-                        const existingLocations = await response.json();
-                        if (Array.isArray(existingLocations) && existingLocations.length > 0) {
-                            console.log(`📍 Loaded ${existingLocations.length} existing locations for session ${currentSessionId}`);
-                            setLocations(existingLocations);
+                    // 🔒 FIX: Only update state if request wasn't aborted
+                    if (!controller.signal.aborted) {
+                        if (response && response.ok) {
+                            const existingLocations = await response.json();
+                            if (Array.isArray(existingLocations) && existingLocations.length > 0) {
+                                console.log(`📍 Loaded ${existingLocations.length} existing locations for session ${currentSessionId}`);
+                                // ✅ FIX: Map locations to ensure photos array is properly handled
+                                const locationsWithPhotos = existingLocations.map(loc => ({
+                                    ...loc,
+                                    // Ensure photos is an array (could be null/undefined from backend)
+                                    photos: Array.isArray(loc.photos) ? loc.photos : loc.photos ? [loc.photos] : undefined
+                                }));
+                                setLocations(locationsWithPhotos);
+                            }
+                        } else {
+                            // No existing locations found, which is normal for new sessions
+                            console.log(`📍 No existing locations found for session ${currentSessionId}`);
                         }
-                    } else {
-                        // No existing locations found, which is normal for new sessions
-                        console.log(`📍 No existing locations found for session ${currentSessionId}`);
                     }
-                } catch (fetchError) {
-                    console.warn("⚠️ Could not fetch existing locations (may not exist yet):", fetchError);
+                } catch (fetchError: any) {
+                    // 🔒 FIX: Don't log errors for aborted requests
+                    if (fetchError.name === 'AbortError') {
+                        console.log('📍 Location fetch aborted (session switched)');
+                    } else {
+                        console.warn("⚠️ Could not fetch existing locations (may not exist yet):", fetchError);
+                    }
                     // Don't show user error - this is expected for new sessions
                 } finally {
-                    setIsLoading(false);
+                    if (!controller.signal.aborted) {
+                        setIsLoading(false);
+                    }
                 }
             };
             

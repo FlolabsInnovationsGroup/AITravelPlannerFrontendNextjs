@@ -6,6 +6,7 @@ import { Sparkles, MessageCircle, ArrowDown, Heart, Waves, Utensils, Backpack } 
 import EnhancedChatBubbles from './EnhancedChatBubbles';
 import ModernChatInput from './ModernChatInput';
 import { useStreamingChat } from '@/hooks/useStreamingChat';
+import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 import type { Message } from '@/types/chat';
 
 interface BeautifulChatContainerProps {
@@ -42,6 +43,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [logoError, setLogoError] = useState(false);
   const [localInputValue, setLocalInputValue] = useState(''); // Local input state for streaming mode
+  const [isWSConnected, setIsWSConnected] = useState(true); // WebSocket connection state for testing
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -233,6 +235,12 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 via-white to-blue-50/40 relative">
+      {/* Connection Status Indicator */}
+      <ConnectionStatus 
+        isConnected={isWSConnected}
+        isConnecting={false}
+      />
+      
       {/* Subtle background pattern */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0" style={{
@@ -242,85 +250,81 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
       </div>
       {/* Messages Container */}
       <div className="flex-1 relative overflow-hidden min-h-0 flex flex-col">
-        {/* Welcome Screen */}
+        {/* Welcome Screen - Mobile with white box container matching desktop */}
         {messages.length === 0 && showWelcome && (
-          <div className="h-full flex flex-col items-center p-4 py-6 overflow-y-auto">
-            {/* Spacer for top alignment */}
-            <div className="flex-1 min-h-[2rem] max-h-[4rem]" />
-            
-            {/* Branded Logo - Enhanced professional branding with improved sizing */}
-            <div className="mb-4 relative flex-shrink-0">
-              <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center shadow-2xl border-2 border-gray-100/80 hover:shadow-3xl transition-all duration-500 group cursor-pointer backdrop-blur-sm">
-                <div className="relative w-16 h-16 transition-transform duration-500 group-hover:scale-105">
-                  {!logoError ? (
-                    <Image 
-                      src="/logo.svg" 
-                      alt="AI Travel Planner" 
-                      width={64}
-                      height={64}
-                      className="object-contain w-full h-full transition-all duration-500"
-                      priority
-                      onError={() => setLogoError(true)}
-                    />
-                  ) : (
-                    /* Enhanced fallback with professional styling */
-                    <div className="w-full h-full bg-gradient-to-br from-blue-500 via-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-inner">
-                      <Sparkles className="w-8 h-8 text-white/95 drop-shadow-lg" />
-                    </div>
-                  )}
+          <div className="h-full flex flex-col items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            {/* White Container Box - Consistent across all breakpoints */}
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-md border border-gray-200 p-4 sm:p-6 w-full max-w-2xl mx-auto">
+              {/* Spacer for top alignment */}
+              <div className="h-2 sm:h-4" />
+              
+              {/* Branded Logo - Consistent sizing */}
+              <div className="mb-4 sm:mb-6 relative flex-shrink-0 flex justify-center">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-3xl flex items-center justify-center shadow-2xl border-2 border-gray-100/80 hover:shadow-3xl transition-all duration-500 group cursor-pointer backdrop-blur-sm">
+                  <div className="relative w-12 h-12 sm:w-14 sm:h-14 transition-transform duration-500 group-hover:scale-105">
+                    {!logoError ? (
+                      <Image 
+                        src="/logo.svg" 
+                        alt="AI Travel Planner" 
+                        width={56}
+                        height={56}
+                        className="object-contain w-full h-full transition-all duration-500"
+                        priority
+                        onError={() => setLogoError(true)}
+                      />
+                    ) : (
+                      /* Enhanced fallback with professional styling */
+                      <div className="w-full h-full bg-gradient-to-br from-blue-500 via-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-inner">
+                        <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-white/95 drop-shadow-lg" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Enhanced status indicator - positioned to avoid cutoff */}
+                <div className="absolute top-0 right-[calc(50%-2.5rem)] sm:right-[calc(50%-3rem)] w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center border-3 border-white shadow-lg">
+                  <MessageCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white drop-shadow-sm" />
                 </div>
               </div>
-              {/* Enhanced status indicator - positioned to avoid cutoff */}
-              <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center border-3 border-white shadow-lg">
-                <MessageCircle className="w-3 h-3 text-white drop-shadow-sm" />
+
+              {/* Enhanced Branded Welcome Text */}
+              <div className="text-center mb-5 sm:mb-6 flex-shrink-0">
+                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 bg-clip-text text-transparent mb-2 tracking-tight">
+                  AI Travel Planner
+                </h1>
+                <h2 className="text-base sm:text-lg font-semibold text-gray-800 leading-tight">
+                  Ready to plan your next adventure?
+                </h2>
               </div>
-              {/* Enhanced glow effect */}
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400/30 via-purple-400/30 to-indigo-400/30 blur-2xl -z-10 scale-125 opacity-70 animate-pulse" />
-            </div>
 
-            {/* Enhanced Branded Welcome Text */}
-            <div className="text-center mb-4 max-w-xl flex-shrink-0 px-4">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 bg-clip-text text-transparent mb-2 tracking-tight">
-                AI Travel Planner
-              </h1>
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 leading-tight">
-                Ready to plan your next adventure?
-              </h2>
-            </div>
-
-            {/* Example Prompts */}
-            <div className="grid grid-cols-2 gap-3 w-full max-w-lg flex-shrink-0">
-              {welcomePrompts.map((prompt) => {
-                const IconComponent = prompt.icon;
-                return (
-                  <button
-                    key={prompt.text}
-                    type="button"
-                    onClick={() => handlePromptClick(prompt)}
-                    className="group p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all duration-300 text-center transform hover:-translate-y-0.5"
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      <div className={`p-2 rounded-lg bg-gray-50 group-hover:bg-blue-50 transition-colors ${prompt.color}`}>
-                        <IconComponent className="w-5 h-5" />
+              {/* Example Prompts - 2 column grid on all screens, consistent layout */}
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full flex-shrink-0">
+                {welcomePrompts.map((prompt) => {
+                  const IconComponent = prompt.icon;
+                  return (
+                    <button
+                      key={prompt.text}
+                      type="button"
+                      onClick={() => handlePromptClick(prompt)}
+                      className="group p-2.5 sm:p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all duration-300 text-center transform hover:-translate-y-0.5"
+                    >
+                      <div className="flex flex-col items-center gap-1.5 sm:gap-2">
+                        <div className={`p-1.5 sm:p-2 rounded-lg bg-gray-50 group-hover:bg-blue-50 transition-colors ${prompt.color}`}>
+                          <IconComponent className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs sm:text-sm text-gray-800 group-hover:text-blue-700 transition-colors leading-tight font-medium">
+                            {prompt.text}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800 group-hover:text-blue-700 transition-colors leading-tight font-medium">
-                          {prompt.text}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-center justify-center text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-xs font-medium">Try this →</span>
-                    </div>
-                  </button>
-                );
-              })}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Bottom spacer */}
+              <div className="h-2 sm:h-4" />
             </div>
-
-
-            
-            {/* Bottom spacer */}
-            <div className="flex-1 min-h-[1rem] max-h-[3rem]" />
           </div>
         )}
 
@@ -328,6 +332,7 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
         {messages.length > 0 && (
           <div
             ref={messagesContainerRef}
+            data-testid="messages-container"
             onScroll={handleScroll}
             className="flex-1 overflow-y-auto px-4 py-6 min-h-0"
             style={{ 

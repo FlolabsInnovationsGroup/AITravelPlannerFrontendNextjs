@@ -4,6 +4,8 @@ import { ThemeProvider } from "@/components/ui/theme-provider"
 import { AuthProviderWrapper } from '@/contexts/AuthProviderWrapper'
 import Script from 'next/script';
 import '@/styles/globals.css'
+import ChunkErrorHandler from '@/components/ChunkErrorHandler';
+import CacheBuster from '@/components/CacheBuster';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -24,6 +26,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
     <head>
+      {/* Force browser cache invalidation */}
+      <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+      <meta httpEquiv="Pragma" content="no-cache" />
+      <meta httpEquiv="Expires" content="0" />
+      
       {/* Google Analytics */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=G-0C5MC328H4"
@@ -39,6 +46,8 @@ export default function RootLayout({
       </Script>
     </head>
     <body>
+    <CacheBuster />
+    <ChunkErrorHandler />
     <AuthProviderWrapper>
       <ThemeProvider
             attribute="class"

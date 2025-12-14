@@ -56,12 +56,12 @@ function SignInContent() {
 
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-96 relative">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md relative">
         <button
           type="button"
           onClick={handleCancel}
-          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
           aria-label="Close"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -69,47 +69,58 @@ function SignInContent() {
           </svg>
         </button>
 
-        <div className="flex items-center mb-6">
-          <Image src="/logo.svg" alt="Flomad Travel Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} />
-          <span className="ml-2 text-xl font-semibold">flomad travel</span>
+        <div className="flex flex-col items-center mb-8">
+          <div className="mb-4">
+            <Image 
+              src="/logo.svg" 
+              alt="Flomad Travel Logo" 
+              width={80} 
+              height={80} 
+              className="object-contain"
+              priority
+            />
+          </div>
+          <span className="text-2xl font-bold text-gray-900">flomad travel</span>
         </div>
 
-        <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
-        <p className="text-gray-600 mb-6">
-          New member? <Link href="/signup" className="text-blue-600 hover:underline">Sign up</Link>
+        <h2 className="text-2xl font-bold mb-2 text-center">Welcome back!</h2>
+        <p className="text-gray-600 mb-6 text-center">
+          New member? <Link href="/signup" className="text-blue-600 hover:underline font-medium">Sign up</Link>
         </p>
-        <form onSubmit={handleSubmit}>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             type="text"
             placeholder="Username"
-            className="mb-4"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
             disabled={isLoading}
+            className="h-11"
           />
           <Input
             type="password"
             placeholder="Password"
-            className="mb-6"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             disabled={isLoading}
+            className="h-11"
           />
           <Button
             type="submit"
-            className="w-full bg-black text-white hover:bg-gray-800 mb-4"
+            className="w-full bg-black text-white hover:bg-gray-800 h-11 mt-6"
             disabled={isLoading}
           >
             {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
-        <Link href="/forgot-password" className="block text-center text-blue-600 hover:underline mb-4">
+        
+        <Link href="/forgot-password" className="block text-center text-blue-600 hover:underline mt-4 mb-4 font-medium">
           Forgot password?
         </Link>
 
-        <div className="relative mb-4">
+        <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300" />
           </div>
@@ -118,8 +129,18 @@ function SignInContent() {
           </div>
         </div>
 
-        <Button variant="outline" className="w-full" onClick={handleOAuthLogin}>
-          <Image src="/image/google.png" alt="Google Logo" width={20} height={20} style={{ width: 'auto', height: 'auto' }} className="mr-2" />
+        <Button 
+          variant="outline" 
+          className="w-full h-11 flex items-center justify-center gap-3" 
+          onClick={handleOAuthLogin}
+        >
+          <Image 
+            src="/image/google.png" 
+            alt="Google Logo" 
+            width={20} 
+            height={20} 
+            className="object-contain"
+          />
           Sign in with Google
         </Button>
       </div>

@@ -1,14 +1,7 @@
-import dynamic from 'next/dynamic'
-import { Suspense } from 'react'
+'use client'
 
-const ChatPageContent = dynamic(() => import('@/components/features/chat/ChatPageContent'), {
-  ssr: true,
-})
+import ChatPageContent from '@/components/features/chat/ChatPageContent'
 
 export default function ChatPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <ChatPageContent />
-    </Suspense>
-  )
+  return <ChatPageContent />
 }

@@ -200,6 +200,7 @@ const EnhancedChatBubbles: React.FC<EnhancedChatBubblesProps> = ({
         return (
           <div
             key={message.id}
+            data-testid="message"
             className={`flex gap-3 group ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
           >
             {/* Avatar */}
