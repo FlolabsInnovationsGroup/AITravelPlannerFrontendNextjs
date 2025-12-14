@@ -1,6 +1,13 @@
 import axios from 'axios';
 import { SafeStorage } from '@/utils/SafeStorage';
 
+// Extend Window interface for custom properties
+declare global {
+  interface Window {
+    __BACKEND_HEALTH_CHECKED?: boolean;
+  }
+}
+
 // Constants
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
   (process.env.NODE_ENV === 'production' ? 'https://api.flomadtravel.com' : 'http://localhost:8080');

@@ -431,7 +431,7 @@ export class MapService {
             try {
                 // 🔒 FIX: Use 'connected' property instead of unreliable 'state' property
                 const hasClient = !!this.stompClient;
-                const isConnected = hasClient && this.stompClient.connected;
+                const isConnected = hasClient && this.stompClient?.connected;
                 
                 // Only log detailed state on first attempt or if development
                 if (attempt === 1 || process.env.NODE_ENV === 'development') {
