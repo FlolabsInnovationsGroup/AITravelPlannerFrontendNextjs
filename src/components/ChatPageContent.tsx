@@ -126,7 +126,16 @@ export default function ChatPageContent() {
     
         try {
             const sessions = await getUserSessions(currentUser.id);
-            setChatHistory(sessions);
+            // Filter out sessions without sessionId and map to expected format
+            const validSessions = sessions
+                .filter((session): session is { sessionId: string; title: string } => 
+                    session.sessionId !== undefined && session.sessionId !== null
+                )
+                .map(session => ({
+                    sessionId: session.sessionId,
+                    title: session.title || 'Untitled Session'
+                }));
+            setChatHistory(validSessions);
         } catch (error) {
             console.error('Error fetching chat history:', error);
             toast.error('Failed to load chat history');
