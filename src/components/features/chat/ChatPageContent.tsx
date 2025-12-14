@@ -708,8 +708,14 @@ export default function ChatPageContent() {
     // 🔒 FIX 3.4: Track active session load to prevent race conditions
     const activeSessionLoadRef = useRef<AbortController | null>(null);
     
-    const handleSessionClick = async (session: { sessionId: string; title: string }) => {
+    const handleSessionClick = async (session: SessionDTO) => {
         try {
+            // Validate session has required fields
+            if (!session.sessionId) {
+                console.error('❌ Cannot load session: sessionId is undefined');
+                return;
+            }
+            
             // 🔒 FIX 3.4: Cancel any in-flight session load requests
             if (activeSessionLoadRef.current) {
                 activeSessionLoadRef.current.abort();
@@ -721,7 +727,7 @@ export default function ChatPageContent() {
             activeSessionLoadRef.current = abortController;
             
             const targetSessionId = session.sessionId;
-            setCurrentSession(session);
+            setCurrentSession({ sessionId: session.sessionId, title: session.title || 'Untitled Session' });
             
             // ✅ Update sessionStorage to maintain session consistency
             sessionStorage.setItem("chatSessionId", targetSessionId);
@@ -1458,9 +1464,9 @@ export default function ChatPageContent() {
                                             sessionId && 
                                             (!currentSession?.title || currentSession.title === 'New Chat' || currentSession.title.trim() === '');
                     
-                    if (shouldUpdateTitle) {
+                    if (shouldUpdateTitle && currentUser?.id) {
                         console.log('🔵 Updating session title for authenticated user');
-                        const newTitle = generateSessionTitle(decodedMessage);
+                        const newTitle = await generateSessionTitle(decodedMessage);
 
                         
                         try {
