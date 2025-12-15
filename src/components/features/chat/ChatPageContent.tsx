@@ -16,7 +16,6 @@ import {
   TypingIndicator, 
   ErrorMessage 
 } from '@/components/ui/ChatUIComponents';
-import { LocationExtractionService } from '@/services/LocationExtractionService';
 import { MapService } from '@/services/MapService';
 import BeautifulChatContainer from './BeautifulChatContainer';
 
@@ -292,15 +291,6 @@ export default function ChatPageContent() {
         const rawTitle = titleWords.length > 0 ? titleWords.join(' ') : cleanMessage.split(' ').slice(0, 5).join(' ');
         return validateAndSanitizeTitle(rawTitle || 'New Chat');
     };
-
-    // Location service initialization (must be before processChatMessage)
-    const locationService = useRef<LocationExtractionService | null>(null);
-
-    useEffect(() => {
-        if (typeof window !== 'undefined' && isGoogleMapsLoaded) {
-            locationService.current = new LocationExtractionService();
-        }
-    }, [isGoogleMapsLoaded]);
 
     // Helper function to add location to map (must be before processChatMessage)
     const addLocationToMap = async (location: Location) => {
@@ -1069,36 +1059,25 @@ export default function ChatPageContent() {
                     content: messageContent,
                 }]);
 
-                // 🗺️ Extract locations from AI response (this is where multiple cities would be mentioned)
-                if (locationService.current && messageContent && messageContent.length > 10) {
-                    try {
-
-                        
-                        // First try to extract multiple locations (for AI responses with itineraries)
-                        const aiMultipleLocations = await locationService.current.extractMultipleLocationsFromMessage(messageContent);
-                        
-                        if (aiMultipleLocations && aiMultipleLocations.length > 0) {
-
-                            
-                            // Add all locations found in the AI response
-                            await Promise.all(
-                                aiMultipleLocations.map(async (location) => {
-                                    try {
-                                        await addLocationToMap(location);
-                                    } catch (locationError) {
-                                        // TODO: Handle location addition errors gracefully
-                                        console.error("Failed to add location to map:", locationError);
-                                    }
-                                })
-                            );
-                        } else {
-                            // TODO: Handle case when location lacks required coordinates
-                        }
-                    } catch (error) {
-                        // TODO: Implement comprehensive error handling for location processing
-                        console.error("Location processing error:", error);
-                    }
-                }
+                // � LOCATION EXTRACTION DISABLED - Handled by Backend AI
+                // All location extraction is now performed by the backend's AutoLocationExtractionFunction
+                // which provides superior geographic filtering, validation, and Google Places enrichment.
+                // The backend broadcasts location updates via WebSocket, which RightMapPanel receives.
+                //
+                // DO NOT re-enable frontend location extraction - it causes:
+                // ❌ Duplicate location additions (backend + frontend both adding)
+                // ❌ Invalid coordinate parsing and corrupted location names
+                // ❌ No geographic context filtering (wrong locations for user's query)
+                // ❌ Missing rich data (photos, ratings, hours, contact info)
+                //
+                // The correct flow is:
+                // 1. User sends message → Backend AI processes
+                // 2. AutoLocationExtractionFunction extracts locations with context
+                // 3. AddLocationFunction enriches with Google Places data
+                // 4. WebSocket broadcasts LOCATION_ADDED events
+                // 5. RightMapPanel receives events and updates map state
+                //
+                // This ensures single source of truth for location data with proper validation.
 
                 // ✅ Update session title if this is the first conversation (check for first user message)
                 
