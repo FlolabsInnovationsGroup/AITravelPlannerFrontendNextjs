@@ -86,14 +86,10 @@ export class MapService {
         if (this.connectionStatus !== status) {
             this.connectionStatus = status;
             
-            // Reset retry manager and clear pending session on successful connection
+            // Reset retry manager on successful connection
             if (status === 'connected') {
                 this.wsRetryManager.reset();
-                // If we had a pending session, subscribe to it now
-                if (this.pendingSessionId && this.stompClient?.connected) {
-                    this.subscribeToSession(this.pendingSessionId);
-                    this.pendingSessionId = null;
-                }
+                // Note: Don't subscribe here - let onConnect callback handle it with proper delay
             }
             
             this.onConnectionStatusChange?.(status);
@@ -326,23 +322,37 @@ export class MapService {
                 this.wsRetryManager.reset();
                 this.setConnectionStatus('connected');
                 
-                // Subscribe to pending session if available
-                if (this.pendingSessionId) {
-                    const sessionToSubscribe = this.pendingSessionId;
-                    console.log(`🔔 Subscribing to session: ${sessionToSubscribe}`);
-                    this.pendingSessionId = null; // Clear pending session
+                // 🔒 FIX: Subscribe to pending session with proper sequencing
+                // Store session ID locally before clearing it
+                const sessionToSubscribe = this.pendingSessionId;
+                
+                if (sessionToSubscribe) {
+                    console.log(`🔔 Preparing to subscribe to session: ${sessionToSubscribe}`);
                     
-                    // 🔒 FIX: Increase delay to 1 second to ensure STOMP is fully ready
-                    // The 'connected' property may be true but subscriptions might not work immediately
-                    setTimeout(() => {
-                        this.subscribeToSessionWithRetry(sessionToSubscribe).catch(error => {
-                            console.error('❌ Failed to subscribe to session:', error);
-                            if (this.onError) this.onError(error);
-                        });
-                    }, 1000); // Increased from 500ms to 1000ms
+                    // Clear pending session ID immediately to prevent duplicate subscriptions
+                    this.pendingSessionId = null;
+                    
+                    // 🔒 CRITICAL FIX: Wait longer for STOMP broker to be fully ready
+                    // The STOMP 'connected' event fires before the broker is ready for subscriptions
+                    // Use 2.5 seconds delay and increased retry attempts for better reliability
+                    setTimeout(async () => {
+                        if (this.stompClient?.connected) {
+                            try {
+                                console.log(`🔄 STOMP client confirmed connected (state: ${this.stompClient.state}), subscribing to: ${sessionToSubscribe}`);
+                                // Use 10 retries with 500ms base delay for aggressive retry on initial connection
+                                await this.subscribeToSessionWithRetry(sessionToSubscribe, 10, 500);
+                                console.log(`✅ Successfully subscribed after connection`);
+                            } catch (error) {
+                                console.error('❌ Failed to subscribe to session after connection:', error);
+                                if (this.onError) this.onError(error instanceof Error ? error : new Error(String(error)));
+                            }
+                        } else {
+                            console.warn('⚠️ STOMP client no longer connected when attempting subscription');
+                        }
+                    }, 2500); // Increased from 2000ms to 2500ms for better reliability
                 }
                 
-                // Wait a bit to ensure connection is fully stabilized before calling onConnect
+                // Call onConnect callback after a short delay
                 setTimeout(() => {
                     if (this.onConnect) this.onConnect();
                 }, 500);
@@ -375,28 +385,24 @@ export class MapService {
             throw new Error('STOMP client is not initialized. Please ensure WebSocket connection is established.');
         }
 
-        // 🔒 FIX: Check both connected flag AND state for better reliability
-        const isActuallyConnected = this.stompClient.connected && this.stompClient.state === 1;
+        // 🔒 CRITICAL FIX: Only check 'connected' property - STOMP.js 'state' is unreliable
+        // The 'state' property often stays at 0 (CONNECTING) even when connection is established
+        const isActuallyConnected = this.stompClient.connected;
         
         if (!isActuallyConnected) {
+            const stompState = this.stompClient.state;
             const stateMap = {
                 0: 'CONNECTING',
                 1: 'OPEN', 
                 2: 'CLOSING',
                 3: 'CLOSED'
             };
-            const currentState = stateMap[this.stompClient.state] || 'UNKNOWN';
+            const currentState = stateMap[stompState] || 'UNKNOWN';
             
-            // If CONNECTING (state=0), queue the subscription instead of throwing error
-            if (this.stompClient.state === 0) {
-                console.log(`⏳ STOMP client still connecting - queuing subscription for ${sessionId}`);
-                this.pendingSessionId = sessionId;
-                return; // Will be handled by onConnect callback
-            }
-            
-            // For other non-ready states, warn and throw
-            console.warn(`⚠️ Cannot subscribe to ${sessionId}: STOMP client not ready (connected=${this.stompClient.connected}, state=${this.stompClient.state}/${currentState})`);
-            throw new Error(`Cannot subscribe: WebSocket not ready (state: ${currentState})`);
+            // 🔒 CRITICAL FIX: Throw error and let retry logic handle it
+            // Don't rely on state property - only use 'connected' boolean
+            console.warn(`⚠️ Cannot subscribe to ${sessionId}: STOMP client not connected (connected=${isActuallyConnected}, state=${stompState}/${currentState})`);
+            throw new Error(`Cannot subscribe: WebSocket not connected (state: ${currentState})`);
         }
 
         // ✅ FIX: Store subscription and session ID for later unsubscription
@@ -420,7 +426,7 @@ export class MapService {
         }
     }
 
-    private async subscribeToSessionWithRetry(sessionId: string, maxRetries: number = 5, delayMs: number = 1000): Promise<void> {
+    private async subscribeToSessionWithRetry(sessionId: string, maxRetries: number = 10, delayMs: number = 500): Promise<void> {
         if (process.env.NODE_ENV === 'development') {
             console.log(`🔄 Starting WebSocket subscription for session ${sessionId}`);
         }
@@ -429,28 +435,31 @@ export class MapService {
         // eslint-disable-next-line no-plusplus
         for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
             try {
-                // 🔒 FIX: Use 'connected' property instead of unreliable 'state' property
+                // 🔒 CRITICAL FIX: Only check 'connected' property, NOT state
+                // STOMP.js 'state' property is unreliable and doesn't update correctly
                 const hasClient = !!this.stompClient;
                 const isConnected = hasClient && this.stompClient?.connected;
+                const stompState = hasClient ? this.stompClient?.state : -1;
                 
                 // Only log detailed state on first attempt or if development
                 if (attempt === 1 || process.env.NODE_ENV === 'development') {
-                    console.log(`🔄 Subscription attempt ${attempt}/${maxRetries}: client=${hasClient}, connected=${isConnected}`);
+                    console.log(`🔄 Subscription attempt ${attempt}/${maxRetries}: client=${hasClient}, connected=${isConnected}, state=${stompState}`);
                 }
                 
-                // ✅ NEW APPROACH: If connected is true, wait a moment then try subscribing
-                // Don't rely on 'state' property as it's unreliable in STOMP.js
+                // ✅ CRITICAL FIX: Only check 'connected' property - ignore unreliable 'state'
+                // The 'state' property often stays at 0 even when connection is established
                 if (hasClient && isConnected) {
                     // Give STOMP a moment to fully initialize after connection
+                    // Increased from 300ms to 500ms for better stability
                     // eslint-disable-next-line no-await-in-loop
                     await new Promise(resolve => {
-                        setTimeout(() => resolve(undefined), 300);
+                        setTimeout(() => resolve(undefined), 500);
                     });
                     
                     // Try to subscribe
                     try {
                         this.subscribeToSession(sessionId);
-                        console.log(`✅ Successfully subscribed to session ${sessionId}`);
+                        console.log(`✅ Successfully subscribed to session ${sessionId} on attempt ${attempt}`);
                         return; // Success!
                     } catch (subscribeError) {
                         console.warn(`⚠️ Subscription attempt ${attempt} failed:`, subscribeError);
@@ -460,23 +469,19 @@ export class MapService {
                         // Continue to next attempt
                     }
                 } else if (!hasClient && attempt === 1) {
-                    // If no STOMP client exists, try to reinitialize connection
-                    console.log(`🔌 Initializing WebSocket connection...`);
-                    this.connectWebSocket(sessionId);
-                    // eslint-disable-next-line no-await-in-loop
-                    await new Promise(resolve => {
-                        setTimeout(() => resolve(undefined), delayMs * 3);
-                    }); // Give more time for connection
+                    // If no STOMP client exists, this is an error - can't reinitialize here
+                    console.error(`❌ No STOMP client available for subscription`);
+                    throw new Error('STOMP client not initialized');
                 } else {
-                    // Client exists but not connected yet - wait for onConnect callback
+                    // Client exists but not connected yet - wait for it
                     if (attempt === 1) {
-                        console.log(`⏳ Waiting for WebSocket connection...`);
+                        console.log(`⏳ Waiting for WebSocket connection (state: ${stompState}, connected: ${isConnected})...`);
                     }
                 }
                 
                 // Wait before next attempt with exponential backoff
                 if (attempt < maxRetries) {
-                    const waitTime = Math.min(delayMs * attempt, 5000); // Cap at 5 seconds
+                    const waitTime = Math.min(delayMs * Math.pow(1.5, attempt - 1), 5000); // Exponential backoff, cap at 5s
                     // eslint-disable-next-line no-await-in-loop
                     await new Promise(resolve => {
                         setTimeout(() => resolve(undefined), waitTime);
@@ -488,7 +493,7 @@ export class MapService {
                     throw error;
                 }
                 // Wait before next attempt
-                const waitTime = Math.min(delayMs * attempt, 5000);
+                const waitTime = Math.min(delayMs * Math.pow(1.5, attempt - 1), 5000);
                 // eslint-disable-next-line no-await-in-loop
                 await new Promise(resolve => {
                     setTimeout(() => resolve(undefined), waitTime);

@@ -277,21 +277,30 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
                     
                     // 🔒 FIX: Only update state if request wasn't aborted
                     if (!controller.signal.aborted) {
+                        console.log(`📍 Fetch completed for session ${currentSessionId}, response ok: ${response?.ok}`);
                         if (response && response.ok) {
                             const existingLocations = await response.json();
-                            if (Array.isArray(existingLocations) && existingLocations.length > 0) {
+                            console.log(`📍 Locations from API:`, existingLocations);
+                            if (Array.isArray(existingLocations)) {
                                 console.log(`📍 Loaded ${existingLocations.length} existing locations for session ${currentSessionId}`);
-                                // ✅ FIX: Map locations to ensure photos array is properly handled
-                                const locationsWithPhotos = existingLocations.map(loc => ({
-                                    ...loc,
-                                    // Ensure photos is an array (could be null/undefined from backend)
-                                    photos: Array.isArray(loc.photos) ? loc.photos : loc.photos ? [loc.photos] : undefined
-                                }));
-                                setLocations(locationsWithPhotos);
+                                if (existingLocations.length > 0) {
+                                    // ✅ FIX: Map locations to ensure photos array is properly handled
+                                    const locationsWithPhotos = existingLocations.map(loc => ({
+                                        ...loc,
+                                        // Ensure photos is an array (could be null/undefined from backend)
+                                        photos: Array.isArray(loc.photos) ? loc.photos : loc.photos ? [loc.photos] : undefined
+                                    }));
+                                    setLocations(locationsWithPhotos);
+                                } else {
+                                    console.log(`📍 Empty locations array for session ${currentSessionId}`);
+                                    setLocations([]);
+                                }
+                            } else {
+                                console.warn(`⚠️ Response is not an array:`, typeof existingLocations, existingLocations);
                             }
                         } else {
                             // No existing locations found, which is normal for new sessions
-                            console.log(`📍 No existing locations found for session ${currentSessionId}`);
+                            console.log(`📍 No existing locations found for session ${currentSessionId} (response not ok)`);
                         }
                     }
                 } catch (fetchError: any) {
