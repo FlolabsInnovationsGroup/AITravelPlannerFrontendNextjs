@@ -4,7 +4,7 @@
   "devCommand": "pnpm dev",
   "installCommand": "pnpm install",
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://api.flomadtravel.com"
+    "NEXT_PUBLIC_API_URL": "http://18.232.125.178"
   },
   "functions": {
     "app/api/**/*.js": {
