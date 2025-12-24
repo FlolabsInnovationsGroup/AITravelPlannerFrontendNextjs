@@ -82,6 +82,9 @@ export default function ChatPageContent() {
     const [lastLocationAlternatives, setLastLocationAlternatives] = useState<Location[]>([]);
     const [isAITyping, setIsAITyping] = useState(false);
     
+    // 🗺️ Map refetch trigger - incremented after AI responses to force location reload
+    const [mapRefetchTrigger, setMapRefetchTrigger] = useState(0);
+    
     // Enhanced error handling
     const { errorState, handleError, clearError } = useChatErrorHandler();
     
@@ -429,6 +432,17 @@ export default function ChatPageContent() {
                     content: aiResponse 
                 }]);
                 setDisplayPrompts(false);
+                
+                // 🗺️ CRITICAL FIX: Trigger map refetch after AI response
+                // This solves the race condition where locations are saved by the backend
+                // AFTER the frontend's initial fetch completes. The 1-second delay in
+                // RightMapPanel ensures the backend has completed processing.
+                console.log('🗺️ [processChatMessage] Triggering map refetch after AI response');
+                setMapRefetchTrigger(prev => {
+                    const newValue = prev + 1;
+                    console.log('🗺️ [processChatMessage] Trigger:', prev, '→', newValue);
+                    return newValue;
+                });
                 
                 // Location extraction is now handled automatically by the backend
                 // via autoLocationExtractionFunction for tour/itinerary requests
@@ -1058,8 +1072,19 @@ export default function ChatPageContent() {
                     messageType: 'ASSISTANT',
                     content: messageContent,
                 }]);
+                
+                // 🗺️ CRITICAL FIX: Trigger map refetch after AI response
+                // This solves the race condition where locations are saved by the backend
+                // AFTER the frontend's initial fetch completes. The 1-second delay in
+                // RightMapPanel ensures the backend has completed processing.
+                console.log('🗺️ [handleSendMessage] Triggering map refetch after AI response');
+                setMapRefetchTrigger(prev => {
+                    const newValue = prev + 1;
+                    console.log('🗺️ [handleSendMessage] Trigger:', prev, '→', newValue);
+                    return newValue;
+                });
 
-                // � LOCATION EXTRACTION DISABLED - Handled by Backend AI
+                // LOCATION EXTRACTION DISABLED - Handled by Backend AI
                 // All location extraction is now performed by the backend's AutoLocationExtractionFunction
                 // which provides superior geographic filtering, validation, and Google Places enrichment.
                 // The backend broadcasts location updates via WebSocket, which RightMapPanel receives.
@@ -1392,8 +1417,31 @@ export default function ChatPageContent() {
                 }
             } else {
                 console.log('✅ Using existing sessionId:', sessionId);
-                setCurrentSession({ sessionId, title: "New Chat" });
-
+                
+                // Load existing session messages and title
+                try {
+                    const sessionMessages = await getSessionMessages(sessionId);
+                    if (sessionMessages && Array.isArray(sessionMessages.content)) {
+                        const formattedMessages = sessionMessages.content.map((msg: any, index: number) => ({
+                            id: index,
+                            messageType: msg.messageType as 'USER' | 'ASSISTANT',
+                            content: msg.content,
+                            timestamp: msg.createdAt ? new Date(msg.createdAt) : undefined
+                        }));
+                        setMessages(formattedMessages);
+                        console.log(`✅ Loaded ${formattedMessages.length} messages for session ${sessionId}`);
+                        
+                        // Try to get the session title from chat history
+                        const existingSession = chatHistory.find(s => s.sessionId === sessionId);
+                        const sessionTitle = existingSession?.title || "Chat";
+                        setCurrentSession({ sessionId, title: sessionTitle });
+                    } else {
+                        setCurrentSession({ sessionId, title: "New Chat" });
+                    }
+                } catch (error) {
+                    console.error('❌ Error loading session messages:', error);
+                    setCurrentSession({ sessionId, title: "Chat" });
+                }
             }
         
             if (initialMessage) {
@@ -1720,8 +1768,10 @@ export default function ChatPageContent() {
             {/* Right Map Panel (Desktop only) */}
             <div className="hidden lg:block flex-[2.7] bg-white overflow-hidden p-4 h-full">
                 <RightMapPanel
+                    key={`map-desktop-${currentSession?.sessionId || 'no-session'}-${mapRefetchTrigger}`}
                     currentSessionId={currentSession?.sessionId || null}
                     currentUserToken={currentUser?.token || null}
+                    refetchTrigger={mapRefetchTrigger}
                 />
 
             </div>
@@ -1758,8 +1808,10 @@ export default function ChatPageContent() {
                         {/* Map content */}
                         <div className="h-[calc(100%-60px)] overflow-auto">
                             <RightMapPanel
+                                key={`map-mobile-${currentSession?.sessionId || 'no-session'}-${mapRefetchTrigger}`}
                                 currentSessionId={currentSession?.sessionId || null}
                                 currentUserToken={currentUser?.token || null}
+                                refetchTrigger={mapRefetchTrigger}
                             />
                         </div>
 
