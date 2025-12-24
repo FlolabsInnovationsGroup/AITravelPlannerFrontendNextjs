@@ -169,6 +169,13 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
 
       const map = new Map(mapRef.current, mapConfig);
       mapInstanceRef.current = map;
+      
+      console.log('✅ Map instance created successfully');
+      console.log('🗺️ Map configuration:', {
+        mapId: mapConfig.mapId || 'none (using styles)',
+        center: mapConfig.center,
+        zoom: mapConfig.zoom
+      });
 
       // Add user interaction listeners to detect when user is manually controlling the map
       const handleUserInteraction = () => {
@@ -660,9 +667,11 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
   useEffect(() => {
     if (isLoaded && !mapInstanceRef.current) {
       console.log('🎯 Initializing map for the first time');
-      initializeMap();
+      initializeMap().catch(error => {
+        console.error('❌ Map initialization failed:', error);
+      });
     }
-  }, [isLoaded]); // Removed initializeMap from dependencies to prevent re-initialization
+  }, [isLoaded, initializeMap]); // Include initializeMap to ensure proper initialization
 
   // Update markers when map instance becomes available (handles timing issue)
   // CRITICAL: Single useEffect to prevent duplicate marker rendering
