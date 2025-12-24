@@ -54,9 +54,10 @@ interface RightMapPanelProps {
     currentSessionId: string | null;
     currentUserToken: string | null;
     onLocationUpdate?: (locations: Location[]) => void;
+    refetchTrigger?: number; // Add trigger to force refetch
 }
 
-function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }: RightMapPanelProps) {
+function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate, refetchTrigger }: RightMapPanelProps) {
     const [locations, setLocations] = useState<Location[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -76,6 +77,51 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate }:
     const mapServiceRef = useRef<MapService | null>(null);
     // 🔒 FIX: Track active location fetch to prevent race conditions
     const activeLocationFetchRef = useRef<AbortController | null>(null);
+
+    // 📍 NEW: Function to refetch locations (can be triggered externally)
+    const refetchLocations = useCallback(async () => {
+        if (!currentSessionId || !currentUserToken) return;
+        
+        console.log('🔄 Manual refetch triggered for session:', currentSessionId);
+        
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/locations/${currentSessionId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${currentUserToken}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            if (response.ok) {
+                const fetchedLocations = await response.json();
+                console.log(`📍 Refetched ${Array.isArray(fetchedLocations) ? fetchedLocations.length : 0} locations`);
+                if (Array.isArray(fetchedLocations)) {
+                    const locationsWithPhotos = fetchedLocations.map(loc => ({
+                        ...loc,
+                        photos: Array.isArray(loc.photos) ? loc.photos : loc.photos ? [loc.photos] : undefined
+                    }));
+                    setLocations(locationsWithPhotos);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Refetch failed:', error);
+        }
+    }, [currentSessionId, currentUserToken]);
+
+    // 📍 NEW: Refetch when trigger changes (after AI message completes)
+    useEffect(() => {
+        if (refetchTrigger && refetchTrigger > 0) {
+            // Delay slightly to ensure backend has processed the location
+            const timeoutId = setTimeout(() => {
+                refetchLocations();
+            }, 1000); // 1 second delay to ensure backend processing is complete
+            
+            return () => {
+                clearTimeout(timeoutId);
+            };
+        }
+    }, [refetchTrigger, refetchLocations]);
 
     // Clear all locations function
     const handleClearAllLocations = useCallback(async () => {

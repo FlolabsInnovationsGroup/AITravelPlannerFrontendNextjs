@@ -34,19 +34,23 @@ jest.mock('../../../../lib/api', () => ({
 
 // Mock MapService
 const mockMapService = {
-  addMessageHandler: jest.fn(),
+  addMessageHandler: jest.fn(() => jest.fn()), // Return unsubscribe function
   removeMessageHandler: jest.fn(),
   connectWebSocket: jest.fn(),
   disconnect: jest.fn(),
   addLocation: jest.fn(),
   clearAllMarkers: jest.fn(),
-  onError: jest.fn(),
-  onConnect: jest.fn(),
-  onDisconnect: jest.fn(),
+  onError: null,
+  onConnect: null,
+  onDisconnect: null,
+  getConnectionStatus: jest.fn(() => 'disconnected'),
 };
 
 jest.mock('../../../../services/MapService', () => ({
-  MapService: jest.fn().mockImplementation(() => mockMapService),
+  MapService: {
+    getInstance: jest.fn(() => mockMapService),
+    resetInstance: jest.fn(),
+  },
 }));
 
 // Mock EnhancedGoogleMap
@@ -284,7 +288,7 @@ describe('RightMapPanel', () => {
       const { MapService } = jest.requireMock('../../../../services/MapService');
       render(<RightMapPanel {...mockProps} />);
       
-      expect(MapService).toHaveBeenCalledWith('test-token-456');
+      expect(MapService.getInstance).toHaveBeenCalledWith('test-token-456');
     });
 
     it('sets up WebSocket message handlers', () => {
