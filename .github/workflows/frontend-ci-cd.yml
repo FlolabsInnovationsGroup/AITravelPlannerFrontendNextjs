@@ -24,7 +24,7 @@ jobs:
           cache: 'npm'
 
       - name: Install EsLint
-      - run: npm install --save-dev eslint
+      - run: npm run install --save-dev eslint
 
       - name: Run linting
         run: npm run lint
