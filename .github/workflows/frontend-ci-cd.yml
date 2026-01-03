@@ -23,6 +23,9 @@ jobs:
           node-version: 18
           cache: 'npm'
 
+      - name: Install EsLint
+      - run: npm install --save-dev eslint
+
       - name: Run linting
         run: npm run lint
 
