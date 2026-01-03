@@ -6,7 +6,6 @@
     "dev": "set NODE_ENV=development&& set SUPPRESS_BASELINE_WARNING=true&& next dev",
     "build": "set NODE_ENV=production&& next build",
     "start": "set NODE_ENV=production&& next start",
-    "lint": "next lint",
     "lint": "eslint .",
     "prepare": "husky install",
     "test": "jest",
