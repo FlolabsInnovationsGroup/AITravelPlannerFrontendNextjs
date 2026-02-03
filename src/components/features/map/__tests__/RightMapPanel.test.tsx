@@ -4,6 +4,9 @@ import '@testing-library/jest-dom';
 import RightMapPanel from '../RightMapPanel';
 import { Location, LocationType, WebSocketEvent } from '../../../../types/map';
 import { getLocationsBySession } from '../../../../lib/api';
+import { mocked } from 'jest-mock';
+
+const mockedGetLocations = getLocationsBySession as jest.MockedFunction<typeof getLocationsBySession>;
 
 // Mock react-hot-toast
 jest.mock('react-hot-toast', () => ({
@@ -94,26 +97,14 @@ describe('RightMapPanel', () => {
     onLocationUpdate: jest.fn(),
   };
 
-  const sampleLocations: Location[] = [
-    {
-      id: 'location-1',
-      name: 'Central Park',
-      latitude: 40.7851,
-      longitude: -73.9683,
-      type: 'attraction',
-    },
-    {
-      id: 'location-2',
-      name: 'Statue of Liberty',
-      latitude: 40.6892,
-      longitude: -74.0445,
-      type: 'attraction',
-    },
+const sampleLocations: Location[] = [
+    { id: 'loc-1', name: 'Central Park', latitude: 40.7851, longitude: -73.9683, type: 'attraction' },
+    { id: 'loc-2', name: 'Statue of Liberty', latitude: 40.6892, longitude: -74.0445, type: 'attraction' },
   ];
 
   beforeEach(() => {
     jest.clearAllMocks();
-    getLocationsBySession.mockResolvedValue(sampleLocations);
+    mockedGetLocations.mockResolvedValue(sampleLocations as any);
     mockMapService.addLocation.mockResolvedValue({
       id: 'new-location-123',
       name: 'New Location',
@@ -122,10 +113,12 @@ describe('RightMapPanel', () => {
       type: 'attraction',
     });
     
-    // Reset mock callbacks
-    mockMapService.onConnect = jest.fn();
-    mockMapService.onDisconnect = jest.fn();
-    mockMapService.onError = jest.fn();
+    global.fetch = jest.fn().mockImplementation(() =>
+        Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(sampleLocations),
+        })
+    ) as jest.Mock;
   });
 
   afterEach(() => {
@@ -134,7 +127,7 @@ describe('RightMapPanel', () => {
 
   describe('Component Rendering', () => {
     it('renders without crashing', async () => {
-      getLocationsBySession.mockResolvedValue([]);
+      mockedGetLocations.mockResolvedValue([]);
       
       await act(async () => {
         render(<RightMapPanel {...mockProps} />);
@@ -146,7 +139,7 @@ describe('RightMapPanel', () => {
     });
 
     it('shows travel agent image when no locations', async () => {
-      getLocationsBySession.mockResolvedValue([]);
+      mockedGetLocations.mockResolvedValue([]);
       
       await act(async () => {
         render(<RightMapPanel {...mockProps} />);
@@ -174,8 +167,8 @@ describe('RightMapPanel', () => {
     });
 
     it('displays loading spinner during data fetch', () => {
-      getLocationsBySession.mockImplementation(() => new Promise(resolve => {
-        setTimeout(() => resolve(sampleLocations), 1000);
+      mockedGetLocations.mockImplementation(() => new Promise(resolve => {
+        setTimeout(() => resolve(sampleLocations as any), 1000);
       }));
       
       render(<RightMapPanel {...mockProps} />);
@@ -191,11 +184,11 @@ describe('RightMapPanel', () => {
         expect(screen.getByTestId('travel-agent-image')).toBeInTheDocument();
       });
       
-      expect(getLocationsBySession).not.toHaveBeenCalled();
+      expect(mockedGetLocations).not.toHaveBeenCalled();
     });
 
     it('handles null user token gracefully', async () => {
-      getLocationsBySession.mockResolvedValue([]);
+      mockedGetLocations.mockResolvedValue([]);
       
       await act(async () => {
         render(<RightMapPanel {...mockProps} currentUserToken={null} />);
@@ -214,7 +207,7 @@ describe('RightMapPanel', () => {
       });
       
       await waitFor(() => {
-        expect(getLocationsBySession).toHaveBeenCalledWith('test-session-123');
+        expect(mockedGetLocations).toHaveBeenCalledWith('test-session-123');
       });
       
       expect(screen.getByTestId('map-locations-count')).toHaveTextContent('2');
@@ -226,7 +219,7 @@ describe('RightMapPanel', () => {
         { ...sampleLocations[1], type: undefined },
         { ...sampleLocations[0], type: 'restaurant' }, // Valid type
       ];
-      getLocationsBySession.mockResolvedValue(apiLocations);
+      mockedGetLocations.mockResolvedValue(apiLocations as any);
       
       render(<RightMapPanel {...mockProps} />);
       
@@ -244,7 +237,7 @@ describe('RightMapPanel', () => {
 
     it('handles location fetch errors', async () => {
       const errorMessage = 'Network error';
-      getLocationsBySession.mockRejectedValue(new Error(errorMessage));
+      mockedGetLocations.mockRejectedValue(new Error(errorMessage));
       
       render(<RightMapPanel {...mockProps} />);
       
@@ -256,8 +249,8 @@ describe('RightMapPanel', () => {
     });
 
     it('retries location fetch on retry button click', async () => {
-      getLocationsBySession.mockRejectedValueOnce(new Error('Network error'));
-      getLocationsBySession.mockResolvedValueOnce(sampleLocations);
+      mockedGetLocations.mockRejectedValueOnce(new Error('Network error'));
+      mockedGetLocations.mockResolvedValueOnce(sampleLocations as any);
       
       render(<RightMapPanel {...mockProps} />);
       
@@ -271,7 +264,7 @@ describe('RightMapPanel', () => {
         expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
       });
       
-      expect(getLocationsBySession).toHaveBeenCalledTimes(2);
+      expect(mockedGetLocations).toHaveBeenCalledTimes(2);
     });
 
     it('calls onLocationUpdate when locations change', async () => {
@@ -340,7 +333,11 @@ describe('RightMapPanel', () => {
       });
       
       // Simulate WebSocket message for nearby location (within 100m of Central Park)
-      const messageHandler = mockMapService.addMessageHandler.mock.calls[0][0];
+      const addMessageHandlerMock = mockMapService.addMessageHandler as jest.Mock
+      const messageHandler = addMessageHandlerMock.mock.calls[0]?.[0];
+      if (!messageHandler) {
+       throw new Error("WebSocket message handler was not registered by the component");
+      }
       const nearbyLocation: Location = {
         id: 'nearby-location',
         name: 'Near Central Park',
@@ -373,7 +370,11 @@ describe('RightMapPanel', () => {
       });
       
       // Simulate WebSocket message for distant location
-      const messageHandler = mockMapService.addMessageHandler.mock.calls[0][0];
+      const addMessageHandlerMock = mockMapService.addMessageHandler as jest.Mock
+      const messageHandler = addMessageHandlerMock.mock.calls[0]?.[0];
+      if (!messageHandler) {
+       throw new Error("WebSocket message handler was not registered by the component");
+      }
       const distantLocation: Location = {
         id: 'distant-location',
         name: 'Times Square',
@@ -404,7 +405,11 @@ describe('RightMapPanel', () => {
         expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
       });
       
-      const messageHandler = mockMapService.addMessageHandler.mock.calls[0][0];
+      const addMessageHandlerMock = mockMapService.addMessageHandler as jest.Mock
+      const messageHandler = addMessageHandlerMock.mock.calls[0]?.[0];
+      if (!messageHandler) {
+       throw new Error("WebSocket message handler was not registered by the component");
+      }
       const newLocation: Location = {
         id: 'new-ws-location',
         name: 'WebSocket Location',
@@ -432,12 +437,16 @@ describe('RightMapPanel', () => {
         expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
       });
       
-      const messageHandler = mockMapService.addMessageHandler.mock.calls[0][0];
+      const addMessageHandlerMock = mockMapService.addMessageHandler as jest.Mock
+      const messageHandler = addMessageHandlerMock.mock.calls[0]?.[0];
+      if (!messageHandler) {
+       throw new Error("WebSocket message handler was not registered by the component");
+      }
       
       act(() => {
         messageHandler({
           type: 'LOCATION_REMOVED',
-          payload: { locationId: 'location-1' },
+          payload: { locationId: 'loc-1' },
         } as WebSocketEvent<{ locationId: string }>);
       });
       
@@ -453,7 +462,11 @@ describe('RightMapPanel', () => {
         expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
       });
       
-      const messageHandler = mockMapService.addMessageHandler.mock.calls[0][0];
+     const addMessageHandlerMock = mockMapService.addMessageHandler as jest.Mock
+      const messageHandler = addMessageHandlerMock.mock.calls[0]?.[0];
+      if (!messageHandler) {
+       throw new Error("WebSocket message handler was not registered by the component");
+      }
       
       act(() => {
         messageHandler({
@@ -605,12 +618,13 @@ describe('RightMapPanel', () => {
     it('memoizes component to prevent unnecessary re-renders', () => {
       const { rerender } = render(<RightMapPanel {...mockProps} />);
       
+      const initialCallCount = mockMapService.connectWebSocket.mock.calls.length;
+      
       // Re-render with same props
       rerender(<RightMapPanel {...mockProps} />);
       
-      // Should not cause additional MapService instantiation
-      const { MapService } = jest.requireMock('../../../../services/MapService');
-      expect(MapService).toHaveBeenCalledTimes(1);
+      // Should not cause additional connectWebSocket calls for same props
+      expect(mockMapService.connectWebSocket.mock.calls.length).toBe(initialCallCount);
     });
 
     it('re-renders when session ID changes', () => {
@@ -627,13 +641,15 @@ describe('RightMapPanel', () => {
       const { rerender } = render(<RightMapPanel {...mockProps} />);
       
       const { MapService } = jest.requireMock('../../../../services/MapService');
-      MapService.mockClear();
+      const getInstanceMock = MapService.getInstance as jest.Mock;
+      const initialCallCount = getInstanceMock.mock.calls.length;
       
       // Re-render with different token
       rerender(<RightMapPanel {...mockProps} currentUserToken="different-token" />);
       
-      // Should create new MapService
-      expect(MapService).toHaveBeenCalledWith('different-token');
+      // Should get MapService instance with new token
+      expect(getInstanceMock.mock.calls.length).toBeGreaterThan(initialCallCount);
+      expect(getInstanceMock).toHaveBeenCalledWith('different-token');
     });
   });
 
@@ -642,7 +658,7 @@ describe('RightMapPanel', () => {
       // Mock console.error to prevent test failure for expected error
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       
-      getLocationsBySession.mockRejectedValue(new Error('API Error'));
+      mockedGetLocations.mockRejectedValue(new Error('API Error'));
       
       render(<RightMapPanel {...mockProps} />);
       
@@ -659,8 +675,8 @@ describe('RightMapPanel', () => {
       // Mock console.error to prevent test failure for expected error
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       
-      getLocationsBySession.mockRejectedValueOnce(new Error('API Error'));
-      getLocationsBySession.mockResolvedValueOnce(sampleLocations);
+      mockedGetLocations.mockRejectedValueOnce(new Error('API Error'));
+      mockedGetLocations.mockResolvedValueOnce(sampleLocations as any);
       
       render(<RightMapPanel {...mockProps} />);
       
@@ -678,7 +694,7 @@ describe('RightMapPanel', () => {
     });
 
     it('handles WebSocket errors without crashing', async () => {
-      getLocationsBySession.mockResolvedValue([]);
+      mockedGetLocations.mockResolvedValue([]);
       render(<RightMapPanel {...mockProps} />);
       
       // Component should render without errors even with WebSocket issues
@@ -690,7 +706,7 @@ describe('RightMapPanel', () => {
 
   describe('Accessibility', () => {
     it('provides proper alt text for travel agent image', async () => {
-      getLocationsBySession.mockResolvedValue([]);
+      mockedGetLocations.mockResolvedValue([]);
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
@@ -699,7 +715,7 @@ describe('RightMapPanel', () => {
     });
 
     it('provides accessible loading indicator', () => {
-      getLocationsBySession.mockImplementation(() => new Promise(() => {})); // Never resolves
+      mockedGetLocations.mockImplementation(() => new Promise(() => {})); // Never resolves
       render(<RightMapPanel {...mockProps} />);
       
       expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
@@ -709,7 +725,7 @@ describe('RightMapPanel', () => {
       // Mock console.error to prevent test failure for expected error
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       
-      getLocationsBySession.mockRejectedValue(new Error('API Error'));
+      mockedGetLocations.mockRejectedValue(new Error('API Error'));
       
       render(<RightMapPanel {...mockProps} />);
       

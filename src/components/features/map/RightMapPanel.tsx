@@ -242,6 +242,17 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate, r
                     });
                     break;
                 }
+                case 'LOCATION_REMOVED': {
+                    const { locationId } = event.payload as { locationId: string };
+                    devLog('🗑️ RightMapPanel: LOCATION_REMOVED WebSocket event received:', locationId);
+                    
+                    setLocations(prev => {
+                        const updated = prev.filter(loc => loc.id !== locationId);
+                        devLog('✅ RightMapPanel: Location removed from state. Total locations:', updated.length);
+                        return updated;
+                    });
+                    break;
+                }
                 case 'MAP_CLEARED': {
                     devLog('🧹 RightMapPanel: MAP_CLEARED WebSocket event received');
                     devLog('📍 RightMapPanel: Current locations before clearing:', locations.length);
