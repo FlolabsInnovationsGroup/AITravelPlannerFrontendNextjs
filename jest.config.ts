@@ -13,6 +13,7 @@ const customJestConfig: Config = {
   testPathIgnorePatterns: [
     '/node_modules/',
     '/tests/e2e/', // Exclude E2E tests from Jest (use Playwright instead)
+    '/tests/performance/', // Exclude Playwright performance tests from Jest
   ],
   moduleNameMapper: {
     // Handle module aliases (if you're using them in your project)

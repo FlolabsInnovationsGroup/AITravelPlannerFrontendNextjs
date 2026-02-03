@@ -3,17 +3,37 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import LeftMenuBar from '../LeftMenuBar';
 
-// Mock react-window's List component
-jest.mock('react-window', () => ({
-  List: ({ children, itemCount }: { children: any; itemCount: number }) => (
-    <div data-testid="virtual-list">
-      {Array.from({ length: Math.min(itemCount, 10) }).map((_, index) => (
-        <div key={`session-${index}`}>
-          {children({ index, style: {} })}
-        </div>
-      ))}
-    </div>
-  ),
+// Mock IntersectionObserver
+const mockIntersectionObserver = jest.fn();
+mockIntersectionObserver.mockReturnValue({
+  observe: () => null,
+  unobserve: () => null,
+  disconnect: () => null,
+});
+window.IntersectionObserver = mockIntersectionObserver as any;
+
+// Mock Next.js Image component
+jest.mock('next/image', () => ({
+  __esModule: true,
+  default: (props: any) => {
+    return <img {...props} />;
+  },
+}));
+
+// Mock Next.js Link component
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({ children, href }: any) => {
+    return <a href={href}>{children}</a>;
+  },
+}));
+
+// Mock react-hot-toast
+jest.mock('react-hot-toast', () => ({
+  toast: {
+    success: jest.fn(),
+    error: jest.fn(),
+  },
 }));
 
 describe('LeftMenuBar', () => {
@@ -25,9 +45,9 @@ describe('LeftMenuBar', () => {
     signOut: jest.fn(),
     handleNewChat: jest.fn(),
     chatHistory: [
-      { sessionId: 'session-1', title: 'Paris Travel Plan' },
-      { sessionId: 'session-2', title: 'Tokyo Adventure' },
-      { sessionId: 'session-3', title: 'New York Trip' },
+      { sessionId: 'session-1', title: 'Paris Travel Plan', createdAt: new Date().toISOString() },
+      { sessionId: 'session-2', title: 'Tokyo Adventure', createdAt: new Date().toISOString() },
+      { sessionId: 'session-3', title: 'New York Trip', createdAt: new Date().toISOString() },
     ],
     currentSessionId: 'session-1',
     handleSessionClick: jest.fn(),
@@ -55,13 +75,15 @@ describe('LeftMenuBar', () => {
     it('should show chat history when showChatHistory is true', () => {
       render(<LeftMenuBar {...mockProps} />);
       
-      expect(screen.getByTestId('virtual-list')).toBeInTheDocument();
+      expect(screen.getByText('Chat History')).toBeInTheDocument();
+      expect(screen.getByText('Paris Travel Plan')).toBeInTheDocument();
     });
 
     it('should not show chat history when showChatHistory is false', () => {
       render(<LeftMenuBar {...mockProps} showChatHistory={false} />);
       
-      expect(screen.queryByTestId('virtual-list')).not.toBeInTheDocument();
+      expect(screen.queryByText('Chat History')).not.toBeInTheDocument();
+      expect(screen.queryByText('Paris Travel Plan')).not.toBeInTheDocument();
     });
   });
 
@@ -76,11 +98,11 @@ describe('LeftMenuBar', () => {
     it('should call handleSessionClick when session is clicked', () => {
       render(<LeftMenuBar {...mockProps} />);
       
-      const sessionButton = screen.getByText('Paris Travel Plan').closest('button');
-      expect(sessionButton).toBeInTheDocument();
+      const sessionElement = screen.getByText('Paris Travel Plan').closest('div[role="button"]');
+      expect(sessionElement).toBeInTheDocument();
       
-      if (sessionButton) {
-        fireEvent.click(sessionButton);
+      if (sessionElement) {
+        fireEvent.click(sessionElement);
         expect(mockProps.handleSessionClick).toHaveBeenCalledWith(
           expect.objectContaining({ sessionId: 'session-1' })
         );
@@ -90,8 +112,8 @@ describe('LeftMenuBar', () => {
     it('should highlight current session', () => {
       render(<LeftMenuBar {...mockProps} />);
       
-      const currentSessionButton = screen.getByText('Paris Travel Plan').closest('button');
-      expect(currentSessionButton).toHaveClass('bg-gray-200'); // Active session styling (actual class used)
+      const currentSessionElement = screen.getByText('Paris Travel Plan').closest('div[role="button"]');
+      expect(currentSessionElement).toHaveClass('bg-gray-200'); // Active session styling (actual class used)
     });
 
     it('should call handleNewChat when New Chat button is clicked', () => {
@@ -127,15 +149,14 @@ describe('LeftMenuBar', () => {
         ...mockProps,
         searchQuery: 'Paris',
         chatHistory: [
-          { sessionId: 'session-1', title: 'Paris Travel Plan' },
-          { sessionId: 'session-2', title: 'Tokyo Adventure' },
+          { sessionId: 'session-1', title: 'Paris Travel Plan', createdAt: new Date().toISOString() },
+          { sessionId: 'session-2', title: 'Tokyo Adventure', createdAt: new Date().toISOString() },
         ],
       };
 
       render(<LeftMenuBar {...propsWithSearch} />);
       
-      // Virtual list should render filtered sessions
-      // In mock, we render first 10 items
+      // Filtered sessions should be displayed
       expect(screen.getByText('Paris Travel Plan')).toBeInTheDocument();
     });
 
@@ -153,11 +174,12 @@ describe('LeftMenuBar', () => {
     });
   });
 
-  describe('Virtual Scrolling', () => {
+  describe('Large Chat History', () => {
     it('should handle large chat history (1000+ sessions)', () => {
       const largeChatHistory = Array.from({ length: 1500 }, (_, i) => ({
         sessionId: `session-${i}`,
         title: `Chat Session ${i}`,
+        createdAt: new Date().toISOString(),
       }));
 
       const largeProps = {
@@ -167,12 +189,11 @@ describe('LeftMenuBar', () => {
 
       render(<LeftMenuBar {...largeProps} />);
       
-      // Virtual list should be rendered (react-window handles performance)
-      expect(screen.getByTestId('virtual-list')).toBeInTheDocument();
+      // Chat history should be rendered
+      expect(screen.getByText('Chat History')).toBeInTheDocument();
       
-      // Only first 10 items should be in DOM (mocked behavior)
+      // Sessions should be displayed
       expect(screen.getByText('Chat Session 0')).toBeInTheDocument();
-      expect(screen.queryByText('Chat Session 100')).not.toBeInTheDocument();
     });
 
     it('should memoize filtered sessions to prevent unnecessary recalculations', () => {
@@ -181,8 +202,8 @@ describe('LeftMenuBar', () => {
       // Rerender with same props - filteredSessions should use memoized value
       rerender(<LeftMenuBar {...mockProps} />);
       
-      // Virtual list should still be rendered efficiently
-      expect(screen.getByTestId('virtual-list')).toBeInTheDocument();
+      // Sessions should still be rendered efficiently
+      expect(screen.getByText('Paris Travel Plan')).toBeInTheDocument();
     });
   });
 
@@ -242,8 +263,8 @@ describe('LeftMenuBar', () => {
 
     it('should handle chat history with missing titles', () => {
       const malformedHistory = [
-        { sessionId: 'session-1', title: '' },
-        { sessionId: 'session-2', title: 'Valid Title' },
+        { sessionId: 'session-1', title: '', createdAt: new Date().toISOString() },
+        { sessionId: 'session-2', title: 'Valid Title', createdAt: new Date().toISOString() },
       ];
 
       const malformedProps = {
@@ -253,6 +274,7 @@ describe('LeftMenuBar', () => {
 
       render(<LeftMenuBar {...malformedProps} />);
       
+      // Should show the session with valid title, empty title should be filtered out
       expect(screen.getByText('Valid Title')).toBeInTheDocument();
     });
   });
