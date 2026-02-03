@@ -446,7 +446,7 @@ const sampleLocations: Location[] = [
       act(() => {
         messageHandler({
           type: 'LOCATION_REMOVED',
-          payload: { locationId: 'location-1' },
+          payload: { locationId: 'loc-1' },
         } as WebSocketEvent<{ locationId: string }>);
       });
       
