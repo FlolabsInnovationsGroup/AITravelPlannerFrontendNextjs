@@ -14,7 +14,7 @@ export default function CacheBuster() {
     console.log('%c🔍 CACHE BUSTER RUNNING!', 'background: #ff0000; color: #fff; font-size: 20px; padding: 10px;');
     console.log('Stored version:', storedVersion, 'Current version:', APP_VERSION);
     
-    if (storedVersion && storedVersion !== APP_VERSION) {
+    if (storedVersion !== APP_VERSION) {
       console.log('%c🚨 VERSION MISMATCH - CLEARING CACHE!', 'background: #ff0000; color: #fff; font-size: 16px; padding: 8px;');
       setShowReloading(true);
       

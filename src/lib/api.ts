@@ -369,15 +369,19 @@ apiClient.interceptors.response.use(
 );
 
 // Force clear all authentication data and create fresh session
-export const initializeFreshSession = async (): Promise<string> => {
-
-  // Clear all possible token storage
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem('sessionId');
-  localStorage.removeItem('user');
-  
+export const initializeFreshSession = async (): Promise<string> => {  
   // Clear any cached authentication data
-  localStorage.clear();
+  const sessionKeys = [
+      TOKEN_KEY, 
+      'sessionId', 
+      'user', 
+      'auth_status', 
+      'temp_data',
+      'guest_token',
+      'access_token',
+      'refresh_token'
+  ];
+  sessionKeys.forEach(key => localStorage.removeItem(key));
   
   try {
     // Create new guest token
