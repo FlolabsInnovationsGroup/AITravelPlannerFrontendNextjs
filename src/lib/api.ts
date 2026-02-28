@@ -197,7 +197,7 @@ export const checkBackendHealth = async (): Promise<boolean> => {
   
   try {
     // Quick health check with short timeout
-    const response = await axios.get(`${API_BASE_URL}/actuator/health`, {
+    const response = await axios.get(`${API_BASE_URL}/api/health`, {
       timeout: 3000,
       validateStatus: (status) => status === 200
     });

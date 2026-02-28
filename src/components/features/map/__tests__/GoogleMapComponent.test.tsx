@@ -9,8 +9,8 @@ import GoogleMapComponent from '../GoogleMapComponent';
 
 // Mock the entire @react-google-maps/api library to avoid DOM issues
 jest.mock('@react-google-maps/api', () => ({
-  GoogleMap: ({ children, onLoad, ...props }: any) => {
-    // Simulate map loading
+  GoogleMap: ({ children, onLoad }: any) => {
+    // Simulate map loading - do not spread props onto div (invalid DOM attrs cause React setInitialProperties to throw)
     React.useEffect(() => {
       if (onLoad) {
         const mockMapInstance = {
@@ -22,12 +22,7 @@ jest.mock('@react-google-maps/api', () => ({
         onLoad(mockMapInstance);
       }
     }, [onLoad]);
-    
-    return (
-      <div data-testid="google-map" {...props}>
-        {children}
-      </div>
-    );
+    return <div data-testid="google-map">{children}</div>;
   },
   LoadScript: ({ children }: any) => <div data-testid="load-script">{children}</div>,
   useLoadScript: () => ({ isLoaded: true, loadError: null })

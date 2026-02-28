@@ -82,7 +82,6 @@ const TYPEWRITER_CHUNK = 2;
 
 const EnhancedChatBubbles: React.FC<EnhancedChatBubblesProps> = ({
   messages,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onContinueConversation,
   currentUser,
   typingMessageId = null,

@@ -123,7 +123,6 @@ export default function ChatPageContent() {
             console.error("❌ Error connecting to session:", error);
             toast.error("Failed to connect to session");
             // Forward reference to handleReconnection (defined below) - both functions reference each other
-            // eslint-disable-next-line @typescript-eslint/no-use-before-define
             handleReconnection();
         }
     };
@@ -1340,7 +1339,6 @@ export default function ChatPageContent() {
             console.log('🔄 Fetching initial chat history for user:', currentUser.id);
             fetchChatHistory();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser?.id]); // Only re-run when user ID changes
 
     // Markdown components removed - EnhancedChatBubbles handles message rendering with its own markdown styling
@@ -1504,26 +1502,16 @@ export default function ChatPageContent() {
                                             sessionId && 
                                             (!currentSession?.title || currentSession.title === 'New Chat' || currentSession.title.trim() === '');
                     
-                    if (shouldUpdateTitle && currentUser?.id) {
+                    if (shouldUpdateTitle && currentUser?.id && sessionId) {
                         console.log('🔵 Updating session title for authenticated user');
-                        const newTitle = await generateSessionTitle(decodedMessage);
-
-                        
                         try {
-
-                            await updateSession(sessionId, newTitle, currentUser.id);
-                            
-                            // Update the current session title in local state immediately
+                            // Backend generates title from conversation and already saves it; use sessionId not message
+                            const newTitle = await generateSessionTitle(sessionId);
                             setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
-                            
-                            // Refresh chat history to update the sidebar
-
                             await fetchChatHistory();
-
                         } catch (error) {
                             console.error('❌ Failed to update session title:', error);
-                            // Still update local state even if API call fails
-                            setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
+                            setCurrentSession(prev => prev ? { ...prev, title: decodedMessage || 'New Chat' } : null);
                         }
                     } else {
                         console.warn('⚠️ Cannot update session title - missing requirements:', {

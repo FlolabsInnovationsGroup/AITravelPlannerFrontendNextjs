@@ -69,7 +69,7 @@ mvn spring-boot:run
 
 Verify health endpoint:
 ```bash
-curl http://localhost:8080/actuator/health
+curl http://localhost:8080/api/health
 ```
 
 ## 🎯 Running Load Tests
@@ -236,7 +236,7 @@ ERRO[0001] connection refused: localhost:8080
 ```
 
 **Solutions:**
-1. Verify backend is running: `curl http://localhost:8080/actuator/health`
+1. Verify backend is running: `curl http://localhost:8080/api/health`
 2. Check firewall rules
 3. Verify port 8080 is not blocked
 
