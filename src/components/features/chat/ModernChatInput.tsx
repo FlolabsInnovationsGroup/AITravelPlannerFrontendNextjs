@@ -155,9 +155,14 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      // Cmd+Enter / Ctrl+Enter: send (same as Enter)
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        handleSend();
+        return;
+      }
       if (e.shiftKey) {
         // Allow new line with Shift+Enter
-        
       } else if (showSuggestions && selectedSuggestionIndex >= 0) {
         // Select suggestion with Enter
         e.preventDefault();
@@ -261,9 +266,9 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
     <div className="relative">
       {/* Suggestions Dropdown */}
       {showSuggestions && filteredSuggestions.length > 0 && (
-        <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-50">
+        <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-stone-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-50">
           <div className="p-2">
-            <div className="text-xs text-gray-500 mb-2 px-2">Suggestions</div>
+            <div className="text-xs text-stone-500 mb-2 px-2">Suggestions</div>
             {filteredSuggestions.map((suggestion, index) => (
               <button
                 key={suggestion}
@@ -271,8 +276,8 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
                 onClick={() => handleSuggestionSelect(suggestion)}
                 className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                   index === selectedSuggestionIndex
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                    : 'hover:bg-gray-50 text-gray-700'
+                    ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                    : 'hover:bg-stone-50 text-stone-700'
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -286,11 +291,11 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
 
 
 
-      {/* Main Input Container */}
-      <div className={`relative flex items-center gap-3 p-4 bg-white border-2 rounded-2xl shadow-sm transition-all duration-200 ${
+      {/* Main Input Container - Perplexity-style pill bar */}
+      <div className={`relative flex items-center gap-2 sm:gap-3 pl-4 pr-2 py-2 bg-stone-100 rounded-full transition-all duration-200 ${
         isRecording 
-          ? 'border-red-300 bg-red-50' 
-          : 'border-gray-200 hover:border-gray-300 focus-within:border-blue-400 focus-within:shadow-md'
+          ? 'ring-2 ring-red-300 bg-red-50' 
+          : 'focus-within:bg-stone-50 focus-within:ring-2 focus-within:ring-stone-200'
       }`}>
         
         {/* Voice Recording Indicator */}
@@ -318,11 +323,11 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
           {showAttachments && (
             <button
               type="button"
-              className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
+              className="p-2 text-stone-400 hover:text-stone-600 rounded-full transition-colors flex items-center justify-center"
               title="Attach file"
               disabled={disabled}
             >
-              <Paperclip className="w-5 h-5" />
+              <Paperclip className="w-4 h-4" />
             </button>
           )}
 
@@ -332,21 +337,21 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
               onMouseDown={startRecording}
               onMouseUp={stopRecording}
               onMouseLeave={stopRecording}
-              className={`p-2.5 rounded-lg transition-colors flex items-center justify-center ${
+              className={`p-2 rounded-full transition-colors flex items-center justify-center ${
                 isRecording
                   ? 'bg-red-500 text-white'
-                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                  : 'text-stone-400 hover:text-stone-600'
               }`}
               title="Hold to record voice message"
               disabled={disabled}
             >
-              {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </button>
           )}
         </div>
 
         {/* Text Input */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative min-w-0">
           <textarea
             ref={textareaRef}
             data-testid="message-input"
@@ -362,7 +367,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
             placeholder={isRecording ? "Recording audio..." : placeholder}
             disabled={disabled || isRecording}
             maxLength={maxLength}
-            className={`w-full resize-none bg-transparent border-none outline-none text-gray-800 placeholder-gray-500 py-2.5 px-3 rounded-lg min-h-[44px] max-h-[120px] h-[44px] flex items-center ${
+            className={`w-full resize-none bg-transparent border-none outline-none text-stone-900 placeholder-stone-500 py-2.5 px-1 rounded-full min-h-[40px] max-h-[120px] h-[40px] flex items-center text-[15px] dark:text-stone-900 dark:placeholder-stone-500 ${
               validationError ? 'border-red-300' : ''
             }`}
             rows={1}
@@ -378,7 +383,7 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
           {/* Character Counter */}
           {value.length > maxLength * 0.8 && !validationError && (
             <div className={`absolute bottom-1 right-1 text-xs ${
-              value.length > maxLength * 0.95 ? 'text-red-500 font-semibold' : 'text-gray-400'
+              value.length > maxLength * 0.95 ? 'text-red-500 font-semibold' : 'text-stone-400'
             }`}>
               {value.length}/{maxLength}
             </div>
@@ -390,11 +395,11 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
           {showEmojiPicker && !isRecording && (
             <button
               type="button"
-              className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
+              className="p-2 text-stone-400 hover:text-stone-600 rounded-full transition-colors flex items-center justify-center"
               title="Add emoji"
               disabled={disabled}
             >
-              <Smile className="w-5 h-5" />
+              <Smile className="w-4 h-4" />
             </button>
           )}
 
@@ -402,31 +407,31 @@ const ModernChatInput: React.FC<ModernChatInputProps> = ({
             <button
               type="button"
               onClick={onLocationRequest}
-              className="p-2.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors flex items-center justify-center"
+              className="p-2 text-stone-400 hover:text-amber-600 rounded-full transition-colors flex items-center justify-center"
               title="Share location"
               disabled={disabled}
             >
-              <MapPin className="w-5 h-5" />
+              <MapPin className="w-4 h-4" />
             </button>
           )}
 
-          {/* Send Button */}
+          {/* Send Button - Perplexity-style */}
           <button
             type="button"
             data-testid="send-button"
             onClick={handleSend}
             disabled={disabled || isLoading || !value.trim() || isRecording}
-            className={`p-2.5 rounded-lg transition-all duration-200 flex items-center justify-center ${
+            className={`p-2.5 rounded-full transition-all duration-200 flex items-center justify-center ${
               value.trim() && !disabled && !isLoading && !isRecording
-                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-md hover:shadow-lg transform hover:scale-105'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                ? 'bg-stone-900 text-white hover:bg-stone-800'
+                : 'bg-stone-200 text-stone-400 cursor-not-allowed'
             }`}
             title="Send message"
           >
             {isLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Send className="w-5 h-5" />
+              <Send className="w-4 h-4" />
             )}
           </button>
         </div>

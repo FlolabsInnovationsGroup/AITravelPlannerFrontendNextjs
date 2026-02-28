@@ -1,77 +1,83 @@
 import Image from "next/image";
 import Link from "next/link";
-import Footer from "@/components/features/landing/Footer"; 
+import Footer from "@/components/features/landing/Footer";
+import { Mail, Linkedin } from "lucide-react";
 
 export default function ContactPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-white text-gray-900">
-      {/* HEADER - Matches Landing Page */}
-      <header className="fixed top-0 left-0 right-0 z-50 py-4 px-6 md:px-10 bg-black/30 backdrop-blur-md">
-        <nav className="flex justify-between items-center">
-          <Link href="/" className="flex items-center">
-            <Image src="/logo.svg" alt="Flomad Travel Logo" width={25} height={25} style={{ width: 'auto', height: 'auto' }} className="mr-2" />
-            <span className="text-white text-2xl font-semibold">Flomad Travel</span>
+    <div className="flex flex-col min-h-screen bg-stone-50 text-stone-900">
+      {/* Header - same structure and position as landing nav */}
+      <header className="fixed top-0 left-0 right-0 z-50 w-full bg-stone-900/95 backdrop-blur-md border-b border-stone-800">
+        <nav className="flex items-center justify-between px-4 py-4 sm:px-6 md:px-10 max-w-7xl mx-auto">
+          <Link href="/" className="flex items-center gap-2 flex-shrink-0">
+            <Image src="/logo.svg" alt="" width={32} height={32} className="object-contain flex-shrink-0" />
+            <span className="text-white text-lg font-semibold tracking-tight">Travel Planner</span>
           </Link>
-          <div className="flex items-center space-x-6">
-            <Link href="/" className="text-white hover:text-gray-300">Home</Link>
-            <Link href="/about" className="text-white hover:text-gray-300">About</Link>
-            <Link href="/contact" className="text-white hover:text-gray-300">Contact</Link>
+          <div className="flex items-center gap-8">
+            <Link href="/" className="text-sm font-medium text-stone-300 hover:text-white transition-colors">
+              Home
+            </Link>
+            <Link href="/about" className="text-sm font-medium text-stone-300 hover:text-white transition-colors">
+              About
+            </Link>
+            <Link href="/contact" className="text-sm font-medium text-amber-400">
+              Contact
+            </Link>
           </div>
         </nav>
       </header>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-grow max-w-5xl mx-auto px-8 py-16 pt-24">
-        <h1 className="text-5xl font-extrabold text-center mb-10 text-[#0056b3] tracking-tight">
-          Get in Touch 📩
+      <main className="flex-grow max-w-2xl mx-auto px-6 sm:px-8 pt-28 pb-16">
+        <h1 className="text-3xl sm:text-4xl font-bold text-center text-stone-900 tracking-tight mb-3">
+          Get in touch
         </h1>
+        <p className="text-center text-stone-600 mb-10">
+          We’d love to hear from you. Reach out via email or LinkedIn.
+        </p>
 
-        {/* CONTACT INFORMATION & FORM */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          {/* Contact Details */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold">Contact Details</h2>
-            <p className="text-lg text-gray-700">We’d love to hear from you! Feel free to reach out.</p>
-            
-            <div className="space-y-3 text-lg text-gray-600">
-              <p>Email: <a href="mailto:hr@flomadlabs.com" className="text-blue-500 hover:underline">Email Us</a></p>
-              <p>LinkedIn: <a href="https://www.linkedin.com/company/flomad-labs-r-d/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Send us a message</a></p>
+        <div className="space-y-4">
+          <a
+            href="mailto:hr@flomadlabs.com"
+            className="flex items-center gap-4 p-5 rounded-xl bg-white border border-stone-200 shadow-sm hover:border-amber-300 hover:shadow-md transition-all group"
+          >
+            <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-stone-100 flex items-center justify-center group-hover:bg-amber-50 transition-colors">
+              <Mail className="w-6 h-6 text-stone-600 group-hover:text-amber-600" />
             </div>
-          </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-stone-900">Email</p>
+              <p className="text-sm text-stone-500 truncate">TBA</p>
+            </div>
+            <span className="text-sm font-medium text-amber-600 group-hover:text-amber-700">
+              Send email
+            </span>
+          </a>
 
-          {/* Contact Form */}
-          {/* <div className="bg-gray-100 p-8 rounded-lg shadow-lg">
-            <h2 className="text-2xl font-semibold mb-4">Send Us a Message</h2>
-            <form className="space-y-4">
-              <input 
-                type="text" 
-                placeholder="Your Name" 
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                required 
-              />
-              <input 
-                type="email" 
-                placeholder="Your Email" 
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                required 
-              />
-              <textarea 
-                rows={4} 
-                placeholder="Your Message" 
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                required 
-              />
-              <button 
-                type="submit" 
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition"
-              >
-                Send Message
-              </button>
-            </form>
-          </div> */}
-        </div> 
+          <a
+            href="https://www.linkedin.com/company/flomad-labs-r-d/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-4 p-5 rounded-xl bg-white border border-stone-200 shadow-sm hover:border-amber-300 hover:shadow-md transition-all group"
+          >
+            <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-stone-100 flex items-center justify-center group-hover:bg-amber-50 transition-colors">
+              <Linkedin className="w-6 h-6 text-stone-600 group-hover:text-amber-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-stone-900">LinkedIn</p>
+              <p className="text-sm text-stone-500">Flomad Labs R&D</p>
+            </div>
+            <span className="text-sm font-medium text-amber-600 group-hover:text-amber-700">
+              Open profile
+            </span>
+          </a>
+        </div>
+
+        <p className="mt-10 text-center text-sm text-stone-500">
+          <Link href="/" className="text-amber-600 hover:text-amber-700 font-medium">
+            ← Back to home
+          </Link>
+        </p>
       </main>
-      {/* FOOTER */}
+
       <Footer />
     </div>
   );

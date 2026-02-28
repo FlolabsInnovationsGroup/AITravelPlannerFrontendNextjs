@@ -4,45 +4,39 @@ import Link from 'next/link'
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-white py-12">
-      <div className="container mx-auto px-6 md:px-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-          
-          {/* Left Section - Brand & Description */}
+    <footer className="bg-stone-900 text-white py-14 border-t border-stone-800">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-12">
           <div className="space-y-4">
-            <Link href="/" className="flex items-center space-x-2">
-              <Image src="/logo.svg" alt="Travel Logo" width={40} height={40} style={{ width: '40px', height: '40px' }} className="object-contain" />
-              <span className="text-2xl font-bold tracking-wide text-white">Travel Planner</span>
+            <Link href="/" className="inline-flex items-center gap-2">
+              <Image src="/logo.svg" alt="" width={32} height={32} className="object-contain" />
+              <span className="text-xl font-semibold tracking-tight text-white">Travel Planner</span>
             </Link>
-            <p className="text-sm text-gray-400 max-w-sm">
+            <p className="text-sm text-stone-400 max-w-xs leading-relaxed">
               Discover new destinations, plan your adventures, and travel seamlessly with our AI Travel Planner. Your journey starts here.
             </p>
           </div>
 
-          {/* Center Section - Quick Links */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
-            <div className="space-y-2">
-              <Link href="/" className="block text-sm text-gray-400 hover:text-gray-200 transition">Home</Link>
-              <Link href="/about" className="block text-sm text-gray-400 hover:text-gray-200 transition">About Us</Link>
-              <Link href="/contact" className="block text-sm text-gray-400 hover:text-gray-200 transition">Contact</Link>
-            </div>
+            <h3 className="text-sm font-semibold text-stone-300 uppercase tracking-wider mb-4">Quick Links</h3>
+            <nav className="space-y-2">
+              <Link href="/" className="block text-sm text-stone-400 hover:text-amber-400 transition-colors">Home</Link>
+              <Link href="/about" className="block text-sm text-stone-400 hover:text-amber-400 transition-colors">About Us</Link>
+              <Link href="/contact" className="block text-sm text-stone-400 hover:text-amber-400 transition-colors">Contact</Link>
+            </nav>
           </div>
 
-          {/* Right Section - Social Media */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Follow Us</h3>
-            <div className="flex items-center space-x-3">
-              <a 
-                href="https://www.linkedin.com/company/flomad-labs-r-d/" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="flex items-center space-x-2 text-sm text-gray-400 hover:text-gray-200 transition"
-              >
-                <Linkedin size={28} />
-                <span>LinkedIn</span>
-              </a>
-            </div>
+            <h3 className="text-sm font-semibold text-stone-300 uppercase tracking-wider mb-4">Follow Us</h3>
+            <a
+              href="https://www.linkedin.com/company/flomad-labs-r-d/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-stone-400 hover:text-amber-400 transition-colors"
+            >
+              <Linkedin className="w-5 h-5" />
+              <span>LinkedIn</span>
+            </a>
           </div>
         </div>
       </div>
