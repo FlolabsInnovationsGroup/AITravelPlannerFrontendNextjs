@@ -25,8 +25,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "20.9.0"  # Next.js requires >=20.9.0
           cache: "pnpm"
+
+      - name: Verify Node version
+        run: node -e "const v = process.version; const [major, minor] = v.slice(1).split('.').map(Number); if (major < 20 || (major === 20 && minor < 9)) process.exit(1); console.log('Node', v);"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
