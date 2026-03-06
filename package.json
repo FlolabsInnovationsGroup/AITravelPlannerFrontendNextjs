@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "prepare": "husky install",
     "test": "jest",
+    "test:ci": "jest --watch=false --silent",
     "test:watch": "jest --watch",
     "test:map": "node test-map.js",
     "test:map:all": "node test-map.js --all",
