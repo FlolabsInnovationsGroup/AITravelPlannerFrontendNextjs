@@ -1,5 +1,5 @@
 # Flo Labs Frontend CI/CD
-# Uses packageManager from package.json (pnpm@9.10.0) - do not add version here to avoid mismatch
+# Single pnpm version source: version 9 here. Do not add packageManager to package.json to avoid mismatch.
 name: Flo Labs Frontend CI/CD
 
 on:
@@ -15,10 +15,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Use pnpm version from package.json "packageManager" field (no version key = no conflict)
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
+          version: 9
           run_install: false
 
       - name: Set up Node.js
