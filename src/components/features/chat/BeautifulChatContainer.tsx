@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Sparkles, MessageCircle, ArrowDown, Heart, Waves, Utensils, Backpack } from 'lucide-react';
+import { Sparkles, ArrowDown, Heart, Waves, Utensils, Backpack, Loader2 } from 'lucide-react';
 import EnhancedChatBubbles from './EnhancedChatBubbles';
 import ModernChatInput from './ModernChatInput';
 import { useStreamingChat } from '@/hooks/useStreamingChat';
@@ -24,6 +24,12 @@ interface BeautifulChatContainerProps {
   useStreaming?: boolean;
   /** Session ID for conversation persistence */
   sessionId?: string;
+  /** When 'perplexity', use minimal search-first welcome (no large logo, "What do you want to know?" style) */
+  welcomeVariant?: 'default' | 'perplexity';
+  /** ID of the assistant message currently being typewriter-revealed */
+  typingMessageId?: number | null;
+  /** Called when typewriter effect completes */
+  onTypingComplete?: () => void;
 }
 
 const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
@@ -37,7 +43,10 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
   showWelcome = true,
   onVoiceRecord,
   useStreaming = true,
-  sessionId
+  sessionId,
+  welcomeVariant = 'default',
+  typingMessageId = null,
+  onTypingComplete,
 }) => {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(true);
@@ -89,8 +98,9 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
       } catch (error) {
         console.error('Failed to send streaming message:', error);
       }
-    } else if (externalOnSendMessage) {
-      externalOnSendMessage(message);
+    } else {
+      if (externalOnInputChange) externalOnInputChange(''); // Clear input immediately when sending
+      if (externalOnSendMessage) externalOnSendMessage(message);
     }
   };
 
@@ -109,6 +119,13 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
     }
   }, [messages, isNearBottom]);
 
+  // When loading starts, scroll so the inline typing indicator (where the reply will appear) is visible
+  useEffect(() => {
+    if ((isLoading || (useStreaming && isStreaming)) && messages.length > 0) {
+      setTimeout(scrollToBottom, 150);
+    }
+  }, [isLoading, isStreaming, useStreaming, messages.length]);
+
   // Handle scroll detection
   const handleScroll = () => {
     if (!messagesContainerRef.current) return;
@@ -126,10 +143,10 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
 
   // Welcome screen with example prompts
   const welcomePrompts = [
-    { icon: Heart, text: "Plan my dream romantic getaway to Paris", color: "text-pink-600" },
-    { icon: Waves, text: "Find the best family-friendly beaches in Thailand", color: "text-blue-600" }, 
-    { icon: Utensils, text: "Create a foodie tour through Italy", color: "text-amber-600" },
-    { icon: Backpack, text: "Budget backpacking route through Southeast Asia", color: "text-green-600" }
+    { icon: Heart, text: "Plan my dream romantic getaway to Paris", color: "text-amber-600" },
+    { icon: Waves, text: "Find the best family-friendly beaches in Thailand", color: "text-stone-600" },
+    { icon: Utensils, text: "Create a foodie tour through Italy", color: "text-amber-700" },
+    { icon: Backpack, text: "Budget backpacking route through Southeast Asia", color: "text-stone-700" }
   ];
 
   const handlePromptClick = (prompt: { icon: any, text: string, color: string } | string) => {
@@ -234,70 +251,53 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 via-white to-blue-50/40 relative">
-      {/* Connection Status Indicator */}
-      <ConnectionStatus 
-        isConnected={isWSConnected}
-        isConnecting={false}
-      />
-      
-      {/* Subtle background pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236366f1' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          backgroundSize: '60px 60px'
-        }} />
-      </div>
-      {/* Messages Container */}
+    <div className="flex flex-col h-full bg-white relative">
+      <ConnectionStatus isConnected={isWSConnected} isConnecting={false} />
+
       <div className="flex-1 relative overflow-hidden min-h-0 flex flex-col">
-        {/* Welcome Screen - Mobile with white box container matching desktop */}
+        {/* Welcome: default (with logo) or perplexity (minimal, search-first) */}
         {messages.length === 0 && showWelcome && (
-          <div className="h-full flex flex-col items-center justify-center p-3 sm:p-4 overflow-y-auto">
-            {/* White Container Box - Consistent across all breakpoints */}
-            <div className="bg-white rounded-xl sm:rounded-2xl shadow-md border border-gray-200 p-4 sm:p-6 w-full max-w-2xl mx-auto">
-              {/* Spacer for top alignment */}
-              <div className="h-2 sm:h-4" />
-              
-              {/* Branded Logo - Consistent sizing */}
-              <div className="mb-4 sm:mb-6 relative flex-shrink-0 flex justify-center">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-3xl flex items-center justify-center shadow-2xl border-2 border-gray-100/80 hover:shadow-3xl transition-all duration-500 group cursor-pointer backdrop-blur-sm">
-                  <div className="relative w-12 h-12 sm:w-14 sm:h-14 transition-transform duration-500 group-hover:scale-105">
+          <div className="h-full flex flex-col items-center justify-center px-4 py-8 overflow-y-auto animate-in fade-in duration-500">
+            <div className="w-full max-w-2xl mx-auto flex flex-col items-center">
+              {welcomeVariant === 'perplexity' ? (
+                <>
+                  <h1 className="text-xl sm:text-2xl font-medium text-stone-800 mb-2 tracking-tight">
+                    What do you want to know?
+                  </h1>
+                  <p className="text-stone-500 text-sm mb-6 max-w-md text-center">
+                    Ask about destinations, itineraries, or travel tips.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="mb-6 flex justify-center">
                     {!logoError ? (
-                      <Image 
-                        src="/logo.svg" 
-                        alt="AI Travel Planner" 
-                        width={56}
-                        height={56}
-                        className="object-contain w-full h-full transition-all duration-500"
+                      <Image
+                        src="/logo.svg"
+                        alt="AI Travel Planner"
+                        width={48}
+                        height={48}
+                        className="object-contain"
                         priority
                         onError={() => setLogoError(true)}
                       />
                     ) : (
-                      /* Enhanced fallback with professional styling */
-                      <div className="w-full h-full bg-gradient-to-br from-blue-500 via-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-inner">
-                        <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-white/95 drop-shadow-lg" />
+                      <div className="w-12 h-12 rounded-xl bg-stone-100 flex items-center justify-center">
+                        <Sparkles className="w-6 h-6 text-amber-600" />
                       </div>
                     )}
                   </div>
-                </div>
-                {/* Enhanced status indicator - positioned to avoid cutoff */}
-                <div className="absolute top-0 right-[calc(50%-2.5rem)] sm:right-[calc(50%-3rem)] w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center border-3 border-white shadow-lg">
-                  <MessageCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white drop-shadow-sm" />
-                </div>
-              </div>
+                  <h1 className="text-2xl sm:text-3xl font-semibold text-stone-900 mb-1.5 tracking-tight">
+                    AI Travel Planner
+                  </h1>
+                  <p className="text-stone-500 text-sm sm:text-base mb-8">
+                    Ask anything about travel—destinations, itineraries, or tips.
+                  </p>
+                </>
+              )}
 
-              {/* Enhanced Branded Welcome Text */}
-              <div className="text-center mb-5 sm:mb-6 flex-shrink-0">
-                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 bg-clip-text text-transparent mb-2 tracking-tight">
-                  AI Travel Planner
-                </h1>
-                <h2 className="text-base sm:text-lg font-semibold text-gray-800 leading-tight">
-                  Ready to plan your next adventure?
-                </h2>
-              </div>
-
-              {/* Example Prompts - 2 column grid on all screens, consistent layout */}
-              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full flex-shrink-0">
+              {/* Suggested prompts as pills */}
+              <div className="flex flex-wrap justify-center gap-2 w-full">
                 {welcomePrompts.map((prompt) => {
                   const IconComponent = prompt.icon;
                   return (
@@ -305,49 +305,49 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
                       key={prompt.text}
                       type="button"
                       onClick={() => handlePromptClick(prompt)}
-                      className="group p-2.5 sm:p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all duration-300 text-center transform hover:-translate-y-0.5"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 hover:text-stone-900 text-sm font-medium transition-colors border border-transparent hover:border-stone-200"
                     >
-                      <div className="flex flex-col items-center gap-1.5 sm:gap-2">
-                        <div className={`p-1.5 sm:p-2 rounded-lg bg-gray-50 group-hover:bg-blue-50 transition-colors ${prompt.color}`}>
-                          <IconComponent className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs sm:text-sm text-gray-800 group-hover:text-blue-700 transition-colors leading-tight font-medium">
-                            {prompt.text}
-                          </p>
-                        </div>
-                      </div>
+                      <IconComponent className={`w-4 h-4 flex-shrink-0 ${prompt.color}`} />
+                      <span className="truncate max-w-[200px] sm:max-w-none">{prompt.text}</span>
                     </button>
                   );
                 })}
               </div>
-
-              {/* Bottom spacer */}
-              <div className="h-2 sm:h-4" />
             </div>
           </div>
         )}
 
-        {/* Messages List */}
+        {/* Messages List - centered column like Perplexity */}
         {messages.length > 0 && (
           <div
             ref={messagesContainerRef}
             data-testid="messages-container"
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto px-4 py-6 min-h-0"
-            style={{ 
-              scrollBehavior: 'smooth',
-              // Add subtle background pattern
-              backgroundImage: `radial-gradient(circle at 25px 25px, rgba(59, 130, 246, 0.03) 1px, transparent 1px)`,
-              backgroundSize: '50px 50px'
-            }}
+            className="flex-1 overflow-y-auto px-4 sm:px-6 py-8 min-h-0 bg-white"
+            style={{ scrollBehavior: 'smooth' }}
           >
             {/* Messages */}
             <EnhancedChatBubbles
               messages={messages}
               onContinueConversation={handleContinueConversation}
               currentUser={currentUser}
+              typingMessageId={typingMessageId}
+              onTypingComplete={onTypingComplete}
             />
+
+            {/* Delay indicator: show spinner while waiting for response (before typewriter starts) */}
+            {(isLoading || (useStreaming && isStreaming)) && !typingMessageId && (
+              <div className="flex gap-3 max-w-3xl mx-auto mt-10" aria-live="polite" aria-label="Loading response">
+                <div className="flex-shrink-0 pt-0.5">
+                  <div className="w-7 h-7 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center">
+                    <Loader2 className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0 flex items-center">
+                  <span className="text-sm text-stone-500">Loading...</span>
+                </div>
+              </div>
+            )}
             
             {/* Spacer for scroll */}
             <div className="h-4" />
@@ -360,40 +360,33 @@ const BeautifulChatContainer: React.FC<BeautifulChatContainerProps> = ({
           <button
             type="button"
             onClick={scrollToBottom}
-            className="absolute bottom-6 right-6 p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 transform hover:scale-110 z-10"
+            className="absolute bottom-20 right-4 sm:right-6 p-2.5 bg-white border border-stone-200 text-stone-600 rounded-full shadow-md hover:bg-stone-50 hover:border-stone-300 z-10"
             title="Scroll to bottom"
           >
-            <ArrowDown className="w-5 h-5" />
+            <ArrowDown className="w-4 h-4" />
           </button>
         )}
       </div>
 
-      {/* Input Section */}
-      <div className="border-t bg-white/80 backdrop-blur-sm p-4 flex-shrink-0">
-        <div className="max-w-4xl mx-auto">
-          {/* Streaming indicator */}
+      {/* Input Section - Perplexity-style centered bar (typing indicator is inline in message list) */}
+      <div className="border-t border-stone-200 bg-white px-4 py-4 flex-shrink-0">
+        <div className="max-w-3xl mx-auto">
           {useStreaming && isStreaming && (
-            <div className="mb-2 flex items-center gap-2 text-xs text-gray-600">
-              <div className="flex space-x-1">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-              </div>
-              <span>AI is typing...</span>
-              <button 
+            <div className="mb-2 flex justify-end">
+              <button
+                type="button"
                 onClick={cancelStream}
-                className="ml-auto text-red-600 hover:text-red-800 underline text-xs font-medium"
+                className="text-xs text-stone-400 hover:text-red-600 font-medium transition-colors"
               >
                 Cancel
               </button>
             </div>
           )}
-
           <ModernChatInput
             value={inputValue}
             onChange={handleInputChange}
             onSend={handleSendMessage}
-            placeholder="Ask me anything about your travel plans..."
+            placeholder="Ask anything about travel..."
             disabled={isLoading}
             isLoading={isLoading}
             suggestions={suggestions}

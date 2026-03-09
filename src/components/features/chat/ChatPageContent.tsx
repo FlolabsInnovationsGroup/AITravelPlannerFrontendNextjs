@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession, generateSessionTitle, getLocationsBySession, getToken, transcribeAudio, type SessionDTO } from '@/lib/api';
-import { Send, Menu, Map, X } from 'lucide-react';
+import { sendMessagesEntity, createSession, getUserSessions, getSessionMessages, updateSession, generateSessionTitle, getLocationsBySession, getToken, transcribeAudio, deleteSession, type SessionDTO } from '@/lib/api';
+import { Menu, Map, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { LoadScript, LoadScriptProps } from '@react-google-maps/api';
 import { Location } from '@/types/map';
 import LeftMenuBar from '@/components/features/chat/LeftMenuBar';
 import LocationSuggestions from '@/components/features/map/LocationSuggestions';
@@ -23,10 +22,10 @@ import BeautifulChatContainer from './BeautifulChatContainer';
 const RightMapPanel = dynamic(() => import('@/components/features/map/RightMapPanel'), {
   ssr: false, // Map components work better with client-side rendering
   loading: () => (
-    <div className="h-full w-full flex items-center justify-center bg-gray-50">
+    <div className="h-full w-full flex items-center justify-center bg-stone-50">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto" />
-        <p className="mt-4 text-gray-600">Loading map...</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-stone-200 border-t-amber-500 mx-auto" />
+        <p className="mt-4 text-stone-600">Loading map...</p>
       </div>
     </div>
   )
@@ -44,9 +43,6 @@ interface ApiResponse {
     suggestions?: string[];
 }
 
-// Define libraries outside component to prevent LoadScript from reloading on every render
-const libraries: LoadScriptProps["libraries"] = ["places"];
-
 export default function ChatPageContent() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputMessage, setInputMessage] = useState('');
@@ -56,14 +52,12 @@ export default function ChatPageContent() {
     const pendingRequestsRef = useRef<Set<string>>(new Set());
     const lastSentMessageRef = useRef<{ content: string; timestamp: number } | null>(null);
     
-    // Debug: Log messages state changes
+    // Debug: Log messages state changes (development only to avoid extra work on response)
     useEffect(() => {
-        console.log('📨 Messages state updated:', messages.length, 'messages');
-        messages.forEach((msg, idx) => {
-            console.log(`  ${idx + 1}. [${msg.messageType}]: ${msg.content.substring(0, 50)}...`);
-        });
+        if (process.env.NODE_ENV === 'development' && messages.length > 0) {
+            console.log('📨 Messages state updated:', messages.length, 'messages');
+        }
     }, [messages]);
-    const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
     const [currentSession, setCurrentSession] = useState<{ sessionId: string; title: string } | null>(null);
     const [displayPrompts, setDisplayPrompts] = useState(true);
     const [showChatHistory, setShowChatHistory] = useState(false);
@@ -84,6 +78,8 @@ export default function ChatPageContent() {
     
     // 🗺️ Map refetch trigger - incremented after AI responses to force location reload
     const [mapRefetchTrigger, setMapRefetchTrigger] = useState(0);
+    /** ID of the last assistant message, used for typewriter effect */
+    const [typingMessageId, setTypingMessageId] = useState<number | null>(null);
     
     // Enhanced error handling
     const { errorState, handleError, clearError } = useChatErrorHandler();
@@ -127,7 +123,6 @@ export default function ChatPageContent() {
             console.error("❌ Error connecting to session:", error);
             toast.error("Failed to connect to session");
             // Forward reference to handleReconnection (defined below) - both functions reference each other
-            // eslint-disable-next-line @typescript-eslint/no-use-before-define
             handleReconnection();
         }
     };
@@ -426,11 +421,13 @@ export default function ChatPageContent() {
             }
     
             if (aiResponse) {
-                setMessages(prev => [...prev, { 
-                    id: Date.now(), 
-                    messageType: 'ASSISTANT', 
-                    content: aiResponse 
+                const newId = Date.now();
+                setMessages(prev => [...prev, {
+                    id: newId,
+                    messageType: 'ASSISTANT',
+                    content: aiResponse
                 }]);
+                setTypingMessageId(newId);
                 setDisplayPrompts(false);
                 
                 // 🗺️ CRITICAL FIX: Trigger map refetch after AI response
@@ -632,9 +629,28 @@ export default function ChatPageContent() {
     
     const handleNewChat = async () => {
         try {
+            // If already in an empty chat, don't create another one
+            const isEmptyChat = messages.length === 0 && (!currentSession?.title || currentSession.title === 'New Chat' || currentSession.title.trim() === '');
+            if (isEmptyChat) {
+                return;
+            }
+
             // ✅ FIX: Set flag to prevent initializeChat from running during navigation
             sessionStorage.setItem("newChatCreating", "true");
-            
+
+            // When switching from a non-empty chat: remove empty chats from history (so they don't pile up)
+            const emptySessions = chatHistory.filter(
+                (s) => s.sessionId && s.sessionId !== currentSession?.sessionId && (!s.title || s.title === 'New Chat' || s.title.trim() === '')
+            );
+            for (const s of emptySessions) {
+                try {
+                    await deleteSession(s.sessionId!);
+                    setChatHistory((prev) => prev.filter((x) => x.sessionId !== s.sessionId));
+                } catch {
+                    // Continue if one delete fails (e.g. already deleted)
+                }
+            }
+
             // Clear locations from backend for current session before starting new one
             const currentSessionId = sessionStorage.getItem("chatSessionId");
             if (currentSessionId && mapServiceRef.current) {
@@ -651,7 +667,7 @@ export default function ChatPageContent() {
                 // Safely clear markers (won't throw error if map not initialized)
                 mapServiceRef.current.clearAllMarkers();
             }
-            
+
             // ✅ FIX: Create session IMMEDIATELY when "New Chat" is clicked
             // This prevents duplicate session creation when AI extracts locations
             console.log('📝 Creating new session immediately...');
@@ -1067,21 +1083,17 @@ export default function ChatPageContent() {
                     }
                 }
                 
+                const newId = Date.now() + 1;
                 setMessages((prev) => [...prev, {
-                    id: Date.now() + 1,
+                    id: newId,
                     messageType: 'ASSISTANT',
                     content: messageContent,
                 }]);
-                
-                // 🗺️ CRITICAL FIX: Trigger map refetch after AI response
-                // This solves the race condition where locations are saved by the backend
-                // AFTER the frontend's initial fetch completes. The 1-second delay in
-                // RightMapPanel ensures the backend has completed processing.
-                console.log('🗺️ [handleSendMessage] Triggering map refetch after AI response');
-                setMapRefetchTrigger(prev => {
-                    const newValue = prev + 1;
-                    console.log('🗺️ [handleSendMessage] Trigger:', prev, '→', newValue);
-                    return newValue;
+                setTypingMessageId(newId);
+
+                // 🗺️ Trigger map refetch after AI response (deferred to next frame to avoid UI glitch)
+                requestAnimationFrame(() => {
+                    setMapRefetchTrigger(prev => prev + 1);
                 });
 
                 // LOCATION EXTRACTION DISABLED - Handled by Backend AI
@@ -1327,7 +1339,6 @@ export default function ChatPageContent() {
             console.log('🔄 Fetching initial chat history for user:', currentUser.id);
             fetchChatHistory();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser?.id]); // Only re-run when user ID changes
 
     // Markdown components removed - EnhancedChatBubbles handles message rendering with its own markdown styling
@@ -1491,26 +1502,16 @@ export default function ChatPageContent() {
                                             sessionId && 
                                             (!currentSession?.title || currentSession.title === 'New Chat' || currentSession.title.trim() === '');
                     
-                    if (shouldUpdateTitle && currentUser?.id) {
+                    if (shouldUpdateTitle && currentUser?.id && sessionId) {
                         console.log('🔵 Updating session title for authenticated user');
-                        const newTitle = await generateSessionTitle(decodedMessage);
-
-                        
                         try {
-
-                            await updateSession(sessionId, newTitle, currentUser.id);
-                            
-                            // Update the current session title in local state immediately
+                            // Backend generates title from conversation and already saves it; use sessionId not message
+                            const newTitle = await generateSessionTitle(sessionId);
                             setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
-                            
-                            // Refresh chat history to update the sidebar
-
                             await fetchChatHistory();
-
                         } catch (error) {
                             console.error('❌ Failed to update session title:', error);
-                            // Still update local state even if API call fails
-                            setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
+                            setCurrentSession(prev => prev ? { ...prev, title: decodedMessage || 'New Chat' } : null);
                         }
                     } else {
                         console.warn('⚠️ Cannot update session title - missing requirements:', {
@@ -1572,56 +1573,56 @@ export default function ChatPageContent() {
     
 
 
-    return (
-        <LoadScript
-            googleMapsApiKey={(() => {
-                const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-                // Only log once per session to reduce console noise
-                if (typeof window !== 'undefined' && !(window as any).__MAPS_KEY_LOGGED) {
-                    console.log('🔑 Google Maps API Key configured:', apiKey ? 'Yes' : 'No');
-                    (window as any).__MAPS_KEY_LOGGED = true;
-                }
-                return apiKey;
-            })()}
-            libraries={libraries}
-            onLoad={() => {
-                if (typeof window !== 'undefined' && !(window as any).__MAPS_LOADED_LOGGED) {
-                    console.log('✅ Google Maps loaded successfully');
-                    (window as any).__MAPS_LOADED_LOGGED = true;
-                }
-                setIsGoogleMapsLoaded(true);
-            }}
-            onError={(error) => {
-                console.error('❌ Google Maps failed to load:', error);
-                toast.error('Google Maps failed to load. Please check your API key and billing settings.');
-            }}
-            loadingElement={<div>Loading Google Maps...</div>}
-        >
-        <div className="flex h-screen bg-gray-100">
-            {/* Mobile slide-out menu */}
+    /*
+     * ========== OLD CHAT PAGE LAYOUT (preserved for rollback) ==========
+     * To restore: uncomment the block below and comment out the "NEW LAYOUT" section.
+     * Layout: left sidebar | middle chat (flex-3.3) | right map panel (flex-2.7).
+     *
+    const chatContentOld = (
+        <div className="flex h-screen bg-stone-100">
             {isMobileMenuOpen && (
                 <div className="fixed inset-0 z-50 md:hidden">
-                    {/* backdrop */}
-                    <div
-                        className="absolute inset-0 bg-black/40"
-                        onClick={toggleMobileMenu}
-                        aria-hidden="true"
-                    />
-                    {/* drawer panel */}
+                    <div className="absolute inset-0 bg-black/40" onClick={toggleMobileMenu} aria-hidden="true" />
                     <div className="absolute left-0 top-0 h-full w-72 max-w-[85%] bg-white shadow-2xl flex flex-col">
                         <div className="flex items-center justify-between px-3 py-3 border-b">
                             <span className="font-semibold">Menu</span>
-                            <button
-                                type="button"
-                                className="p-2 rounded hover:bg-gray-100"
-                                onClick={toggleMobileMenu}
-                                aria-label="Close menu"
-                            >
+                            <button type="button" className="p-2 rounded hover:bg-stone-100" onClick={toggleMobileMenu} aria-label="Close menu"><X className="w-5 h-5" /></button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto">
+                            <LeftMenuBar ... />
+                        </div>
+                    </div>
+                </div>
+            )}
+            <div className="hidden md:block"><LeftMenuBar ... /></div>
+            <div className="flex-[3.3] flex flex-col bg-white border-l border-r border-stone-200 overflow-auto">
+                ... header, error, BeautifulChatContainer ...
+            </div>
+            <div className="hidden lg:block flex-[2.7] bg-white overflow-hidden p-4 h-full">
+                <RightMapPanel ... />
+            </div>
+            {showMap && ( ... mobile map overlay ... )}
+            {isMobileMenuOpen && ( ... mobile menu overlay ... )}
+            {locationSuggestions.length > 0 && ...}
+            {contextMenu.visible && ...}
+        </div>
+    );
+    */
+
+    // ---------- NEW LAYOUT: Perplexity-style, full-width chat, no right image/panel ----------
+    const chatContent = (
+        <div className="flex h-screen bg-[#fafafa]">
+            {/* Mobile slide-out menu */}
+            {isMobileMenuOpen && (
+                <div className="fixed inset-0 z-50 md:hidden">
+                    <div className="absolute inset-0 bg-black/40" onClick={toggleMobileMenu} aria-hidden="true" />
+                    <div className="absolute left-0 top-0 h-full w-72 max-w-[85%] bg-white shadow-2xl flex flex-col">
+                        <div className="flex items-center justify-between px-3 py-3 border-b border-stone-200">
+                            <span className="font-semibold text-stone-900">Menu</span>
+                            <button type="button" className="p-2 rounded-lg hover:bg-stone-100" onClick={toggleMobileMenu} aria-label="Close menu">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-
-                        {/* reuse your existing component inside the drawer */}
                         <div className="flex-1 overflow-y-auto">
                             <LeftMenuBar
                                 isMobileMenuOpen={isMobileMenuOpen}
@@ -1647,8 +1648,8 @@ export default function ChatPageContent() {
                 </div>
             )}
 
-            {/* Left Menu Bar (desktop / tablet) */}
-            <div className="hidden md:block">
+            {/* Left sidebar (desktop) */}
+            <div className="hidden md:block flex-shrink-0">
                 <LeftMenuBar
                     isMobileMenuOpen={isMobileMenuOpen}
                     showChatHistory={showChatHistory}
@@ -1669,51 +1670,34 @@ export default function ChatPageContent() {
                     currentUserId={currentUser?.id}
                 />
             </div>
-            {/* Middle Chat Section */}
-            <div className="flex-[3.3] flex flex-col bg-white border-l border-r overflow-auto">
 
-                {/* Mobile +Tablet header: menu + title + map button */}
-                <div className="lg:hidden flex items-center justify-between px-3 py-3 border-b bg-white shadow-sm">
-                    {/* Left: Menu + Chat title */}
+            {/* Full-width chat area (Perplexity-style: no right panel) */}
+            <div className="flex-1 flex flex-col min-w-0 bg-white border-l border-stone-200/80 shadow-sm">
+                {/* Header: menu + Map (no branding) */}
+                <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 bg-white">
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
-                            className="p-2 rounded hover:bg-gray-100 md:hidden"
+                            className="p-2 rounded-lg hover:bg-stone-100 md:hidden"
                             aria-label="Open menu"
                             onClick={toggleMobileMenu}
                         >
-                            <Menu className="w-5 h-5" />
+                            <Menu className="w-5 h-5 text-stone-600" />
                         </button>
-                        <div className="flex items-center gap-2">
-                            <Send className="w-5 h-5 text-blue-600" />
-                            <span className="font-semibold">Chat</span>
-                        </div>
                     </div>
-
-                    {/* Right: Enhanced Map button with tooltip */}
                     <button
                         type="button"
                         onClick={() => { setShowMap(true); setIsMobileMenuOpen(false); }}
                         aria-label="View travel map"
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition-colors"
-                        title="View locations on map"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm font-medium transition-colors"
                     >
-                        <Map className="w-5 h-5" />
-                        <span className="text-sm font-medium">View Map</span>
+                        <Map className="w-4 h-4" />
+                        <span className="hidden sm:inline">Map</span>
                     </button>
-                </div>
+                </header>
 
-                {/* Status indicators */}
-                <div className="px-4 py-2 space-y-2">
-                    {/* AI Typing Indicator */}
-                    {isAITyping && (
-                        <TypingIndicator 
-                            isTyping
-                            user="AI Assistant"
-                            className="text-xs"
-                        />
-                    )}
-                    
+                {/* Error banner */}
+                <div className="flex-shrink-0 px-4 py-2">
                     {errorState.hasError && (
                         <ErrorMessage
                             message={errorState.errorMessage || 'An error occurred'}
@@ -1721,169 +1705,78 @@ export default function ChatPageContent() {
                             canRetry={errorState.canRetry}
                             onRetry={() => {
                                 clearError();
-                                // Retry last message if applicable
                                 if (messages.length > 0) {
                                     const lastUserMessage = [...messages].reverse().find(m => m.messageType === 'USER');
-                                    if (lastUserMessage) {
-                                        handleSendMessage(lastUserMessage.content);
-                                    }
+                                    if (lastUserMessage) handleSendMessage(lastUserMessage.content);
                                 }
                             }}
                             onDismiss={clearError}
                             className="text-sm"
                         />
                     )}
-
-
                 </div>
 
-                {/* Beautiful Chat Container - Enhanced UI/UX */}
-                <BeautifulChatContainer
-                    messages={messages}
-                    inputValue={inputMessage}
-                    onInputChange={setInputMessage}
-                    onSendMessage={handleSendMessage}
-                    isLoading={isLoading}
-                    suggestions={suggestions}
-                    currentUser={currentUser}
-                    showWelcome={displayPrompts && messages.length === 0}
-                    useStreaming={false}
-                    sessionId={currentSession?.sessionId}
-                    onVoiceRecord={async (audioBlob) => {
-                        try {
-                            // Use centralized transcribeAudio function
-                            const transcribedText = await transcribeAudio(audioBlob);
-                            if (transcribedText) {
-                                // Use handleTranscription to set message and auto-send
-                                handleTranscription(transcribedText);
+                {/* Chat content - full width, centered max-width inside BeautifulChatContainer */}
+                <div className="flex-1 min-h-0 flex flex-col">
+                    <BeautifulChatContainer
+                        messages={messages}
+                        inputValue={inputMessage}
+                        onInputChange={setInputMessage}
+                        onSendMessage={handleSendMessage}
+                        isLoading={isLoading}
+                        suggestions={suggestions}
+                        currentUser={currentUser}
+                        showWelcome={displayPrompts && messages.length === 0}
+                        useStreaming={false}
+                        sessionId={currentSession?.sessionId}
+                        welcomeVariant="perplexity"
+                        typingMessageId={typingMessageId}
+                        onTypingComplete={() => setTypingMessageId(null)}
+                        onVoiceRecord={async (audioBlob) => {
+                            try {
+                                const transcribedText = await transcribeAudio(audioBlob);
+                                if (transcribedText) handleTranscription(transcribedText);
+                            } catch (error) {
+                                console.error('Transcription error:', error);
+                                toast.error('Failed to transcribe audio. Please try again.');
                             }
-                        } catch (error) {
-                            console.error('Transcription error:', error);
-                            toast.error('Failed to transcribe audio. Please try again.');
-                        }
-                    }}
-                />
-            </div>
-
-            {/* Right Map Panel (Desktop only) */}
-            <div className="hidden lg:block flex-[2.7] bg-white overflow-hidden p-4 h-full">
-                <RightMapPanel
-                    key={`map-desktop-${currentSession?.sessionId || 'no-session'}-${mapRefetchTrigger}`}
-                    currentSessionId={currentSession?.sessionId || null}
-                    currentUserToken={currentUser?.token || null}
-                    refetchTrigger={mapRefetchTrigger}
-                />
-
-            </div>
-
-            {/* Mobile Map Overlay */}
-            {showMap && (
-                <div className="fixed inset-0 z-50 lg:hidden flex animate-in slide-in-from-right duration-300">
-                    {/* Backdrop */}
-                    <div
-                        className="absolute inset-0 bg-black/40"
-                        onClick={() => setShowMap(false)}
-                        aria-hidden="true"
+                        }}
                     />
+                </div>
+            </div>
 
-                    {/* Panel: full-screen map (or you can use width like w-full md:w-80 if you prefer) */}
-                    <div className="relative flex-1 bg-white transform transition-transform duration-300 ease-out">
-                        {/* Header with close button */}
-                        <div className="flex items-center justify-between px-3 py-3 border-b bg-white shadow-sm">
+            {/* Map overlay (all screen sizes - no permanent right panel) */}
+            {showMap && (
+                <div className="fixed inset-0 z-50 flex animate-in slide-in-from-right duration-300">
+                    <div className="absolute inset-0 bg-black/40" onClick={() => setShowMap(false)} aria-hidden="true" />
+                    <div className="relative ml-auto w-full max-w-2xl sm:max-w-3xl lg:max-w-4xl h-full bg-white shadow-2xl flex flex-col">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-stone-200 bg-white">
                             <div className="flex items-center gap-2">
-                                <Map className="w-5 h-5 text-blue-600" />
-                                <span className="font-semibold">Travel Map</span>
+                                <Map className="w-5 h-5 text-stone-700" />
+                                <span className="font-semibold text-stone-900">Travel Map</span>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setShowMap(false)}
                                 aria-label="Back to chat"
-                                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm font-medium transition-colors"
                             >
                                 <X className="w-4 h-4" />
-                                <span className="text-sm">Back to Chat</span>
+                                <span>Close</span>
                             </button>
                         </div>
-
-                        {/* Map content */}
-                        <div className="h-[calc(100%-60px)] overflow-auto">
+                        <div className="flex-1 min-h-0 overflow-hidden">
                             <RightMapPanel
-                                key={`map-mobile-${currentSession?.sessionId || 'no-session'}-${mapRefetchTrigger}`}
+                                key={`map-overlay-${currentSession?.sessionId || 'no-session'}`}
                                 currentSessionId={currentSession?.sessionId || null}
                                 currentUserToken={currentUser?.token || null}
                                 refetchTrigger={mapRefetchTrigger}
                             />
                         </div>
-
-                        {/* Floating Chat Button - Additional navigation option */}
-                        <div className="absolute bottom-6 left-6 z-10">
-                            <button
-                                type="button"
-                                onClick={() => setShowMap(false)}
-                                aria-label="Return to chat"
-                                className="flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all transform hover:scale-105 active:scale-95"
-                            >
-                                <Send className="w-5 h-5" />
-                                <span className="text-sm font-medium">Chat</span>
-                            </button>
-                        </div>
                     </div>
                 </div>
             )}
 
-        </div>
-
-        {/* Mobile Menu Overlay */}
-        {isMobileMenuOpen && (
-            <div className="fixed inset-0 z-40 md:hidden">
-                {/* Backdrop */}
-                <div
-                    className="absolute inset-0 bg-black/50"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    aria-hidden="true"
-                />
-
-                {/* Sidebar */}
-                <div className="relative w-64 h-full bg-white shadow-xl">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b">
-                        <div className="font-semibold">Menu</div>
-                        <button
-                            type="button"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            aria-label="Close menu"
-                            className="p-2 rounded hover:bg-gray-100"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    {/* Content */}
-                    <div className="p-0">
-                        <LeftMenuBar
-                            isMobileMenuOpen={isMobileMenuOpen}
-                            showChatHistory={showChatHistory}
-                            toggleChatHistory={toggleChatHistory}
-                            toggleMobileMenu={toggleMobileMenu}
-                            signOut={signOut}
-                            handleNewChat={handleNewChat}
-                            chatHistory={chatHistory}
-                            currentSessionId={currentSession?.sessionId || null}
-                            handleSessionClick={handleSessionClick}
-                            searchQuery={searchQuery}
-                            setSearchQuery={setSearchQuery}
-                            hasMoreSessions={hasMoreSessions}
-                            isLoadingSessions={isLoadingSessions}
-                            onLoadMore={loadMoreSessions}
-                            onSessionDeleted={handleSessionDeleted}
-                            onSessionRenamed={handleSessionRenamed}
-                            currentUserId={currentUser?.id}
-                        />
-                    </div>
-                </div>
-            </div>
-        )}
-            
             {/* Location Suggestions Modal */}
             {locationSuggestions.length > 0 && pendingLocationSearch && (
                 <LocationSuggestions
@@ -1897,38 +1790,25 @@ export default function ChatPageContent() {
             {/* Context Menu */}
             {contextMenu.visible && (
                 <div
-                    className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50 min-w-48"
-                    style={{
-                        left: `${contextMenu.x}px`,
-                        top: `${contextMenu.y}px`,
-                    }}
+                    className="fixed bg-white border border-stone-200 rounded-xl shadow-lg py-2 z-50 min-w-48"
+                    style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
                 >
-                    <button
-                        type="button"
-                        onClick={handleCopyMessage}
-                        className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2"
-                    >
-                        📋 Copy Message
+                    <button type="button" onClick={handleCopyMessage} className="w-full px-4 py-2 text-left hover:bg-stone-100 flex items-center gap-2 text-sm text-stone-700">
+                        📋 Copy
                     </button>
                     {contextMenu.message?.messageType === 'USER' ? (
-                        <button
-                            type="button"
-                            onClick={handleEditMessage}
-                            className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2"
-                        >
+                        <button type="button" onClick={handleEditMessage} className="w-full px-4 py-2 text-left hover:bg-stone-100 flex items-center gap-2 text-sm text-stone-700">
                             ✏️ Edit & Resend
                         </button>
                     ) : (
-                        <button
-                            type="button"
-                            onClick={handleContinueConversation}
-                            className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2"
-                        >
-                            ➡️ Continue Conversation
+                        <button type="button" onClick={handleContinueConversation} className="w-full px-4 py-2 text-left hover:bg-stone-100 flex items-center gap-2 text-sm text-stone-700">
+                            ➡️ Continue
                         </button>
                     )}
                 </div>
             )}
-        </LoadScript>
+        </div>
     );
+
+    return chatContent;
 }

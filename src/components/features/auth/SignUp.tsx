@@ -3,13 +3,13 @@
 import Image from "next/image"
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import React, { useState } from 'react';
+import { useState } from 'react'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { signUp } from '@/lib/api'
 import { toast } from 'react-hot-toast'
 import { LinkedInLogoIcon } from "@radix-ui/react-icons"
-import { Facebook } from 'lucide-react'
+import { Facebook, X } from 'lucide-react'
 
 export function SignUp() {
   const router = useRouter()
@@ -19,130 +19,183 @@ export function SignUp() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleCancel = () => {
-    router.push('/')
+  const handleCancel = () => router.push('/')
+
+  const handleOAuthLogin = (provider: string) => {
+    const url = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/${provider}`
+    window.location.href = url
   }
-
-  const handleOAuthLogin = (loginProvider: string) => {
-
-    if (loginProvider === 'google') {
-      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/google`;
-    } else if (loginProvider === 'linkedin') {
-      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/linkedin`;
-    } else {
-      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/facebook`;
-    }
-  }
-
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+    e.preventDefault()
     if (password !== confirmPassword) {
-      toast.error("Passwords don't match");
-      return;
+      toast.error("Passwords don't match")
+      return
     }
-
-
-
-    setIsLoading(true);
+    setIsLoading(true)
     try {
-      await signUp(username, email, password);
-      // Signup successful
-      toast.success('Signup successful! Please check your email for verification.');
-      router.push('/auth/signin');
+      const result = await signUp(username, email, password)
+      const serverMessage = result?.message
+      toast.success(serverMessage || 'Account created. You are now signed in.')
+      router.push(serverMessage?.toLowerCase().includes('logged in') ? '/' : '/auth/signin')
     } catch (error: any) {
-      console.error('Signup error:', error);
-      toast.error(error.response?.data?.message || 'Failed to sign up. Please try again.');
+      const data = error.response?.data
+      const status = error.response?.status
+      const serverMessage = data?.message ?? data?.error
+      if (status === 409) {
+        toast.error(serverMessage || 'Username or email already in use.')
+      } else if (status === 400) {
+        toast.error(serverMessage || 'Invalid input. Check username, email, and password (min 8 characters).')
+      } else {
+        toast.error(serverMessage || error.message || 'Failed to sign up. Please try again.')
+      }
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-96 relative">
-        <button
-          type="button"
-          onClick={handleCancel}
-          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-          aria-label="Close"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-
-        <div className="flex items-center mb-6">
-          <Image src="/logo.svg" alt="Flomad Travel Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} />
-          <span className="ml-2 text-xl font-semibold">flomad travel</span>
-        </div>
-
-        <h2 className="text-2xl font-bold mb-2">Sign up for free!</h2>
-        <p className="text-gray-600 mb-6">
-          Have an account? <Link href="/auth/signin" className="text-blue-600 hover:underline">Login</Link>
-        </p>
-
-        <form onSubmit={handleSignUp}>
-          <Input
-            type="text"
-            placeholder="Username"
-            className="mb-4"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-          />
-          <Input
-            type="email"
-            placeholder="Email"
-            className="mb-4"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <Input
-            type="password"
-            placeholder="Password"
-            className="mb-4"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <Input
-            type="password"
-            placeholder="Confirm Password"
-            className="mb-6"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
-
-          <Button type="submit" className="w-full bg-black text-white hover:bg-gray-800 mb-4" disabled={isLoading}>
-            {isLoading ? 'Signing up...' : 'Sign up'}
-          </Button>
-        </form>
-
-        <div className="relative mb-4">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-100 via-amber-50/30 to-stone-100 p-4 py-10">
+      <div className="w-full max-w-[420px]">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-stone-200/80 overflow-hidden">
+          {/* Header */}
+          <div className="relative px-8 pt-8 pb-6 border-b border-stone-100">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="absolute top-6 right-6 p-1.5 rounded-full text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="flex items-center gap-2.5 mb-6">
+              <Image src="/logo.svg" alt="" width={28} height={28} className="object-contain" />
+              <span className="text-lg font-semibold text-stone-800 tracking-tight">Travel Planner</span>
+            </div>
+            <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Create an account</h1>
+            <p className="mt-1.5 text-sm text-stone-500">
+              Already have an account?{" "}
+              <Link href="/auth/signin" className="font-medium text-amber-600 hover:text-amber-700 transition-colors">
+                Sign in
+              </Link>
+            </p>
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">or</span>
-          </div>
-        </div>
 
-        <div className="space-y-4">
-          <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('google')}>
-            <Image src="/image/google.png" className="mr-4" alt="Google Logo" width={25} height={25} style={{ width: 'auto', height: 'auto' }} />
-            Signup in with Google
-          </Button>
-          <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('linkedin')}>
-            <LinkedInLogoIcon className="mr-4" style={{ width: 25, height: 25, color: '#0077B5' }} />
-            Signup in with LinkedIn
-          </Button>
-          <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('facebook')}>
-            <Facebook size={25} className="mr-4" style={{ color: '#FFFFFF', background: '#1877F2', borderRadius: 3 }} />
-            Signup in with Facebook
-          </Button>
+          {/* Form */}
+          <form onSubmit={handleSignUp} className="p-8 pt-6">
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="signup-username" className="block text-sm font-medium text-stone-700 mb-1.5">
+                  Username
+                </label>
+                <Input
+                  id="signup-username"
+                  type="text"
+                  placeholder="Choose a username"
+                  className="h-11 rounded-lg border-stone-200 bg-stone-50/50 focus:bg-white transition-colors"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              <div>
+                <label htmlFor="signup-email" className="block text-sm font-medium text-stone-700 mb-1.5">
+                  Email
+                </label>
+                <Input
+                  id="signup-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  className="h-11 rounded-lg border-stone-200 bg-stone-50/50 focus:bg-white transition-colors"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              <div>
+                <label htmlFor="signup-password" className="block text-sm font-medium text-stone-700 mb-1.5">
+                  Password
+                </label>
+                <Input
+                  id="signup-password"
+                  type="password"
+                  placeholder="At least 8 characters"
+                  className="h-11 rounded-lg border-stone-200 bg-stone-50/50 focus:bg-white transition-colors"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  disabled={isLoading}
+                />
+              </div>
+              <div>
+                <label htmlFor="signup-confirm" className="block text-sm font-medium text-stone-700 mb-1.5">
+                  Confirm password
+                </label>
+                <Input
+                  id="signup-confirm"
+                  type="password"
+                  placeholder="Repeat your password"
+                  className="h-11 rounded-lg border-stone-200 bg-stone-50/50 focus:bg-white transition-colors"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full h-11 mt-6 rounded-lg bg-stone-900 hover:bg-stone-800 text-white font-medium shadow-sm transition-colors"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Creating account…' : 'Sign up'}
+            </Button>
+          </form>
+
+          {/* Divider */}
+          <div className="px-8 pb-8">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-stone-200" />
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-white px-3 text-xs font-medium uppercase tracking-wider text-stone-400">Or continue with</span>
+              </div>
+            </div>
+            <div className="mt-6 grid grid-cols-1 gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-lg border-stone-200 bg-white hover:bg-stone-50 text-stone-700 font-medium"
+                onClick={() => handleOAuthLogin('google')}
+              >
+                <Image src="/image/google.png" alt="" width={20} height={20} className="mr-3 object-contain" />
+                Google
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-lg border-stone-200 bg-white hover:bg-stone-50 text-stone-700 font-medium"
+                onClick={() => handleOAuthLogin('linkedin')}
+              >
+                <LinkedInLogoIcon className="mr-3 h-5 w-5 text-[#0A66C2]" />
+                LinkedIn
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-lg border-stone-200 bg-white hover:bg-stone-50 text-stone-700 font-medium"
+                onClick={() => handleOAuthLogin('facebook')}
+              >
+                <Facebook className="mr-3 h-5 w-5 text-[#1877F2]" />
+                Facebook
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

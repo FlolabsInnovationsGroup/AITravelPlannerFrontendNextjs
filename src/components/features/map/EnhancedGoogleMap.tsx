@@ -57,93 +57,85 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
   const [userInteracting, setUserInteracting] = useState(false);
   const [lastUserInteraction, setLastUserInteraction] = useState<number>(0);
   const userInteractionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const mapsCallbackIdRef = useRef<string>(`flomad_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`);
 
-  // Load Google Maps API
-  const loadGoogleMapsAPI = useCallback(async () => {
-    if (typeof google !== 'undefined' && google.maps) {
+  // Load Google Maps API — use callback so we only set isLoaded when `google` is defined (script.onload fires before API is ready)
+  const loadGoogleMapsAPI = useCallback(() => {
+    const w = typeof window !== 'undefined' ? window : null;
+    if (w && (w as any).google?.maps) {
       setIsLoaded(true);
-      return undefined;
+      return () => {};
     }
 
+    const callbackName = `__flomadMapsReady_${mapsCallbackIdRef.current}`;
+    const noop = () => {};
+    (w as any)[callbackName] = () => {
+      setIsLoaded(true);
+      (w as any)[callbackName] = noop;
+    };
+
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=marker,places&v=beta`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=marker,places&v=beta&callback=${encodeURIComponent(callbackName)}`;
     script.async = true;
     script.defer = true;
-    
-    script.onload = () => {
-      setIsLoaded(true);
+    script.onerror = () => {
+      console.error('❌ Failed to load Google Maps API');
+      (w as any)[callbackName] = noop;
     };
-    script.onerror = (error) => {
-      console.error('❌ Failed to load Google Maps API:', error);
-      console.error('❌ API URL:', script.src);
-    };
-    
     document.head.appendChild(script);
 
     return () => {
       try {
-        document.head.removeChild(script);
-      } catch (e) {
-        // Script might already be removed
-      }
+        if (script.parentNode) document.head.removeChild(script);
+      } catch (_) {}
+      (w as any)[callbackName] = noop;
     };
   }, []);
 
-  // Cleanup timeout on unmount
+  // Cleanup on unmount — only touch google if it exists to avoid "Can't find variable: google"
   useEffect(() => () => {
       if (userInteractionTimeoutRef.current) {
         clearTimeout(userInteractionTimeoutRef.current);
       }
-      
-      // Cleanup directions renderer
+      const g = typeof window !== 'undefined' && (window as any).google;
+      if (!g?.maps) return;
+
       if (directionsRendererRef.current) {
         directionsRendererRef.current.setMap(null);
         directionsRendererRef.current = null;
       }
-      
-      // Cleanup marker clusterer
       if (markerClustererRef.current) {
         markerClustererRef.current.clearMarkers();
         markerClustererRef.current.setMap(null);
         markerClustererRef.current = null;
       }
-      
-      // Cleanup markers - handle both AdvancedMarkerElement and Marker
       markersRef.current.forEach(marker => {
-        if (marker instanceof google.maps.Marker) {
-          marker.setMap(null);
-        } else if (marker instanceof google.maps.marker.AdvancedMarkerElement) {
-          marker.map = null;
-        }
+        try {
+          if (typeof (marker as { setMap?: (map: unknown) => void }).setMap === 'function') {
+            (marker as { setMap: (map: unknown) => void }).setMap(null);
+          } else if (g.maps.marker?.AdvancedMarkerElement && marker instanceof g.maps.marker.AdvancedMarkerElement) {
+            (marker as { map: unknown }).map = null;
+          }
+        } catch (_) {}
       });
       markersRef.current.clear();
     }, []);
 
   // Initialize map
   const initializeMap = useCallback(async () => {
-    console.log('🗺️ InitializeMap called');
-    console.log('🗺️ Map ref:', mapRef.current ? 'Present' : 'Missing');
-    console.log('🗺️ Is loaded:', isLoaded);
-    console.log('🗺️ Map instance exists:', mapInstanceRef.current ? 'Yes' : 'No');
-    
-    // CRITICAL: Don't re-initialize if map already exists
-    if (mapInstanceRef.current) {
-      console.log('🔄 Map instance already exists - skipping re-initialization');
+    const g = typeof window !== 'undefined' && (window as any).google;
+    if (!g?.maps) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('🗺️ Map init skipped: Google Maps API not yet loaded');
+      }
       return;
     }
-    
-    if (!mapRef.current || !isLoaded) {
-      console.log('❌ Cannot initialize map - preconditions not met');
-      return;
-    }
+    if (mapInstanceRef.current || !mapRef.current || !isLoaded) return;
 
     try {
-      console.log('📥 Importing Google Maps libraries...');
-      // Import required libraries
+      const google = g as typeof globalThis.google;
       const { Map } = await google.maps.importLibrary("maps") as google.maps.MapsLibrary;
-      console.log('✅ Maps library imported');
       
-      // Create map configuration
       const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
       const hasValidMapId = mapId && mapId !== 'DEMO_MAP_ID' && mapId.trim() !== '';
       
@@ -160,7 +152,6 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       
       if (hasValidMapId) {
         mapConfig.mapId = mapId;
-        console.log('✅ Using Map ID for Advanced Markers:', mapId);
       } else {
         // Add custom styles when not using a Map ID
         const selectedMapTheme = getMapTheme(theme);
@@ -169,13 +160,6 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
 
       const map = new Map(mapRef.current, mapConfig);
       mapInstanceRef.current = map;
-      
-      console.log('✅ Map instance created successfully');
-      console.log('🗺️ Map configuration:', {
-        mapId: mapConfig.mapId || 'none (using styles)',
-        center: mapConfig.center,
-        zoom: mapConfig.zoom
-      });
 
       // Add user interaction listeners to detect when user is manually controlling the map
       const handleUserInteraction = () => {
@@ -262,13 +246,8 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       }
 
     } catch (error) {
-      console.error('❌ Failed to initialize map:', error);
-      if (error instanceof Error) {
-        console.error('❌ Error details:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        });
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to initialize map:', error);
       }
     }
   }, [isLoaded]); // Removed onLocationAdd and locations to prevent re-initialization
@@ -532,19 +511,9 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
           },
         },
       });
-      
-      console.log('✅ Marker clustering initialized');
     }
 
     // Smart bounds calculation with geographic clustering
-    console.log(`🎯 FitBounds check: ${locations.length} locations, map ready: ${!!mapInstanceRef.current}`);
-    console.log('📊 All locations being processed:', locations.map(loc => ({
-      name: loc.name,
-      id: loc.id,
-      type: loc.type,
-      coords: `${loc.latitude}, ${loc.longitude}`
-    })));
-    
     // Temporary frontend filter to exclude obviously irrelevant locations
     const filteredLocations = locations.filter(location => {
       if (!location.name) return false;
@@ -658,20 +627,20 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
     }
   }, [locations, createMarker]);
 
-  // Load Google Maps API on component mount
+  // Load Google Maps API on component mount; cleanup removes script/callback on unmount
   useEffect(() => {
-    loadGoogleMapsAPI();
+    const cleanup = loadGoogleMapsAPI();
+    return () => {
+      if (typeof cleanup === 'function') cleanup();
+    };
   }, [loadGoogleMapsAPI]);
 
   // Initialize map when API is loaded (ONLY once)
   useEffect(() => {
-    if (isLoaded && !mapInstanceRef.current) {
-      console.log('🎯 Initializing map for the first time');
-      initializeMap().catch(error => {
-        console.error('❌ Map initialization failed:', error);
-      });
+    if (isLoaded && !mapInstanceRef.current && mapRef.current) {
+      initializeMap().catch(() => {});
     }
-  }, [isLoaded, initializeMap]); // Include initializeMap to ensure proper initialization
+  }, [isLoaded, initializeMap]);
 
   // Update markers when map instance becomes available (handles timing issue)
   // CRITICAL: Single useEffect to prevent duplicate marker rendering
@@ -683,8 +652,8 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
 
   // Render route when routeData changes
   useEffect(() => {
-    if (!isLoaded || !mapInstanceRef.current || !routeData) {
-      // Clear existing route if no route data
+    const g = typeof window !== 'undefined' && (window as any).google;
+    if (!isLoaded || !g?.maps || !mapInstanceRef.current || !routeData) {
       if (directionsRendererRef.current) {
         directionsRendererRef.current.setMap(null);
         directionsRendererRef.current = null;
@@ -692,16 +661,14 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       return;
     }
 
-    // Initialize DirectionsService if needed
     if (!directionsServiceRef.current) {
-      directionsServiceRef.current = new google.maps.DirectionsService();
+      directionsServiceRef.current = new g.maps.DirectionsService();
     }
 
-    // Initialize DirectionsRenderer if needed
     if (!directionsRendererRef.current) {
-      directionsRendererRef.current = new google.maps.DirectionsRenderer({
+      directionsRendererRef.current = new g.maps.DirectionsRenderer({
         map: mapInstanceRef.current,
-        suppressMarkers: false, // Show default markers for start/end
+        suppressMarkers: false,
         polylineOptions: {
           strokeColor: '#4285F4',
           strokeWeight: 5,
@@ -710,16 +677,17 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
       });
     }
 
-    // Request directions
     const request: google.maps.DirectionsRequest = {
       origin: routeData.origin,
       destination: routeData.destination,
-      travelMode: routeData.travelMode || google.maps.TravelMode.DRIVING,
+      travelMode: routeData.travelMode || g.maps.TravelMode.DRIVING,
       waypoints: routeData.waypoints || []
     };
 
-    directionsServiceRef.current.route(request, (result, status) => {
-      if (status === google.maps.DirectionsStatus.OK && result) {
+    const directionsService = directionsServiceRef.current;
+    if (!directionsService) return;
+    directionsService.route(request, (result, status) => {
+      if (status === g.maps.DirectionsStatus.OK && result) {
         directionsRendererRef.current?.setDirections(result);
         if (onRouteRendered) {
           onRouteRendered(result);
@@ -732,55 +700,48 @@ const EnhancedGoogleMap: React.FC<EnhancedGoogleMapProps> = ({
 
   // Update marker styles when selection changes
   useEffect(() => {
+    const g = typeof window !== 'undefined' && (window as any).google;
+    if (!g?.maps?.marker?.AdvancedMarkerElement) return;
+
     markersRef.current.forEach(async (marker, locationId) => {
       const location = locations.find(loc => loc.id === locationId);
       if (!location) return;
 
       try {
-        const { PinElement } = await google.maps.importLibrary("marker") as google.maps.MarkerLibrary;
+        const { PinElement } = await g.maps.importLibrary("marker") as google.maps.MarkerLibrary;
         const config = getMarkerConfig(location.type, location);
         const isSelected = selectedLocation?.id === location.id;
         const isHovered = hoveredLocation?.id === location.id;
 
-        // Update pin element with new styling
         const pinElement = new PinElement({
           background: config.background,
           borderColor: config.borderColor,
           glyphColor: config.glyphColor,
-          scale: config.scale * (() => {
-            if (isSelected) return 1.3;
-            if (isHovered) return 1.1;
-            return 1.0;
-          })(),
+          scale: config.scale * (isSelected ? 1.3 : isHovered ? 1.1 : 1.0),
           glyphText: config.emoji
         } as any);
 
-        // Create new marker to replace the old one - handle both marker types
-        const rawMap = marker instanceof google.maps.Marker ? marker.getMap() : marker.map;
-        const currentMap = (rawMap instanceof google.maps.Map) ? rawMap : null;
-        const currentPosition = marker instanceof google.maps.Marker ? marker.getPosition() : marker.position;
-        const currentTitle = marker instanceof google.maps.Marker ? marker.getTitle() : marker.title;
-        
-        // Remove old marker and create new one with updated content
-        if (marker instanceof google.maps.Marker) {
-          marker.setMap(null);
-        } else if (marker instanceof google.maps.marker.AdvancedMarkerElement) {
-          marker.map = null;
+        type MarkerLike = { getMap?: () => unknown; map?: unknown; getPosition?: () => unknown; position?: unknown; getTitle?: () => unknown; title?: unknown; setMap?: (m: unknown) => void };
+        const m = marker as MarkerLike;
+        const rawMap = typeof m.getMap === 'function' ? m.getMap() : m.map;
+        const currentMap = (rawMap instanceof g.maps.Map) ? rawMap : null;
+        const currentPosition = typeof m.getPosition === 'function' ? m.getPosition() : m.position;
+        const currentTitle = typeof m.getTitle === 'function' ? m.getTitle() : m.title;
+
+        if (typeof m.setMap === 'function') {
+          m.setMap(null);
+        } else if (g.maps.marker?.AdvancedMarkerElement && marker instanceof g.maps.marker.AdvancedMarkerElement) {
+          (marker as { map: unknown }).map = null;
         }
-        
-        const newMarker = new google.maps.marker.AdvancedMarkerElement({
+
+        const newMarker = new g.maps.marker.AdvancedMarkerElement({
           map: currentMap,
           position: currentPosition,
           content: pinElement.element,
           title: currentTitle
         });
-        
-        // Update the marker reference in the map
         markersRef.current.set(locationId, newMarker);
-        
-      } catch (error) {
-        console.error('Failed to update marker style:', error);
-      }
+      } catch (_) {}
     });
   }, [selectedLocation, hoveredLocation, locations]);
 

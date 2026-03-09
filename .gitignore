@@ -52,4 +52,4 @@ test-websocket-debug.js
 scripts/clearTokens.js
 
 # Copilot instructions
-.github/copilot-instructions.md
+.github/copilot-instructions.md.gitignore

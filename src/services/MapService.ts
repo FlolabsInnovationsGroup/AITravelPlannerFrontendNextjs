@@ -576,7 +576,7 @@ export class MapService {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
             
-            const response = await fetch(`${API_BASE_URL}/actuator/health`, {
+            const response = await fetch(`${API_BASE_URL}/api/health`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${this.userToken}`,

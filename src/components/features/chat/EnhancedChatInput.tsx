@@ -152,7 +152,7 @@ export default function EnhancedChatInput({
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               placeholder={placeholder}
-              className="w-full min-h-[44px] max-h-[120px] resize-none rounded-lg border-0 bg-gray-50 px-4 py-3 text-sm placeholder-gray-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full min-h-[44px] max-h-[120px] resize-none rounded-lg border-0 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder-gray-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-gray-100 dark:focus:bg-white dark:text-gray-900"
               rows={1}
               maxLength={maxLength}
               disabled={isLoading || isRecording}
