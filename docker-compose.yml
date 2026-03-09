@@ -1,5 +1,8 @@
 version: '3.8'
 
+# Unique project name so containers don't mix with other projects (docker compose -p aitravelplanner)
+name: aitravelplanner
+
 services:
   app:
     build: 

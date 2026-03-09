@@ -23,7 +23,6 @@ const LeftMenuBar: React.FC<LeftMenuBarProps> = ({
                                                      isMobileMenuOpen,
                                                      showChatHistory,
                                                      toggleChatHistory,
-                                                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   toggleMobileMenu,
                                                      signOut,
                                                      handleNewChat,

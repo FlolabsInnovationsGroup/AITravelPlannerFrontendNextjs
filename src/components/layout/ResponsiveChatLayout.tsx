@@ -48,15 +48,15 @@ export default function ResponsiveChatLayout({
 
   // Mobile view switcher - memoized JSX to prevent re-creation on every render
   const mobileViewSwitcher = useMemo(() => (
-    <div className="flex bg-white border-t border-gray-200 md:hidden">
+    <div className="flex bg-white border-t border-stone-200 md:hidden">
       <button
         type="button"
         onClick={() => setViewMode('chat')}
         className={cn(
           "flex-1 flex items-center justify-center py-3 text-sm font-medium transition-colors",
           viewMode === 'chat'
-            ? "text-blue-600 bg-blue-50 border-t-2 border-blue-600"
-            : "text-gray-500 hover:text-gray-700"
+            ? "text-amber-600 bg-amber-50 border-t-2 border-amber-500"
+            : "text-stone-500 hover:text-stone-800"
         )}
       >
         <MessageSquare size={20} className="mr-2" />
@@ -69,8 +69,8 @@ export default function ResponsiveChatLayout({
         className={cn(
           "flex-1 flex items-center justify-center py-3 text-sm font-medium transition-colors",
           viewMode === 'map'
-            ? "text-blue-600 bg-blue-50 border-t-2 border-blue-600"
-            : "text-gray-500 hover:text-gray-700"
+            ? "text-amber-600 bg-amber-50 border-t-2 border-amber-500"
+            : "text-stone-500 hover:text-stone-800"
         )}
       >
         <Map size={20} className="mr-2" />
@@ -81,16 +81,16 @@ export default function ResponsiveChatLayout({
 
   // Desktop view controls - memoized JSX to prevent re-creation on every render
   const desktopControls = useMemo(() => (
-    <div className="hidden md:flex items-center gap-2 p-2 bg-gray-50 border-b border-gray-200">
-      <div className="flex bg-white rounded-md p-1 shadow-sm">
+    <div className="hidden md:flex items-center gap-2 p-2 bg-stone-50 border-b border-stone-200">
+      <div className="flex bg-white rounded-lg p-1 shadow-sm border border-stone-200">
         <button
           type="button"
           onClick={() => setViewMode('chat')}
           className={cn(
-            "px-3 py-1.5 text-xs font-medium rounded transition-colors",
+            "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
             viewMode === 'chat'
-              ? "bg-blue-600 text-white"
-              : "text-gray-600 hover:text-gray-800"
+              ? "bg-stone-900 text-white"
+              : "text-stone-600 hover:text-stone-900"
           )}
         >
           Chat Only
@@ -100,10 +100,10 @@ export default function ResponsiveChatLayout({
           type="button"
           onClick={() => setViewMode('split')}
           className={cn(
-            "px-3 py-1.5 text-xs font-medium rounded transition-colors",
+            "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
             viewMode === 'split'
-              ? "bg-blue-600 text-white"
-              : "text-gray-600 hover:text-gray-800"
+              ? "bg-stone-900 text-white"
+              : "text-stone-600 hover:text-stone-900"
           )}
         >
           Split View
@@ -113,10 +113,10 @@ export default function ResponsiveChatLayout({
           type="button"
           onClick={() => setViewMode('map')}
           className={cn(
-            "px-3 py-1.5 text-xs font-medium rounded transition-colors",
+            "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
             viewMode === 'map'
-              ? "bg-blue-600 text-white"
-              : "text-gray-600 hover:text-gray-800"
+              ? "bg-stone-900 text-white"
+              : "text-stone-600 hover:text-stone-900"
           )}
         >
           Map Only
@@ -138,7 +138,7 @@ export default function ResponsiveChatLayout({
   ), [viewMode, isCollapsed]);
 
   return (
-    <div className={cn("flex flex-col h-screen bg-gray-100", className)}>
+    <div className={cn("flex flex-col h-screen bg-stone-100", className)}>
       {/* Desktop Controls */}
       {desktopControls}
 
@@ -167,7 +167,7 @@ export default function ResponsiveChatLayout({
             {/* Chat Panel */}
             {(viewMode === 'chat' || viewMode === 'split') && (
               <div className={cn(
-                "flex flex-col bg-white border-r border-gray-200 transition-all duration-300",
+                "flex flex-col bg-white border-r border-stone-200 transition-all duration-300",
                 (() => {
                   if (viewMode === 'chat') return "flex-1";
                   if (viewMode === 'split') return isCollapsed ? "w-16" : "w-1/2 min-w-[400px]";
@@ -215,7 +215,7 @@ export default function ResponsiveChatLayout({
         <div className="fixed bottom-20 right-4 z-50">
           <Button
             onClick={() => setViewMode(viewMode === 'chat' ? 'map' : 'chat')}
-            className="h-12 w-12 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg"
+            className="h-12 w-12 rounded-full bg-stone-900 hover:bg-stone-800 shadow-lg text-white border-0"
           >
             {viewMode === 'chat' ? <Map size={20} /> : <MessageSquare size={20} />}
           </Button>

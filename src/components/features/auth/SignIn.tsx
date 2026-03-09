@@ -6,175 +6,181 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { signIn } from '@/lib/api'
-import { useEffect, useState , Suspense } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'react-hot-toast'
-
 import { LinkedInLogoIcon } from "@radix-ui/react-icons"
-import { Facebook } from 'lucide-react'
-
-
+import { Facebook, X } from 'lucide-react'
 
 function SignInContent() {
   const router = useRouter()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const searchParams = useSearchParams();
-  const { signIn: authSignIn } = useAuth();
+  const searchParams = useSearchParams()
+  const { signIn: authSignIn } = useAuth()
 
   useEffect(() => {
-    const error = searchParams.get('error');
+    const error = searchParams.get('error')
     if (error) {
-      toast.error(`Authentication failed: ${error}`);
+      toast.error(`Authentication failed: ${error}`)
     }
-  }, [searchParams]);
+  }, [searchParams])
 
-  const handleCancel = () => {
-    router.push('/')
-  }
+  const handleCancel = () => router.push('/')
 
-  const handleOAuthLogin = (loginProvider: string) => {
-
-    if (loginProvider === 'google') {
-      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/google`;
-    } else if (loginProvider === 'linkedin') {
-      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/linkedin`;
-    } else {
-      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/facebook`;
-    }
+  const handleOAuthLogin = (provider: string) => {
+    const url = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/${provider}`
+    window.location.href = url
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Form submitted with:', { username, password });
-    setIsLoading(true);
-    
-    // Test if we can reach the backend at all
+    e.preventDefault()
+    setIsLoading(true)
     try {
-      console.log('Testing backend connectivity...');
-      const testResponse = await fetch('http://localhost:8080/api/auth/session-state');
-      console.log('Backend test response:', testResponse.status);
-    } catch (testError) {
-      console.error('Backend connectivity test failed:', testError);
-    }
-    
-    try {
-      console.log('Calling signIn API...');
-      const response = await signIn(username, password);
-      console.log('Sign-in response:', response);
-      
-      // For session-based auth, we don't need a token
-      // The JSESSIONID cookie is automatically set by the browser
-      if (response.message && response.message.includes('successful')) {
-        console.log('Sign-in successful, calling authSignIn...');
-        // Set a dummy token for the auth context (or modify auth context to work without token)
-        authSignIn('session-auth');
-        toast.success('Signed in successfully!');
+      const response = await signIn(username, password)
+      if (response?.message?.toLowerCase().includes('success')) {
+        authSignIn('session-auth')
+        toast.success('Signed in successfully!')
+        router.push('/')
       } else {
-        console.log('Invalid response:', response);
-        throw new Error('Invalid response from server');
+        throw new Error('Invalid response from server')
       }
     } catch (error: any) {
-      console.error('Error during sign-in:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        statusText: error.response?.statusText
-      });
-      
-      if (error.response?.status === 401) {
-        toast.error('Invalid credentials. Please check your username and password.');
-      } else if (error.response?.status === 500) {
-        toast.error('Server error. Please try again later.');
-      } else if (error.code === 'NETWORK_ERROR') {
-        toast.error('Network error. Please check your connection.');
+      const data = error.response?.data
+      const status = error.response?.status
+      const serverMessage = data?.message ?? data?.error
+      if (status === 401) {
+        toast.error(serverMessage || 'Invalid credentials. Please check your username and password.')
+      } else if (status === 500) {
+        toast.error(serverMessage || 'Server error. Please try again later.')
+      } else if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        toast.error('Cannot reach the server. Is the backend running?')
       } else {
-        toast.error(`Sign-in failed: ${error.message}`);
+        toast.error(serverMessage || error.message || 'Sign-in failed.')
       }
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
-
+  }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-96 relative">
-        <button
-          type="button"
-          onClick={handleCancel}
-          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-          aria-label="Close"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-
-        <div className="flex items-center mb-6">
-          <Image src="/logo.svg" alt="Travel Logo" width={24} height={24} style={{ width: 'auto', height: 'auto' }} />
-          <span className="ml-2 text-xl font-semibold">travel planner</span>
-        </div>
-
-        <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
-        <p className="text-gray-600 mb-6">
-          New member? <Link href="/auth/signup" className="text-blue-600 hover:underline">Sign up</Link>
-        </p>
-        <form onSubmit={handleSubmit} id="signin-form">
-          <Input
-            type="text"
-            placeholder="Username"
-            className="mb-4"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            disabled={isLoading}
-          />
-          <Input
-            type="password"
-            placeholder="Password"
-            className="mb-6"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            disabled={isLoading}
-          />
-          <Button
-            type="submit"
-            className="w-full bg-black text-white hover:bg-gray-800 mb-4"
-            disabled={isLoading}
-            onClick={() => console.log('Button clicked!')}
-          >
-            {isLoading ? 'Signing in...' : 'Sign in'}
-          </Button>
-        </form>
-        <Link href="/forgot-password" className="block text-center text-blue-600 hover:underline mb-4">
-          Forgot password?
-        </Link>
-
-        <div className="relative mb-4">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-100 via-amber-50/30 to-stone-100 p-4">
+      <div className="w-full max-w-[420px]">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-stone-200/80 overflow-hidden">
+          {/* Header */}
+          <div className="relative px-8 pt-8 pb-6 border-b border-stone-100">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="absolute top-6 right-6 p-1.5 rounded-full text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="flex items-center gap-2.5 mb-6">
+              <Image src="/logo.svg" alt="" width={28} height={28} className="object-contain" />
+              <span className="text-lg font-semibold text-stone-800 tracking-tight">Travel Planner</span>
+            </div>
+            <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Welcome back</h1>
+            <p className="mt-1.5 text-sm text-stone-500">
+              New here?{" "}
+              <Link href="/auth/signup" className="font-medium text-amber-600 hover:text-amber-700 transition-colors">
+                Create an account
+              </Link>
+            </p>
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">or</span>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="p-8 pt-6">
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="signin-username" className="block text-sm font-medium text-stone-700 mb-1.5">
+                  Username
+                </label>
+                <Input
+                  id="signin-username"
+                  type="text"
+                  placeholder="Enter your username"
+                  className="h-11 rounded-lg border-stone-200 bg-stone-50/50 focus:bg-white transition-colors"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              <div>
+                <label htmlFor="signin-password" className="block text-sm font-medium text-stone-700 mb-1.5">
+                  Password
+                </label>
+                <Input
+                  id="signin-password"
+                  type="password"
+                  placeholder="Enter your password"
+                  className="h-11 rounded-lg border-stone-200 bg-stone-50/50 focus:bg-white transition-colors"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <div className="mt-2 flex justify-end">
+              <Link href="/auth/forgot-password" className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors">
+                Forgot password?
+              </Link>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full h-11 mt-6 rounded-lg bg-stone-900 hover:bg-stone-800 text-white font-medium shadow-sm transition-colors"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+
+          {/* Divider */}
+          <div className="px-8 pb-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-stone-200" />
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-white px-3 text-xs font-medium uppercase tracking-wider text-stone-400">Or continue with</span>
+              </div>
+            </div>
+            <div className="mt-6 grid grid-cols-1 gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-lg border-stone-200 bg-white hover:bg-stone-50 text-stone-700 font-medium"
+                onClick={() => handleOAuthLogin('google')}
+              >
+                <Image src="/image/google.png" alt="" width={20} height={20} className="mr-3 object-contain" />
+                Google
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-lg border-stone-200 bg-white hover:bg-stone-50 text-stone-700 font-medium"
+                onClick={() => handleOAuthLogin('linkedin')}
+              >
+                <LinkedInLogoIcon className="mr-3 h-5 w-5 text-[#0A66C2]" />
+                LinkedIn
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-lg border-stone-200 bg-white hover:bg-stone-50 text-stone-700 font-medium"
+                onClick={() => handleOAuthLogin('facebook')}
+              >
+                <Facebook className="mr-3 h-5 w-5 text-[#1877F2]" />
+                Facebook
+              </Button>
+            </div>
           </div>
-        </div>
-        <div className="space-y-4">
-          <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('google')}>
-            <Image src="/image/google.png" className="mr-4" alt="Google Logo" width={25} height={25} style={{ width: 'auto', height: 'auto' }} />
-            Sign in with Google
-          </Button>
-          <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('linkedin')}>
-            <LinkedInLogoIcon className="mr-4" style={{ width: 25, height: 25, color: '#0077B5' }} />
-            Sign in with LinkedIn
-          </Button>
-          <Button variant="outline" className="w-full" onClick={() => handleOAuthLogin('facebook')}>
-            <Facebook size={25} className="mr-4" style={{ color: '#FFFFFF', background: '#1877F2', borderRadius: 3 }} />
-            Sign in with Facebook
-          </Button>
         </div>
       </div>
     </div>
@@ -183,7 +189,11 @@ function SignInContent() {
 
 export function SignIn() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-stone-100">
+        <div className="animate-pulse text-stone-400">Loading…</div>
+      </div>
+    }>
       <SignInContent />
     </Suspense>
   )

@@ -1,37 +1,40 @@
-import Image from "next/legacy/image";
+import Image from "next/image"
 
 const places = [
   { name: "Eiffel Tower", image: "/image/neweiffeltower.jpg" },
   { name: "Great Wall", image: "/image/newgreatwall.jpg" },
   { name: "Taj Mahal", image: "/image/newtajmahal.jpg" },
   { name: "Machu Picchu", image: "/image/newmachupicchu.jpg" },
-];
+]
 
 export function FeaturedTourPlaces() {
   return (
-    <section className="py-16 bg-gray-100">
-      <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold text-gray-800 mb-8">Experiences</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+    <section className="py-20 bg-stone-50 border-t border-stone-200">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        <h2 className="text-2xl md:text-3xl font-bold text-stone-900 tracking-tight mb-10">
+          Experiences
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           {places.map((place) => (
-            <div 
-              key={place.name} 
-              className="relative aspect-square rounded-lg overflow-hidden shadow-md transition-all duration-300 hover:shadow-lg hover:scale-105"
+            <div
+              key={place.name}
+              className="group relative aspect-square rounded-xl overflow-hidden border border-stone-200/80 shadow-sm hover:shadow-md hover:border-amber-200/80 transition-all duration-300"
             >
               <Image
                 src={place.image}
                 alt={place.name}
-                layout="fill"
-                objectFit="cover"
-                className="rounded-lg transition-all duration-300 brightness-90 hover:brightness-100"
+                fill
+                sizes="(max-width: 768px) 50vw, 25vw"
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
               />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 backdrop-blur-sm">
-                <h3 className="text-white font-semibold text-lg">{place.name}</h3>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-90" />
+              <div className="absolute bottom-0 left-0 right-0 p-4">
+                <h3 className="text-white font-semibold text-base drop-shadow-sm">{place.name}</h3>
               </div>
             </div>
           ))}
         </div>
       </div>
     </section>
-  );
+  )
 }

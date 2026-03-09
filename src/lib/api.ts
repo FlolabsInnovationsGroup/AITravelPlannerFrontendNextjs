@@ -197,7 +197,7 @@ export const checkBackendHealth = async (): Promise<boolean> => {
   
   try {
     // Quick health check with short timeout
-    const response = await axios.get(`${API_BASE_URL}/actuator/health`, {
+    const response = await axios.get(`${API_BASE_URL}/api/health`, {
       timeout: 3000,
       validateStatus: (status) => status === 200
     });
@@ -239,8 +239,11 @@ const apiClient = axios.create({
   timeout: 60000, // 60 seconds timeout for AI responses
 });
 
-// Add token to all requests
+// Add token to all requests; let FormData requests use browser-set Content-Type (multipart/form-data + boundary)
 apiClient.interceptors.request.use((config) => {
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
   const token = getToken();
   if (token) {
     // 🔒 FIX 1.4: Proactive token validation - check expiration before sending request
@@ -559,7 +562,12 @@ export const signIn = async (username: string, password: string) => {
   }
 };
 
-export const signUp = async (username: string, email: string, password: string) => apiClient.post('/api/auth/signup', { username, email, password });
+export const signUp = async (username: string, email: string, password: string) => {
+  const response = await apiClient.post('/api/auth/signup', { username, email, password }, {
+    withCredentials: true,
+  });
+  return response.data;
+};
 
 // Streaming message handling
 export const sendStreamMessage = async (

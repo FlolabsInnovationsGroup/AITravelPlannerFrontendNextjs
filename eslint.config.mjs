@@ -28,6 +28,12 @@ export default [
     },
   },
   {
+    files: ["**/__tests__/**", "**/*.test.{ts,tsx,js,jsx}", "**/*.spec.{ts,tsx,js,jsx}"],
+    rules: {
+      "@next/next/no-img-element": "off",
+    },
+  },
+  {
     ignores: [".next/*", "node_modules/*", "dist/*", "out/*", "test-map.js"],
   },
 ];

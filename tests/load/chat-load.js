@@ -121,7 +121,7 @@ export function setup() {
   console.log(`   Test queries: ${TEST_QUERIES.length} variations`);
   
   // Verify API is reachable
-  const healthCheck = http.get(`${API_URL}/actuator/health`);
+  const healthCheck = http.get(`${API_URL}/api/health`);
   if (healthCheck.status !== 200) {
     throw new Error(`API health check failed: ${healthCheck.status}`);
   }

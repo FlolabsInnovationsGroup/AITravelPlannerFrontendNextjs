@@ -31,31 +31,31 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       data-testid="connection-status"
       data-connection-state={isConnected ? 'connected' : isConnecting ? 'connecting' : 'disconnected'}
     >
-      <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 max-w-sm">
+      <div className="bg-white border border-stone-200 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 max-w-sm">
         {isConnected ? (
           <>
             <Wifi className="w-5 h-5 text-green-500" />
-            <span className="text-sm text-gray-700">Connected</span>
+            <span className="text-sm text-stone-700">Connected</span>
           </>
         ) : isConnecting ? (
           <>
             <div className="animate-spin">
-              <Wifi className="w-5 h-5 text-blue-500" />
+              <Wifi className="w-5 h-5 text-amber-500" />
             </div>
-            <span className="text-sm text-gray-700">Connecting...</span>
+            <span className="text-sm text-stone-700">Connecting...</span>
           </>
         ) : (
           <>
             <WifiOff className="w-5 h-5 text-red-500" />
             <div className="flex-1">
-              <div className="text-sm text-gray-700">Connection lost</div>
-              <div className="text-xs text-gray-500">Real-time updates disabled</div>
+              <div className="text-sm text-stone-700">Connection lost</div>
+              <div className="text-xs text-stone-500">Real-time updates disabled</div>
             </div>
             {onRetry && (
               <button
                 type="button"
                 onClick={handleRetry}
-                className="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors"
+                className="text-sm bg-stone-900 text-white px-3 py-1.5 rounded-md hover:bg-stone-800 transition-colors"
               >
                 Retry
               </button>

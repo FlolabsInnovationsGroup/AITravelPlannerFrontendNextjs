@@ -116,7 +116,7 @@ function SignInContent() {
           </Button>
         </form>
         
-        <Link href="/forgot-password" className="block text-center text-blue-600 hover:underline mt-4 mb-4 font-medium">
+        <Link href="/auth/forgot-password" className="block text-center text-blue-600 hover:underline mt-4 mb-4 font-medium">
           Forgot password?
         </Link>
 
