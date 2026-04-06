@@ -56,15 +56,15 @@ jest.mock('../../../../services/MapService', () => ({
   },
 }));
 
-// Mock EnhancedGoogleMap
-jest.mock('../EnhancedGoogleMap', () => function MockEnhancedGoogleMap({ locations, onLocationAdd, onLocationSelect }: any) {
+// Mock LeafletMapWrapper (which wraps LeafletMap)
+jest.mock('../LeafletMapWrapper', () => function MockLeafletMap({ locations, onLocationSelect }: any) {
     return (
-      <div data-testid="google-map-component">
+      <div data-testid="leaflet-map-component">
         <div data-testid="map-locations-count">{locations.length}</div>
         <button
           type="button"
-          data-testid="mock-add-location"
-          onClick={() => onLocationAdd?.({
+          data-testid="mock-select-location"
+          onClick={() => onLocationSelect?.({
             id: `test-location-${  Date.now()}`,
             name: 'Test Location',
             latitude: 40.7128,
@@ -159,7 +159,7 @@ const sampleLocations: Location[] = [
       });
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       expect(screen.getByTestId('map-locations-count')).toHaveTextContent('2');
@@ -224,7 +224,7 @@ const sampleLocations: Location[] = [
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       // Should convert invalid types to 'attraction' and undefined to undefined, valid types remain unchanged
@@ -261,7 +261,7 @@ const sampleLocations: Location[] = [
       fireEvent.click(screen.getByText('Retry'));
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       expect(mockedGetLocations).toHaveBeenCalledTimes(2);
@@ -329,7 +329,7 @@ const sampleLocations: Location[] = [
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       // Simulate WebSocket message for nearby location (within 100m of Central Park)
@@ -366,7 +366,7 @@ const sampleLocations: Location[] = [
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       // Simulate WebSocket message for distant location
@@ -402,7 +402,7 @@ const sampleLocations: Location[] = [
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       const addMessageHandlerMock = mockMapService.addMessageHandler as jest.Mock
@@ -434,7 +434,7 @@ const sampleLocations: Location[] = [
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       const addMessageHandlerMock = mockMapService.addMessageHandler as jest.Mock
@@ -459,7 +459,7 @@ const sampleLocations: Location[] = [
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
      const addMessageHandlerMock = mockMapService.addMessageHandler as jest.Mock
@@ -486,7 +486,7 @@ const sampleLocations: Location[] = [
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       const newLocation: Location = {
@@ -517,7 +517,7 @@ const sampleLocations: Location[] = [
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       // Try to add location very close to existing one
@@ -546,7 +546,7 @@ const sampleLocations: Location[] = [
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       fireEvent.click(screen.getByTestId('mock-add-location'));
@@ -567,7 +567,7 @@ const sampleLocations: Location[] = [
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       fireEvent.click(screen.getByTestId('mock-select-location'));
@@ -584,7 +584,7 @@ const sampleLocations: Location[] = [
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       fireEvent.click(screen.getByTestId('mock-add-location'));
@@ -687,7 +687,7 @@ const sampleLocations: Location[] = [
       fireEvent.click(screen.getByText('Retry'));
       
       await waitFor(() => {
-        expect(screen.getByTestId('google-map-component')).toBeInTheDocument();
+        expect(screen.getByTestId('leaflet-map-component')).toBeInTheDocument();
       });
       
       consoleSpy.mockRestore();

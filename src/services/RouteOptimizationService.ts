@@ -1,11 +1,13 @@
 import { Location } from '@/types/map';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
 export interface OptimizedRoute {
     locations: Location[];
     totalDistance: number; // in kilometers
     totalDuration: number; // in minutes
-    waypoints: google.maps.DirectionsWaypoint[];
-    route: google.maps.DirectionsRoute | null;
+    waypoints: { lat: number; lng: number }[];
+    routeGeometry?: [number, number][]; // lat,lng pairs for polyline
     travelInsights?: TravelRouteInsights;
     estimatedCost?: RouteCostEstimate;
 }
@@ -26,56 +28,27 @@ export interface RouteCostEstimate {
 }
 
 export interface RouteOptimizationOptions {
-    travelMode: google.maps.TravelMode;
+    travelMode: 'drive' | 'walk' | 'bicycle' | 'transit';
     avoidHighways?: boolean;
     avoidTolls?: boolean;
     optimizeWaypoints?: boolean;
 }
 
 class RouteOptimizationService {
-    private directionsService: google.maps.DirectionsService | null = null;
-
-    private distanceMatrixService: google.maps.DistanceMatrixService | null = null;
-
-    constructor() {
-        if (typeof google !== 'undefined') {
-            this.initializeServices();
-        }
-    }
-
-    private initializeServices() {
-        this.directionsService = new google.maps.DirectionsService();
-        this.distanceMatrixService = new google.maps.DistanceMatrixService();
-    }
-
     /**
-     * Initialize services when Google Maps is loaded
-     */
-    initialize() {
-        if (!this.directionsService || !this.distanceMatrixService) {
-            this.initializeServices();
-        }
-    }
-
-    /**
-     * Optimize route through multiple locations using Google's waypoint optimization
+     * Optimize route through multiple locations
      */
     async optimizeRoute(
-        locations: Location[], 
-        options: RouteOptimizationOptions = { travelMode: google.maps.TravelMode.DRIVING }
+        locations: Location[],
+        options: RouteOptimizationOptions = { travelMode: 'drive' },
     ): Promise<OptimizedRoute | null> {
-        if (!this.directionsService || locations.length < 2) {
-            return null;
-        }
+        if (locations.length < 2) return null;
 
         try {
-            // If we have many locations, use distance matrix + TSP for better optimization
             if (locations.length > 8) {
                 return await this.optimizeWithTSP(locations, options);
             }
-
-            // For smaller sets, use Google's built-in optimization
-            return await this.optimizeWithGoogleAPI(locations, options);
+            return await this.optimizeWithBackendAPI(locations, options);
         } catch (error) {
             console.error('Route optimization failed:', error);
             return null;
@@ -83,92 +56,92 @@ class RouteOptimizationService {
     }
 
     /**
-     * Use Google's built-in waypoint optimization (up to 25 waypoints)
+     * Call the backend proxy for directions
      */
-    private async optimizeWithGoogleAPI(
-        locations: Location[], 
-        options: RouteOptimizationOptions
+    private async optimizeWithBackendAPI(
+        locations: Location[],
+        options: RouteOptimizationOptions,
     ): Promise<OptimizedRoute | null> {
-        const origin = locations[0];
-        const destination = locations[locations.length - 1];
-        const waypoints = locations.slice(1, -1).map(location => ({
-            location: new google.maps.LatLng(location.latitude, location.longitude),
-            stopover: true
-        }));
+        const waypointsParam = locations
+            .map((loc) => `${loc.latitude},${loc.longitude}`)
+            .join('|');
 
-        return new Promise((resolve) => {
-            this.directionsService!.route({
-                origin: new google.maps.LatLng(origin.latitude, origin.longitude),
-                destination: new google.maps.LatLng(destination.latitude, destination.longitude),
-                waypoints,
-                optimizeWaypoints: options.optimizeWaypoints !== false,
-                travelMode: options.travelMode,
-                avoidHighways: options.avoidHighways || false,
-                avoidTolls: options.avoidTolls || false,
-            }, (result, status) => {
-                if (status === google.maps.DirectionsStatus.OK && result) {
-                    const route = result.routes[0];
-                    const optimizedOrder = result.routes[0].waypoint_order || [];
-                    
-                    // Reorder locations based on optimization
-                    const optimizedLocations = [
-                        origin,
-                        ...optimizedOrder.map(index => locations[index + 1]),
-                        destination
-                    ];
+        try {
+            const response = await fetch(
+                `${API_URL}/api/geoapify/directions?waypoints=${encodeURIComponent(waypointsParam)}&mode=${options.travelMode}`,
+            );
 
-                    // Calculate total distance and duration
-                    let totalDistance = 0;
-                    let totalDuration = 0;
-                    
-                    route.legs.forEach(leg => {
-                        if (leg.distance) totalDistance += leg.distance.value / 1000; // Convert to km
-                        if (leg.duration) totalDuration += leg.duration.value / 60; // Convert to minutes
-                    });
+            if (!response.ok) {
+                throw new Error(`Directions request failed: ${response.status}`);
+            }
 
-                    resolve({
-                        locations: optimizedLocations,
-                        totalDistance: Math.round(totalDistance * 10) / 10,
-                        totalDuration: Math.round(totalDuration),
-                        waypoints,
-                        route
-                    });
-                } else {
-                    console.error('Directions request failed:', status);
-                    resolve(null);
-                }
-            });
-        });
+            const data = await response.json();
+
+            if (data.features && data.features.length > 0) {
+                const feature = data.features[0];
+                const geometry = feature.geometry?.coordinates?.[0] || [];
+                const properties = feature.properties || {};
+
+                const routeGeometry: [number, number][] = geometry.map(
+                    (coord: number[]) => [coord[1], coord[0]] as [number, number],
+                );
+
+                const totalDistance = (properties.distance || 0) / 1000;
+                const totalDuration = (properties.time || 0) / 60;
+
+                return {
+                    locations,
+                    totalDistance: Math.round(totalDistance * 10) / 10,
+                    totalDuration: Math.round(totalDuration),
+                    waypoints: locations.map((loc) => ({
+                        lat: loc.latitude,
+                        lng: loc.longitude,
+                    })),
+                    routeGeometry,
+                };
+            }
+
+            return this.fallbackOptimize(locations);
+        } catch (error) {
+            console.error('Backend directions API failed:', error);
+            return this.fallbackOptimize(locations);
+        }
     }
 
     /**
-     * Use Traveling Salesman Problem (TSP) approach for larger location sets
+     * TSP approach for larger location sets using Haversine distances
      */
     private async optimizeWithTSP(
-        locations: Location[], 
-        options: RouteOptimizationOptions
+        locations: Location[],
+        options: RouteOptimizationOptions,
     ): Promise<OptimizedRoute | null> {
         try {
-            // Get distance matrix for all locations
-            const distanceMatrix = await this.getDistanceMatrix(locations, options.travelMode);
-            if (!distanceMatrix) return null;
-
-            // Apply nearest neighbor TSP heuristic
+            const distanceMatrix = this.buildHaversineMatrix(locations);
             const optimizedOrder = this.nearestNeighborTSP(distanceMatrix);
-            const optimizedLocations = optimizedOrder.map(index => locations[index]);
+            const optimizedLocations = optimizedOrder.map((index) => locations[index]);
 
-            // Get the actual route for the optimized order
-            const route = await this.getRouteForOrder(optimizedLocations, options);
+            let routeGeometry: [number, number][] | undefined;
+            try {
+                const directResult = await this.optimizeWithBackendAPI(
+                    optimizedLocations,
+                    options,
+                );
+                if (directResult?.routeGeometry) {
+                    routeGeometry = directResult.routeGeometry;
+                }
+            } catch {
+                // Fall back to straight-line geometry
+            }
 
             return {
                 locations: optimizedLocations,
                 totalDistance: this.calculateTotalDistance(distanceMatrix, optimizedOrder),
                 totalDuration: this.calculateTotalDuration(distanceMatrix, optimizedOrder),
-                waypoints: optimizedLocations.slice(1, -1).map(location => ({
-                    location: new google.maps.LatLng(location.latitude, location.longitude),
-                    stopover: true
+                waypoints: optimizedLocations.map((loc) => ({
+                    lat: loc.latitude,
+                    lng: loc.longitude,
                 })),
-                route
+                routeGeometry,
             };
         } catch (error) {
             console.error('TSP optimization failed:', error);
@@ -177,61 +150,56 @@ class RouteOptimizationService {
     }
 
     /**
-     * Get distance matrix for all locations
+     * Fallback: return locations as-is with Haversine distances
      */
-    private async getDistanceMatrix(
-        locations: Location[], 
-        travelMode: google.maps.TravelMode
-    ): Promise<number[][] | null> {
-        if (!this.distanceMatrixService) return null;
+    private fallbackOptimize(locations: Location[]): OptimizedRoute {
+        const matrix = this.buildHaversineMatrix(locations);
+        const order = locations.map((_, i) => i);
 
-        const origins = locations.map(loc => new google.maps.LatLng(loc.latitude, loc.longitude));
-        const destinations = origins;
-
-        return new Promise((resolve) => {
-            this.distanceMatrixService!.getDistanceMatrix({
-                origins,
-                destinations,
-                travelMode,
-                unitSystem: google.maps.UnitSystem.METRIC,
-                avoidHighways: false,
-                avoidTolls: false
-            }, (result, status) => {
-                if (status === google.maps.DistanceMatrixStatus.OK && result) {
-                    const matrix: number[][] = [];
-                    
-                    result.rows.forEach((row, i) => {
-                        matrix[i] = [];
-                        row.elements.forEach((element, j) => {
-                            if (element.status === 'OK' && element.distance) {
-                                matrix[i][j] = element.distance.value / 1000; // Convert to km
-                            } else {
-                                // Fallback to Euclidean distance
-                                matrix[i][j] = this.euclideanDistance(locations[i], locations[j]);
-                            }
-                        });
-                    });
-                    
-                    resolve(matrix);
-                } else {
-                    resolve(null);
-                }
-            });
-        });
+        return {
+            locations,
+            totalDistance: this.calculateTotalDistance(matrix, order),
+            totalDuration: this.calculateTotalDuration(matrix, order),
+            waypoints: locations.map((loc) => ({
+                lat: loc.latitude,
+                lng: loc.longitude,
+            })),
+        };
     }
 
     /**
-     * Euclidean distance fallback
+     * Build a distance matrix using Haversine formula
+     */
+    private buildHaversineMatrix(locations: Location[]): number[][] {
+        const n = locations.length;
+        const matrix: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
+
+        for (let i = 0; i < n; i += 1) {
+            for (let j = 0; j < n; j += 1) {
+                if (i !== j) {
+                    matrix[i][j] = this.haversineDistance(locations[i], locations[j]);
+                }
+            }
+        }
+
+        return matrix;
+    }
+
+    /**
+     * Haversine distance in km
      */
     // eslint-disable-next-line class-methods-use-this
-    private euclideanDistance(loc1: Location, loc2: Location): number {
-        const R = 6371; // Earth's radius in km
-        const dLat = (loc2.latitude - loc1.latitude) * Math.PI / 180;
-        const dLng = (loc2.longitude - loc1.longitude) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(loc1.latitude * Math.PI / 180) * Math.cos(loc2.latitude * Math.PI / 180) *
-                Math.sin(dLng/2) * Math.sin(dLng/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    private haversineDistance(loc1: Location, loc2: Location): number {
+        const R = 6371;
+        const dLat = ((loc2.latitude - loc1.latitude) * Math.PI) / 180;
+        const dLng = ((loc2.longitude - loc1.longitude) * Math.PI) / 180;
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos((loc1.latitude * Math.PI) / 180) *
+                Math.cos((loc2.latitude * Math.PI) / 180) *
+                Math.sin(dLng / 2) *
+                Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     }
 
@@ -242,7 +210,7 @@ class RouteOptimizationService {
     private nearestNeighborTSP(distanceMatrix: number[][]): number[] {
         const n = distanceMatrix.length;
         const visited = new Array(n).fill(false);
-        const path = [0]; // Start from first location
+        const path = [0];
         visited[0] = true;
 
         for (let i = 1; i < n; i += 1) {
@@ -281,53 +249,18 @@ class RouteOptimizationService {
      * Calculate total duration for a given path (estimate)
      */
     private calculateTotalDuration(distanceMatrix: number[][], path: number[]): number {
-        const averageSpeed = 50; // km/h - rough estimate
+        const averageSpeed = 50; // km/h
         const totalDistance = this.calculateTotalDistance(distanceMatrix, path);
-        return Math.round((totalDistance / averageSpeed) * 60); // Convert to minutes
-    }
-
-    /**
-     * Get actual route for optimized order
-     */
-    private async getRouteForOrder(
-        locations: Location[], 
-        options: RouteOptimizationOptions
-    ): Promise<google.maps.DirectionsRoute | null> {
-        if (!this.directionsService || locations.length < 2) return null;
-
-        const origin = locations[0];
-        const destination = locations[locations.length - 1];
-        const waypoints = locations.slice(1, -1).map(location => ({
-            location: new google.maps.LatLng(location.latitude, location.longitude),
-            stopover: true
-        }));
-
-        return new Promise((resolve) => {
-            this.directionsService!.route({
-                origin: new google.maps.LatLng(origin.latitude, origin.longitude),
-                destination: new google.maps.LatLng(destination.latitude, destination.longitude),
-                waypoints,
-                optimizeWaypoints: false, // Don't re-optimize, we already have the order
-                travelMode: options.travelMode,
-                avoidHighways: options.avoidHighways || false,
-                avoidTolls: options.avoidTolls || false,
-            }, (result, status) => {
-                if (status === google.maps.DirectionsStatus.OK && result) {
-                    resolve(result.routes[0]);
-                } else {
-                    resolve(null);
-                }
-            });
-        });
+        return Math.round((totalDistance / averageSpeed) * 60);
     }
 
     /**
      * Simple route between two locations
      */
     async getSimpleRoute(
-        origin: Location, 
+        origin: Location,
         destination: Location,
-        travelMode: google.maps.TravelMode = google.maps.TravelMode.DRIVING
+        travelMode: 'drive' | 'walk' | 'bicycle' | 'transit' = 'drive',
     ): Promise<OptimizedRoute | null> {
         return this.optimizeRoute([origin, destination], { travelMode });
     }
