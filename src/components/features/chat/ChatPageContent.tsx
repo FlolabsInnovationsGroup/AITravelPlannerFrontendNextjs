@@ -920,6 +920,14 @@ export default function ChatPageContent() {
 
     const handleSendMessage = async (message: string) => {
         if (!message.trim()) return;
+
+        if (process.env.NODE_ENV === 'development') {
+            console.log('📨 [Chat] handleSendMessage called:', {
+                message,
+                currentSessionId: currentSession?.sessionId || null,
+                chatMessageLength: message.trim().length,
+            });
+        }
         
         // 🔒 FIX 2.3: Enhanced duplicate prevention
         const messageHash = `${message.trim()}-${currentSession?.sessionId || 'no-session'}`;
@@ -1025,6 +1033,14 @@ export default function ChatPageContent() {
                     await mapServiceRef.current.connectWebSocket(newSession.sessionId);
                 }
             }
+
+            const sessionIdToUse = sessionId;
+            if (process.env.NODE_ENV === 'development') {
+                console.log('📨 [Chat] Sending message to backend:', {
+                    message,
+                    sessionId: sessionIdToUse,
+                });
+            }
     
             // 🔒 FIX 2.4: Wrap API call in retry mechanism
             // Show AI typing indicator
@@ -1090,6 +1106,15 @@ export default function ChatPageContent() {
                     content: messageContent,
                 }]);
                 setTypingMessageId(newId);
+
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('🤖 [Chat] Backend AI response received (assistant message queued):', {
+                        message,
+                        sessionId: sessionIdToUse,
+                        aiPreview: messageContent?.slice?.(0, 120) || messageContent,
+                        responseSuggestionsCount: Array.isArray(responseSuggestions) ? responseSuggestions.length : 0,
+                    });
+                }
 
                 // 🗺️ Trigger map refetch after AI response (deferred to next frame to avoid UI glitch)
                 requestAnimationFrame(() => {

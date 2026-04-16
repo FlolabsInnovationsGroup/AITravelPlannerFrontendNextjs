@@ -21,9 +21,7 @@ export class MapService {
     private connectionTimeoutTimer: NodeJS.Timeout | null = null;
     private readonly CONNECTION_TIMEOUT_MS = 30000; // 30 seconds
 
-    private mapInstance: google.maps.Map | null = null;
-
-    private markers: google.maps.Marker[] = [];
+    private markers: { lat: number; lng: number; title?: string }[] = [];
 
     private connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
 
@@ -409,9 +407,32 @@ export class MapService {
         const subscription = this.stompClient.subscribe(`/topic/locations/${sessionId}`, (message) => {
             try {
                 const event: WebSocketEvent<LocationAddedPayload | LocationRemovedPayload | MapClearedPayload> = JSON.parse(message.body);
+                if (process.env.NODE_ENV === 'development') {
+                    const payloadAny = (event as any).payload;
+                    const payloadPreview = payloadAny && typeof payloadAny === 'object'
+                        ? {
+                            type: (payloadAny as any).type,
+                            sessionId: (payloadAny as any).sessionId,
+                            id: (payloadAny as any).id,
+                            latitude: (payloadAny as any).latitude,
+                            longitude: (payloadAny as any).longitude,
+                            locationId: (payloadAny as any).locationId,
+                        }
+                        : payloadAny;
+                    console.log('📡 [MapService] STOMP event received:', {
+                        type: event.type,
+                        preview: payloadPreview,
+                    });
+                }
+
                 this.messageHandlers.forEach(handler => handler(event));
             } catch (error) {
                 // Silently handle message parsing errors - may be due to network issues
+                if (process.env.NODE_ENV === 'development') {
+                    console.warn('⚠️ [MapService] Failed to parse STOMP message body:', {
+                        error: error instanceof Error ? error.message : String(error),
+                    });
+                }
             }
         });
 
@@ -645,109 +666,7 @@ export class MapService {
         }
     }
 
-    // Google Maps Methods
-    setMapInstance(map: google.maps.Map): void {
-        this.mapInstance = map;
-        this.onMapInitialized();
-    }
-
-    private onMapInitialized(): void {
-        // Add any initialization logic here
-        if (!this.mapInstance) return;
-
-        // Set default map options
-        this.mapInstance.setOptions({
-            zoom: 12,
-            mapTypeControl: true,
-            streetViewControl: true,
-            fullscreenControl: true,
-            gestureHandling: 'cooperative'
-        });
-
-        // Add error handling for map loading
-        google.maps.event.addListenerOnce(this.mapInstance, 'idle', () => {
-            if (this.onConnect) this.onConnect();
-        });
-
-        google.maps.event.addListenerOnce(this.mapInstance, 'error', () => {
-            if (this.onError) this.onError(new Error('Failed to load Google Maps'));
-        });
-    }
-
-    addMarkerToMap(location: { lat: number; lng: number }, title?: string): void {
-        if (!this.mapInstance) {
-            const error = new Error('Map instance is not set. Please initialize the map.');
-            if (this.onError) this.onError(error);
-            return;
-        }
-        
-        try {
-            const marker = new google.maps.Marker({
-                position: location,
-                map: this.mapInstance,
-                title: title || '',
-                animation: google.maps.Animation.DROP
-            });
-
-            this.markers.push(marker);
-        } catch (error) {
-            if (this.onError) this.onError(error as Error);
-        }
-    }
-
-    removeMarkerFromMap(location: { lat: number; lng: number }): void {
-        if (!this.mapInstance) {
-            const error = new Error('Map instance is not set. Please initialize the map.');
-            if (this.onError) this.onError(error);
-            return;
-        }
-
-        try {
-            const markerIndex = this.markers.findIndex(
-                (marker) =>
-                    marker.getPosition()?.lat() === location.lat &&
-                    marker.getPosition()?.lng() === location.lng
-            );
-
-            if (markerIndex !== -1) {
-                this.markers[markerIndex].setMap(null);
-                this.markers.splice(markerIndex, 1);
-            } else {
-                // No marker found at location - silently handle
-            }
-        } catch (error) {
-            if (this.onError) this.onError(error as Error);
-        }
-    }
-
     clearAllMarkers(): void {
-        if (!this.mapInstance) {
-            // Silently clear markers array even if map isn't initialized
-            // This prevents errors during session transitions before map loads
-            this.markers = [];
-            return;
-        }
-
-        try {
-            this.markers.forEach((marker) => marker.setMap(null));
-            this.markers = [];
-        } catch (error) {
-            if (this.onError) this.onError(error as Error);
-        }
-    }
-
-    centerMapOnLocation(location: { lat: number; lng: number }): void {
-        if (!this.mapInstance) {
-            const error = new Error('Map instance is not set. Please initialize the map.');
-            if (this.onError) this.onError(error);
-            return;
-        }
-
-        try {
-            this.mapInstance.panTo(location);
-            this.mapInstance.setZoom(14); // Set appropriate zoom level
-        } catch (error) {
-            if (this.onError) this.onError(error as Error);
-        }
+        this.markers = [];
     }
 }

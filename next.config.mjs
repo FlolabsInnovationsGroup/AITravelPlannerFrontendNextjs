@@ -13,6 +13,9 @@ if (process.env.SUPPRESS_BASELINE_WARNING === 'true') {
 }
 
 const nextConfig = {
+  // react-leaflet/Leaflet can throw "Map container is already initialized" in
+  // React Strict Mode (double-mount behavior) during development.
+  reactStrictMode: false,
   // Disable webpack cache in development to prevent chunk loading failures
   experimental: {
     // Disable webpack cache for stability in development
@@ -34,8 +37,8 @@ const nextConfig = {
     NEXT_PUBLIC_API_URL: process.env.NODE_ENV === 'production' 
       ? process.env.NEXT_PUBLIC_API_URL || 'https://api.flomadtravel.com'
       : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
-    // Explicitly expose Google Maps API key to client
-    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    // Expose Geoapify API key to client
+    NEXT_PUBLIC_GEOAPIFY_API_KEY: process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY,
   },
   // Image configuration for Next.js 15/16
   images: {
@@ -87,11 +90,11 @@ const nextConfig = {
             priority: 40,
             enforce: true,
           },
-          // Google Maps libraries
+          // Map libraries (Leaflet)
           maps: {
             name: 'maps',
             chunks: 'all',
-            test: /[\\/]node_modules[\\/](@googlemaps|@react-google-maps)[\\/]/,
+            test: /[\\/]node_modules[\\/](leaflet|react-leaflet)[\\/]/,
             priority: 30,
             enforce: true,
           },

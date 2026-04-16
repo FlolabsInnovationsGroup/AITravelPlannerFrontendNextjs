@@ -9,99 +9,38 @@ jest.mock('@/components/ui/input', () => ({
   ))
 }));
 
-// Mock lodash debounce
-jest.mock('lodash/debounce', () => jest.fn((fn) => {
-    const mockDebounced = (...args: any[]) => fn(...args);
-    mockDebounced.cancel = jest.fn();
-    return mockDebounced;
-  }));
+// Mock fetch for Geoapify API calls
+const mockFetch = jest.fn(() =>
+  Promise.resolve({
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        features: [
+          {
+            properties: {
+              place_id: 'test_place_1',
+              name: 'Test Place',
+              formatted: 'Test Place, Test City',
+              lat: 40.7128,
+              lon: -74.006,
+              categories: ['tourism.attraction'],
+              result_type: 'amenity',
+            },
+          },
+        ],
+      }),
+  }),
+) as jest.Mock;
 
-// Complete Google Maps mock with event system
-const setupGoogleMapsMock = () => {
-  // Mock Autocomplete instance with all required methods
-  const mockAutocompleteInstance = {
-    addListener: jest.fn(() => 
-      // Return a listener object with remove method
-       ({ remove: jest.fn() })
-    ),
-    removeListener: jest.fn(),
-    setOptions: jest.fn(),
-    getPlace: jest.fn(() => ({
-      formatted_address: 'Test Address',
-      place_id: 'test_place_id',
-      name: 'Test Place',
-      geometry: {
-        location: {
-          lat: () => 40.7128,
-          lng: () => -74.0060
-        }
-      },
-      types: ['establishment']
-    })),
-    setBounds: jest.fn(),
-    setFields: jest.fn(),
-    setTypes: jest.fn(),
-    getFields: jest.fn(() => ['place_id', 'formatted_address', 'geometry', 'name']),
-    getBounds: jest.fn()
-  };
-
-  (global as any).google = {
-    maps: {
-      places: {
-        Autocomplete: jest.fn(() => mockAutocompleteInstance),
-        AutocompleteSuggestion: {
-          fetchAutocompleteSuggestions: jest.fn().mockResolvedValue({
-            suggestions: [
-              {
-                placePrediction: {
-                  placeId: 'test_place_1',
-                  text: { text: 'Test Place 1, Test Location' },
-                  types: ['establishment']
-                }
-              }
-            ]
-          })
-        },
-        AutocompleteSessionToken: jest.fn(() => ({
-          // Mock session token properties
-        })),
-        PlacesService: jest.fn(),
-        PlacesServiceStatus: {
-          OK: 'OK',
-          ZERO_RESULTS: 'ZERO_RESULTS',
-          OVER_QUERY_LIMIT: 'OVER_QUERY_LIMIT',
-          REQUEST_DENIED: 'REQUEST_DENIED',
-          INVALID_REQUEST: 'INVALID_REQUEST'
-        }
-      },
-      event: {
-        clearInstanceListeners: jest.fn(),
-        addListener: jest.fn(() => ({ remove: jest.fn() })),
-        removeListener: jest.fn(),
-        clearListeners: jest.fn(),
-        trigger: jest.fn()
-      },
-      LatLng: jest.fn(),
-      LatLngBounds: jest.fn()
-    }
-  };
-};
+global.fetch = mockFetch;
 
 describe('SearchBox Component - Core Functionality', () => {
   const mockOnPlaceSelected = jest.fn();
 
-  beforeAll(() => {
-    // Set up global Google Maps mock once
-    setupGoogleMapsMock();
-  });
-
   beforeEach(() => {
     jest.clearAllMocks();
     mockOnPlaceSelected.mockClear();
-  });
-
-  afterAll(() => {
-    delete (global as any).google;
+    mockFetch.mockClear();
   });
 
   describe('Basic Rendering', () => {
@@ -323,9 +262,8 @@ describe('SearchBox Component - Core Functionality', () => {
   });
 
   describe('Error Handling', () => {
-    test('handles missing Google Maps gracefully', () => {
-      // Remove Google Maps mock temporarily
-      delete (global as any).google;
+    test('handles fetch failures gracefully', () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
       
       expect(() => {
         render(<SearchBox onPlaceSelected={mockOnPlaceSelected} />);

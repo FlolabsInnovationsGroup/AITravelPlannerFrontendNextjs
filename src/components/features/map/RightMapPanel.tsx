@@ -8,7 +8,7 @@ import { MapService } from '@/services/MapService';
 import Image from 'next/image';
 import { Route, Filter, X, Settings, Trash2 } from 'lucide-react';
 // import GoogleMapComponent from './GoogleMapComponent'; // Unused import
-import EnhancedGoogleMap from './EnhancedGoogleMap';
+import LeafletMap from './LeafletMapWrapper';
 import MapFilters, { MapFilterState } from './MapFilters';
 import ThemeSelector from './ThemeSelector';
 // import { DEFAULT_THEME } from './MapThemes'; // Unused import
@@ -79,8 +79,8 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate, r
     const activeLocationFetchRef = useRef<AbortController | null>(null);
 
     // 📍 NEW: Function to refetch locations (can be triggered externally)
-    const refetchLocations = useCallback(async () => {
-        if (!currentSessionId || !currentUserToken) return;
+    const refetchLocations = useCallback(async (): Promise<number> => {
+        if (!currentSessionId || !currentUserToken) return 0;
         
         console.log('🔄 Manual refetch triggered for session:', currentSessionId);
         
@@ -97,30 +97,87 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate, r
                 const fetchedLocations = await response.json();
                 console.log(`📍 Refetched ${Array.isArray(fetchedLocations) ? fetchedLocations.length : 0} locations`);
                 if (Array.isArray(fetchedLocations)) {
+                    if (fetchedLocations.length === 0) {
+                        // IMPORTANT: Do not overwrite current locations with [].
+                        // WebSocket events (LOCATION_ADDED) may arrive slightly before the REST persistence is visible.
+                        // Overwriting here causes the "Ask in chat..." empty state flicker / stickiness.
+                        return 0;
+                    }
+
                     const locationsWithPhotos = fetchedLocations.map(loc => ({
                         ...loc,
                         photos: Array.isArray(loc.photos) ? loc.photos : loc.photos ? [loc.photos] : undefined
                     }));
                     setLocations(locationsWithPhotos);
+                    return locationsWithPhotos.length;
                 }
             }
         } catch (error) {
             console.warn('⚠️ Refetch failed:', error);
         }
+
+        return 0;
     }, [currentSessionId, currentUserToken]);
 
     // 📍 NEW: Refetch when trigger changes (after AI message completes)
     useEffect(() => {
-        if (refetchTrigger && refetchTrigger > 0) {
-            // Delay slightly to ensure backend has processed the location
-            const timeoutId = setTimeout(() => {
-                refetchLocations();
-            }, 1000); // 1 second delay to ensure backend processing is complete
-            
-            return () => {
-                clearTimeout(timeoutId);
-            };
+        if (!refetchTrigger || refetchTrigger <= 0) return undefined;
+
+        let cancelled = false;
+
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🗺️ [RightMapPanel] Poll started due to refetchTrigger:', {
+                refetchTrigger,
+                currentSessionId,
+            });
         }
+
+        // Poll for a few seconds because backend saves locations slightly after
+        // the assistant message is returned, and WebSocket subscription can fail.
+        const poll = async () => {
+            const maxAttempts = 6;
+            const initialDelayMs = 1500;
+            const intervalMs = 1000;
+
+            for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                if (cancelled) return;
+                if (attempt === 1) {
+                    await new Promise(resolve => setTimeout(resolve, initialDelayMs));
+                } else {
+                    await new Promise(resolve => setTimeout(resolve, intervalMs));
+                }
+
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('🗺️ [RightMapPanel] Poll attempt:', {
+                        attempt,
+                        maxAttempts,
+                        currentSessionId,
+                    });
+                }
+
+                const count = await refetchLocations();
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('🗺️ [RightMapPanel] Poll refetch count:', {
+                        attempt,
+                        count,
+                    });
+                }
+                if (count > 0) {
+                    console.log(`🗺️ Map locations loaded after ${attempt} attempt(s).`);
+                    return;
+                }
+            }
+
+            console.warn('🗺️ [RightMapPanel] Poll finished but still got 0 locations:', { currentSessionId });
+        };
+
+        poll().catch(err => {
+            console.warn('⚠️ Poll refetch failed:', err);
+        });
+
+        return () => {
+            cancelled = true;
+        };
     }, [refetchTrigger, refetchLocations]);
 
     // Clear all locations function
@@ -175,14 +232,23 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate, r
         const messageHandler = (event: WebSocketEvent<any>) => {
             switch (event.type) {
                 case 'LOCATION_ADDED': {
-                    const newLocation = event.payload as Location;
+                    const rawPayload = event.payload as any;
+                    // WebSocket JSON may represent numeric fields as strings; coerce to numbers.
+                    const newLocation = {
+                        ...rawPayload,
+                        id: rawPayload?.id ?? rawPayload?.locationId ?? rawPayload?._id,
+                        sessionId: rawPayload?.sessionId ?? rawPayload?.sessionID,
+                        latitude: Number(rawPayload?.latitude),
+                        longitude: Number(rawPayload?.longitude),
+                    } as Location;
                     
                     // 🔒 CRITICAL FIX: Validate coordinates are valid numbers
-                    if (typeof newLocation.latitude !== 'number' || 
-                        typeof newLocation.longitude !== 'number' ||
-                        isNaN(newLocation.latitude) || 
-                        isNaN(newLocation.longitude)) {
-                        console.error('❌ Invalid location coordinates:', newLocation);
+                    if (!Number.isFinite(newLocation.latitude) || !Number.isFinite(newLocation.longitude)) {
+                        console.error('❌ Invalid location coordinates (after coercion):', {
+                            latitudeRaw: rawPayload?.latitude,
+                            longitudeRaw: rawPayload?.longitude,
+                            coerced: { latitude: newLocation.latitude, longitude: newLocation.longitude },
+                        });
                         toast.error(`Cannot add "${newLocation.name || 'location'}": Invalid coordinates`);
                         return;
                     }
@@ -579,7 +645,7 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate, r
                 <div className="h-full relative">
                     {/* Full Height Map Component - Always visible */}
                     <div className="absolute inset-0">
-                        <EnhancedGoogleMap
+                        <LeafletMap
                             locations={showFilters && filteredLocations.length > 0 ? filteredLocations : locations}
                             onLocationSelect={handleLocationSelect}
                             theme={currentTheme}
@@ -587,25 +653,12 @@ function RightMapPanel({ currentSessionId, currentUserToken, onLocationUpdate, r
                         />
                     </div>
 
-                    {/* Travel Agent Image Overlay - Only when no locations AND not loading */}
+                    {/* Empty-state hint: keep map visible, show a compact helper card */}
                     {locations.length === 0 && !isLoading && (
-                        <div className="absolute inset-0 bg-white/90 flex items-center justify-center pointer-events-none">
-                            <div className="text-center">
-                                <Image
-                                    src="/image/travelagentpic1.png"
-                                    alt="Travel Agent"
-                                    width={500}
-                                    height={400}
-                                    className="object-cover opacity-80 rounded-lg mx-auto"
-                                    priority
-                                    data-testid="travel-agent-image"
-                                />
-                                <div className="mt-4">
-                                    <div className="bg-white/95 px-6 py-3 rounded-lg shadow-lg backdrop-blur-sm">
-                                        <p className="text-gray-700 text-lg font-medium">Ask AI to plan your trip!</p>
-                                        <p className="text-gray-500 text-sm mt-1">Locations will appear on the map as you chat</p>
-                                    </div>
-                                </div>
+                        <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 pointer-events-none">
+                            <div className="bg-white/95 px-4 py-2 rounded-lg shadow-md border border-gray-200 backdrop-blur-sm text-center">
+                                <p className="text-gray-700 text-sm font-medium">Ask AI to plan your trip</p>
+                                <p className="text-gray-500 text-xs mt-0.5">Locations will appear on the map as you chat</p>
                             </div>
                         </div>
                     )}

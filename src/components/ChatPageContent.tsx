@@ -507,7 +507,7 @@ export default function ChatPageContent() {
                         setShowItinerary(false);
                         // You could add map centering logic here
                     }}
-                    onLocationRemove={(locationId) => {
+                    onLocationRemove={(locationId: string) => {
                         setItineraryLocations(prev => 
                             prev.filter(loc => loc.id !== locationId)
                         );
