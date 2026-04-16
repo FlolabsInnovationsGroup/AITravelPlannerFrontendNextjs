@@ -63,7 +63,7 @@ jest.mock('../LeafletMapWrapper', () => function MockLeafletMap({ locations, onL
         <div data-testid="map-locations-count">{locations.length}</div>
         <button
           type="button"
-          data-testid="mock-select-location"
+          data-testid="mock-add-location"
           onClick={() => onLocationSelect?.({
             id: `test-location-${  Date.now()}`,
             name: 'Test Location',
@@ -134,11 +134,11 @@ const sampleLocations: Location[] = [
       });
       
       await waitFor(() => {
-        expect(screen.getByTestId('travel-agent-image')).toBeInTheDocument();
+        expect(screen.getByText('Ask AI to plan your trip')).toBeInTheDocument();
       });
     });
 
-    it('shows travel agent image when no locations', async () => {
+    it('shows empty state hint when no locations', async () => {
       mockedGetLocations.mockResolvedValue([]);
       
       await act(async () => {
@@ -146,11 +146,10 @@ const sampleLocations: Location[] = [
       });
       
       await waitFor(() => {
-        expect(screen.getByTestId('travel-agent-image')).toBeInTheDocument();
+        expect(screen.getByText('Ask AI to plan your trip')).toBeInTheDocument();
       });
       
-      expect(screen.getByTestId('travel-agent-image')).toHaveAttribute('src', '/image/travelagentpic1.png');
-      expect(screen.getByTestId('travel-agent-image')).toHaveAttribute('alt', 'Travel Agent');
+      expect(screen.getByText('Locations will appear on the map as you chat')).toBeInTheDocument();
     });
 
     it('shows map component when locations exist', async () => {
@@ -163,7 +162,7 @@ const sampleLocations: Location[] = [
       });
       
       expect(screen.getByTestId('map-locations-count')).toHaveTextContent('2');
-      expect(screen.queryByTestId('travel-agent-image')).not.toBeInTheDocument();
+      expect(screen.queryByText('Ask AI to plan your trip')).not.toBeInTheDocument();
     });
 
     it('displays loading spinner during data fetch', () => {
@@ -181,7 +180,7 @@ const sampleLocations: Location[] = [
       });
       
       await waitFor(() => {
-        expect(screen.getByTestId('travel-agent-image')).toBeInTheDocument();
+        expect(screen.getByText('Ask AI to plan your trip')).toBeInTheDocument();
       });
       
       expect(mockedGetLocations).not.toHaveBeenCalled();
@@ -195,7 +194,7 @@ const sampleLocations: Location[] = [
       });
       
       await waitFor(() => {
-        expect(screen.getByTestId('travel-agent-image')).toBeInTheDocument();
+        expect(screen.getByText('Ask AI to plan your trip')).toBeInTheDocument();
       });
     });
   });
@@ -476,7 +475,7 @@ const sampleLocations: Location[] = [
       });
       
       await waitFor(() => {
-        expect(screen.getByTestId('travel-agent-image')).toBeInTheDocument();
+        expect(screen.getByText('Ask AI to plan your trip')).toBeInTheDocument();
       });
     });
   });
@@ -606,7 +605,7 @@ const sampleLocations: Location[] = [
       render(<RightMapPanel {...mockProps} currentSessionId={null} />);
       
       await waitFor(() => {
-        expect(screen.getByTestId('travel-agent-image')).toBeInTheDocument();
+        expect(screen.getByText('Ask AI to plan your trip')).toBeInTheDocument();
       });
       
       // Even if we had a map, adding location should be prevented
@@ -699,18 +698,18 @@ const sampleLocations: Location[] = [
       
       // Component should render without errors even with WebSocket issues
       await waitFor(() => {
-        expect(screen.getByTestId('travel-agent-image')).toBeInTheDocument();
+        expect(screen.getByText('Ask AI to plan your trip')).toBeInTheDocument();
       });
     });
   });
 
   describe('Accessibility', () => {
-    it('provides proper alt text for travel agent image', async () => {
+    it('provides accessible empty-state helper text', async () => {
       mockedGetLocations.mockResolvedValue([]);
       render(<RightMapPanel {...mockProps} />);
       
       await waitFor(() => {
-        expect(screen.getByAltText('Travel Agent')).toBeInTheDocument();
+        expect(screen.getByText('Ask AI to plan your trip')).toBeInTheDocument();
       });
     });
 

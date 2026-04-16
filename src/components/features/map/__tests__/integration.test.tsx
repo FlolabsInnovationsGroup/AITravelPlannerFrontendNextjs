@@ -152,6 +152,16 @@ describe('Map System Integration Tests', () => {
 
   describe('Error Handling Integration', () => {
     it('should gracefully handle extraction failures', async () => {
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/api/geoapify/autocomplete') || url.includes('/api/geoapify/geocode')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ features: [] }),
+          });
+        }
+        return Promise.resolve({ ok: false, status: 404 });
+      });
+
       const result = await extractionService.extractLocationFromMessage('This is not a location query');
       
       expect(result.error).toBeDefined();
