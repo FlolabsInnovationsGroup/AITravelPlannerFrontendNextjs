@@ -6,12 +6,14 @@ import Script from 'next/script';
 import '@/styles/globals.css'
 import ChunkErrorHandler from '@/components/ChunkErrorHandler';
 import CacheBuster from '@/components/CacheBuster';
+import { siteConfig } from '@/lib/site';
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
+  metadataBase: new URL(siteConfig.url),
   title: 'Flomad Travel - AI-Powered Travel Planning',
-  description: 'Plan your perfect trip with AI assistance',
+  description: siteConfig.description,
   icons: {
     icon: '/favicon.svg',
     apple: '/logo.svg',
