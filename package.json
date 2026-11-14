@@ -6,9 +6,9 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "dev": "NODE_ENV=development SUPPRESS_BASELINE_WARNING=true next dev -p 3000",
-    "build": "NODE_ENV=production next build",
-    "start": "NODE_ENV=production next start",
+    "dev": "node init && NODE_ENV=development SUPPRESS_BASELINE_WARNING=true next dev -p 3000",
+    "build": "node init && NODE_ENV=production next build",
+    "start": "node init && NODE_ENV=production next start",
     "lint": "eslint .",
     "prepare": "husky install",
     "test": "jest",
@@ -31,7 +31,7 @@
     "test:all": "npm run test && npm run test:e2e && npm run test:performance",
     "check-env": "ts-node scripts/checkEnv.ts",
     "analyze": "cross-env ANALYZE=true next build",
-    "build:analyze": "cross-env ANALYZE=true npm run build"
+    "build:analyze": "node init && cross-env ANALYZE=true npm run build"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
