@@ -191,6 +191,8 @@ export function SignIn() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-stone-100">
+        {/* Server HTML only contains this fallback (useSearchParams bails out of SSR); keep an H1 for crawlers and screen readers */}
+        <h1 className="sr-only">Sign in to Flomad Travel</h1>
         <div className="animate-pulse text-stone-400">Loading…</div>
       </div>
     }>
