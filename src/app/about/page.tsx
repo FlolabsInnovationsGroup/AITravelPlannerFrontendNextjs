@@ -1,11 +1,40 @@
 import Footer from "@/components/features/landing/Footer";
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
+import { ORGANIZATION_ID, SITE_URL, WEBSITE_ID, jsonLdString, socialMetadata } from "@/lib/site";
 import { Sparkles, MapPin, CalendarDays, MessageCircle, Compass, ArrowRight, Globe } from "lucide-react";
+
+const ABOUT_TITLE = "About Flomad Travel";
+const ABOUT_DESCRIPTION =
+  "Learn about Flomad Travel, the AI travel planner that combines AI with real-world travel data for personalized recommendations and clear itineraries.";
+
+export const metadata: Metadata = {
+  title: { absolute: `${ABOUT_TITLE} | AI Travel Planner` },
+  description: ABOUT_DESCRIPTION,
+  alternates: { canonical: "/about" },
+  ...socialMetadata("/about", ABOUT_TITLE, ABOUT_DESCRIPTION),
+};
+
+const aboutJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  "@id": `${SITE_URL}/about#webpage`,
+  url: `${SITE_URL}/about`,
+  name: ABOUT_TITLE,
+  description: ABOUT_DESCRIPTION,
+  inLanguage: "en",
+  isPartOf: { "@id": WEBSITE_ID },
+  about: { "@id": ORGANIZATION_ID },
+};
 
 export default function AboutPage() {
   return (
     <div className="flex flex-col min-h-screen bg-stone-50 text-stone-900">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdString(aboutJsonLd) }}
+      />
       {/* Header - same structure and position as landing/contact */}
       <header className="fixed top-0 left-0 right-0 z-50 w-full bg-stone-900/95 backdrop-blur-md border-b border-stone-800">
         <nav className="flex items-center justify-between px-4 py-4 sm:px-6 md:px-10 max-w-7xl mx-auto">

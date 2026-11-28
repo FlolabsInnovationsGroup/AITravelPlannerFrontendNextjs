@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from "@/components/ui/theme-provider"
@@ -6,16 +7,70 @@ import Script from 'next/script';
 import '@/styles/globals.css'
 import ChunkErrorHandler from '@/components/ChunkErrorHandler';
 import CacheBuster from '@/components/CacheBuster';
+import {
+  LINKEDIN_URL,
+  ORGANIZATION_ID,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TITLE,
+  SITE_URL,
+  WEBSITE_ID,
+  jsonLdString,
+} from '@/lib/site';
 
 const inter = Inter({ subsets: ['latin'] })
 
-export const metadata = {
-  title: 'Flomad Travel - AI-Powered Travel Planning',
-  description: 'Plan your perfect trip with AI assistance',
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_TITLE,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: 'website',
+    siteName: SITE_NAME,
+    locale: 'en_US',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
   icons: {
     icon: '/favicon.svg',
     apple: '/logo.svg',
   },
+}
+
+const siteJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': ORGANIZATION_ID,
+      name: SITE_NAME,
+      url: `${SITE_URL}/`,
+      logo: `${SITE_URL}/logo.png`,
+      parentOrganization: {
+        '@type': 'Organization',
+        name: 'Flomad Labs R&D',
+        sameAs: [LINKEDIN_URL],
+      },
+    },
+    {
+      '@type': 'WebSite',
+      '@id': WEBSITE_ID,
+      url: `${SITE_URL}/`,
+      name: SITE_NAME,
+      description: SITE_DESCRIPTION,
+      inLanguage: 'en',
+      publisher: { '@id': ORGANIZATION_ID },
+    },
+  ],
 }
 
 export default function RootLayout({
@@ -46,6 +101,10 @@ export default function RootLayout({
       </Script>
     </head>
     <body>
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: jsonLdString(siteJsonLd) }}
+    />
     <CacheBuster />
     <ChunkErrorHandler />
     <AuthProviderWrapper>

@@ -64,7 +64,7 @@ export function TopCities() {
                 <div className="relative aspect-[3/4] group overflow-hidden rounded-xl border border-stone-200/80 shadow-sm hover:shadow-md hover:border-amber-200/80 transition-all duration-300">
                   <Image
                     src={city.image}
-                    alt={city.name}
+                    alt={`${city.name}, one of the top cities to visit`}
                     fill
                     sizes="(max-width: 640px) 224px, 256px"
                     className="object-cover transition-transform duration-300 group-hover:scale-105"

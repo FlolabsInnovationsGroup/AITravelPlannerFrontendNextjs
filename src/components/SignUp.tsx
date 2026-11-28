@@ -79,7 +79,7 @@ export function SignUp() {
           <span className="text-2xl font-bold text-gray-900">flomad travel</span>
         </div>
         
-        <h2 className="text-2xl font-bold mb-2 text-center">Sign up for free!</h2>
+        <h1 className="text-2xl font-bold mb-2 text-center">Sign up for free!</h1>
         <p className="text-gray-600 mb-6 text-center">
           Have an account? <Link href="/signin" className="text-blue-600 hover:underline font-medium">Login</Link>
         </p>

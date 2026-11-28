@@ -1,0 +1,15 @@
+# Flomad Travel
+
+> Flomad Travel is an AI travel planner that builds personalized trip plans and helps with accommodations, flights, reservations and experiences. It is part of the FloLab ecosystem of AI-driven products from Flomad Labs R&D.
+
+Flomad Travel combines AI with real-world travel data to give personalized recommendations, clear itineraries and real-time travel assistance before, during and after a trip. Visitors describe a trip on the home page (for example "Weekend in Paris" or "beach trip to Bali") and continue the conversation with the AI assistant. Accounts are free to create.
+
+## Pages
+
+- [Home](https://www.flomadtravel.com/): Start planning a trip with the AI travel assistant; featured experiences and top cities.
+- [About](https://www.flomadtravel.com/about): Mission, what Flomad Travel offers (AI-powered trip planning, smart itineraries, real-time travel assistance, destination insights) and who is behind it.
+- [Contact](https://www.flomadtravel.com/contact): How to reach the team by email or LinkedIn.
+
+## Company
+
+- [Flomad Labs R&D on LinkedIn](https://www.linkedin.com/company/flomad-labs-r-d/)

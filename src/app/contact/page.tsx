@@ -2,10 +2,39 @@ import Image from "next/image";
 import Link from "next/link";
 import Footer from "@/components/features/landing/Footer";
 import { Mail, Linkedin } from "lucide-react";
+import type { Metadata } from "next";
+import { ORGANIZATION_ID, SITE_URL, WEBSITE_ID, jsonLdString, socialMetadata } from "@/lib/site";
+
+const CONTACT_TITLE = "Contact Flomad Travel";
+const CONTACT_DESCRIPTION =
+  "Get in touch with the Flomad Travel team. Reach out by email or connect with Flomad Labs R&D on LinkedIn.";
+
+export const metadata: Metadata = {
+  title: { absolute: CONTACT_TITLE },
+  description: CONTACT_DESCRIPTION,
+  alternates: { canonical: "/contact" },
+  ...socialMetadata("/contact", CONTACT_TITLE, CONTACT_DESCRIPTION),
+};
+
+const contactJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  "@id": `${SITE_URL}/contact#webpage`,
+  url: `${SITE_URL}/contact`,
+  name: CONTACT_TITLE,
+  description: CONTACT_DESCRIPTION,
+  inLanguage: "en",
+  isPartOf: { "@id": WEBSITE_ID },
+  about: { "@id": ORGANIZATION_ID },
+};
 
 export default function ContactPage() {
   return (
     <div className="flex flex-col min-h-screen bg-stone-50 text-stone-900">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdString(contactJsonLd) }}
+      />
       {/* Header - same structure and position as landing nav */}
       <header className="fixed top-0 left-0 right-0 z-50 w-full bg-stone-900/95 backdrop-blur-md border-b border-stone-800">
         <nav className="flex items-center justify-between px-4 py-4 sm:px-6 md:px-10 max-w-7xl mx-auto">

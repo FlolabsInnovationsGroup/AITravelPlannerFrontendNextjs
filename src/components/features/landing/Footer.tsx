@@ -18,7 +18,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-stone-300 uppercase tracking-wider mb-4">Quick Links</h3>
+            <h2 className="text-sm font-semibold text-stone-300 uppercase tracking-wider mb-4">Quick Links</h2>
             <nav className="space-y-2">
               <Link href="/" className="block text-sm text-stone-400 hover:text-amber-400 transition-colors">Home</Link>
               <Link href="/about" className="block text-sm text-stone-400 hover:text-amber-400 transition-colors">About Us</Link>
@@ -27,7 +27,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-stone-300 uppercase tracking-wider mb-4">Follow Us</h3>
+            <h2 className="text-sm font-semibold text-stone-300 uppercase tracking-wider mb-4">Follow Us</h2>
             <a
               href="https://www.linkedin.com/company/flomad-labs-r-d/"
               target="_blank"

@@ -10,9 +10,9 @@ export function WeProvideBest() {
   return (
     <section className="py-20 bg-white border-t border-stone-200">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
-        <p className="text-center text-stone-600 text-lg max-w-2xl mx-auto mb-14">
+        <h2 className="text-center text-stone-600 text-lg max-w-2xl mx-auto mb-14">
           The best AI travel system is here to assist you with everything when it comes to planning your trips.
-        </p>
+        </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
           {features.map(({ icon: Icon, title }) => (
             <div

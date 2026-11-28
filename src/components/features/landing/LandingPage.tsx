@@ -156,7 +156,7 @@ export default function LandingPage() {
         <div className="relative z-10 flex-1 flex items-center px-4 sm:px-6 md:px-10 max-w-4xl mx-auto w-full pb-20">
           <div className="w-full">
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white leading-tight tracking-tight drop-shadow-lg">
-              Explore your way,<br />all the way.
+              Explore your way,{' '}<br />all the way.
             </h1>
             <p className="mt-4 text-lg text-white/90 max-w-xl">
               The best AI travel system is here to help you plan trips—accommodations, flights, and experiences.

@@ -83,7 +83,7 @@ function SignInContent() {
           <span className="text-2xl font-bold text-gray-900">flomad travel</span>
         </div>
 
-        <h2 className="text-2xl font-bold mb-2 text-center">Welcome back!</h2>
+        <h1 className="text-2xl font-bold mb-2 text-center">Welcome back!</h1>
         <p className="text-gray-600 mb-6 text-center">
           New member? <Link href="/signup" className="text-blue-600 hover:underline font-medium">Sign up</Link>
         </p>

@@ -22,7 +22,7 @@ export function FeaturedTourPlaces() {
             >
               <Image
                 src={place.image}
-                alt={place.name}
+                alt={`${place.name}, a featured tour destination`}
                 fill
                 sizes="(max-width: 768px) 50vw, 25vw"
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
