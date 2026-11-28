@@ -4,7 +4,6 @@ import { SignUp } from '@/components/features/auth/SignUp'
 export const metadata: Metadata = {
   title: 'Sign Up',
   robots: { index: false, follow: true },
-  alternates: { canonical: '/signup' },
 }
 
 export default function SignUpPage() {
